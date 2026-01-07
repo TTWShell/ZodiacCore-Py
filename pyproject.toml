@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.128.0",
     "pydantic>=2.12.5",
     "loguru>=0.7.2",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]
@@ -23,10 +24,10 @@ packages = ["zodiac", "zodiac_core"]
 [dependency-groups]
 dev = [
     "flake8>=7.3.0",
-    "httpx>=0.28.1",
     "ipython>=9.9.0",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
     "pytest-env>=1.2.0",
+    "respx>=0.22.0",
 ]

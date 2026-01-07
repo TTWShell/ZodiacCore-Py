@@ -1,4 +1,3 @@
-import logging
 from typing import Union
 
 from fastapi import FastAPI
@@ -6,6 +5,7 @@ from starlette.requests import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+from loguru import logger
 
 from .exceptions import (
     ZodiacException,
@@ -24,8 +24,6 @@ from .response import (
     response_unprocessable_entity,
     response_server_error,
 )
-
-logger = logging.getLogger(__name__)
 
 
 async def handler_zodiac_exception(
