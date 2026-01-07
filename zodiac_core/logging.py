@@ -48,6 +48,6 @@ def setup_loguru(
             "| <cyan>{module}</cyan>.<cyan>{function}</cyan>"
             "| <level>{level}</level>: "
             "<level>{message}</level> "
-            "| {file.path}:{line} ",  # File path and line number (clickable in VSCode)
+            "| {file.path}:{line} "  # File path and line number (clickable in VSCode)
         )
         logger.add(sys.stderr, enqueue=True, level=level, format=fmt)
