@@ -1,7 +1,9 @@
+import time
 import uuid
 from typing import Callable
 
 from fastapi import Request
+from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -43,3 +45,44 @@ class TraceIDMiddleware(BaseHTTPMiddleware):
             return response
         finally:
             reset_request_id(token)
+
+
+class AccessLogMiddleware(BaseHTTPMiddleware):
+    """
+    Standard Access Log Middleware.
+
+    Logs request method, path, status code, and processing time (latency).
+    Integrates with loguru (and will include request_id if TraceIDMiddleware is used).
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.perf_counter()
+        response = await call_next(request)
+        process_time = (time.perf_counter() - start_time) * 1000
+
+        logger.info(
+            "{method} {path} - {status_code} - {latency:.2f}ms",
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            latency=process_time,
+        )
+
+        return response
+
+
+def register_middleware(app: ASGIApp):
+    """
+    Register standard Zodiac middleware stack.
+
+    Ensures correct order:
+    1. TraceIDMiddleware (Outer layer: generates ID)
+    2. AccessLogMiddleware (Inner layer: logs with ID)
+    """
+    # Middleware is added in LIFO order (Last added is the Outer-most layer)
+
+    # 2. Inner: Access Log
+    app.add_middleware(AccessLogMiddleware)
+
+    # 1. Outer: Trace ID
+    app.add_middleware(TraceIDMiddleware)
