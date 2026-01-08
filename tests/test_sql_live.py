@@ -4,18 +4,18 @@ from datetime import timezone
 from sqlmodel import SQLModel, Session, create_engine, select
 from sqlalchemy import text
 
-from zodiac_core.db.sql import SQLBase, UUIDMixin, IntIDMixin
+from zodiac_core.db.sql import UUIDModel, IntIDModel
 
 from .conftest import DB_URLS
 
 
-class Product(SQLBase, UUIDMixin, table=True):
+class Product(UUIDModel, table=True):
     __tablename__ = "test_products"
     name: str
     price: float
 
 
-class Category(SQLBase, IntIDMixin, table=True):
+class Category(IntIDModel, table=True):
     __tablename__ = "test_categories"
     name: str
 

@@ -94,3 +94,19 @@ class UUIDMixin(SQLModel):
         index=True,
         nullable=False,
     )
+
+
+class IntIDModel(SQLBase, IntIDMixin):
+    """
+    Base SQLModel with Integer ID and Timestamps.
+    Includes: ID (int) + CreatedAt + UpdatedAt.
+    """
+    pass
+
+
+class UUIDModel(SQLBase, UUIDMixin):
+    """
+    Base SQLModel with UUID and Timestamps.
+    Includes: ID (UUID) + CreatedAt + UpdatedAt.
+    """
+    pass

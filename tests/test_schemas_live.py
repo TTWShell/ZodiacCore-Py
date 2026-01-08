@@ -3,7 +3,7 @@ from datetime import timezone
 from sqlmodel import SQLModel, Session, create_engine
 
 from zodiac_core.db.sql import SQLBase, UUIDMixin
-from zodiac_core.schemas import CoreModel, DateTimeSchemaMixin, UUIDSchemaMixin
+from zodiac_core.schemas import UUIDSchema
 
 from .conftest import DB_URLS
 
@@ -16,10 +16,10 @@ class ProductDB(SQLBase, UUIDMixin, table=True):
 
 
 # 2. Response Schema (DTO)
-class ProductResponse(CoreModel, DateTimeSchemaMixin, UUIDSchemaMixin):
+class ProductResponse(UUIDSchema):
     name: str
     price: float
-    # CoreModel defaults: from_attributes=True, snake_case keys
+    # UUIDSchema includes: CoreModel Config + UUID + CreatedAt + UpdatedAt
 
 
 class TestSchemaConsistency:

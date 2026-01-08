@@ -61,3 +61,19 @@ class UUIDSchemaMixin(BaseModel):
         ...,
         description="The unique UUID identifier."
     )
+
+
+class IntIDSchema(CoreModel, IntIDSchemaMixin, DateTimeSchemaMixin):
+    """
+    Base schema for models with an Integer ID and Timestamps.
+    Includes: Core Config + ID + CreatedAt + UpdatedAt.
+    """
+    pass
+
+
+class UUIDSchema(CoreModel, UUIDSchemaMixin, DateTimeSchemaMixin):
+    """
+    Base schema for models with a UUID and Timestamps.
+    Includes: Core Config + ID + CreatedAt + UpdatedAt.
+    """
+    pass
