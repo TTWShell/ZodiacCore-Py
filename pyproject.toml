@@ -13,10 +13,17 @@ dependencies = [
     "pydantic>=2.12.5",
     "loguru>=0.7.2",
     "httpx>=0.28.1",
+    "sqlmodel[sql]>=0.0.31",
 ]
 
 [project.optional-dependencies]
 zodiac = []
+sql = [
+    "sqlmodel>=0.0.22",
+]
+mongo = [
+    "motor>=3.3.0",
+]
 
 [tool.setuptools]
 packages = ["zodiac", "zodiac_core"]
@@ -30,4 +37,11 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-env>=1.2.0",
     "respx>=0.22.0",
+    "psycopg2-binary>=2.9.9",
+    "pymysql>=1.1.0",
+    "cryptography>=42.0.0",
+    "asyncpg>=0.31.0",
+]
+sql = [
+    "sqlmodel>=0.0.31",
 ]
