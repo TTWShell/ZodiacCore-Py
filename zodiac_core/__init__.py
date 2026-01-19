@@ -26,6 +26,7 @@ from .exception_handlers import register_exception_handlers
 from .logging import setup_loguru
 from .middleware import TraceIDMiddleware
 from .context import get_request_id
+from .config import ConfigManagement, Environment
 
 __all__ = [
     "Response",
@@ -52,4 +53,6 @@ __all__ = [
     "setup_loguru",
     "TraceIDMiddleware",
     "get_request_id",
+    "ConfigManagement",
+    "Environment",
 ]
