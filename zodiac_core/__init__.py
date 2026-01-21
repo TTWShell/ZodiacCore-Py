@@ -23,7 +23,7 @@ from .exceptions import (
 
 from .exception_handlers import register_exception_handlers
 
-from .logging import setup_loguru
+from .logging import setup_loguru, LogFileOptions
 from .middleware import TraceIDMiddleware
 from .context import get_request_id
 from .config import ConfigManagement, Environment
@@ -51,6 +51,7 @@ __all__ = [
     "register_exception_handlers",
 
     "setup_loguru",
+    "LogFileOptions",
     "TraceIDMiddleware",
     "get_request_id",
     "ConfigManagement",
