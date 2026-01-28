@@ -1,17 +1,19 @@
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar, Generic
 
 from pydantic import BaseModel, Field, ConfigDict
 from fastapi import status
 from fastapi.responses import JSONResponse
 
+T = TypeVar("T")
 
-class Response(BaseModel):
+
+class Response(BaseModel, Generic[T]):
     """Standard API response model."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     code: int = Field(description="Business status code")
-    data: Optional[Any] = Field(default=None, description="Response payload")
+    data: Optional[T] = Field(default=None, description="Response payload")
     message: str = Field(default="", description="Response message")
 
 
@@ -48,7 +50,7 @@ def response_ok(
     """Create a successful response (200 OK)"""
     return create_response(
         status.HTTP_200_OK,
-        code=code, data=data, message=message)
+        code=code if code is not None else 0, data=data, message=message)
 
 
 def response_created(

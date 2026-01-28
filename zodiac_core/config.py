@@ -12,10 +12,10 @@ class Environment(str, Enum):
     """
     Supported application environments.
     """
-    DEVELOP = "develop"      # 本地开发
-    TESTING = "testing"      # 开发环境
-    STAGING = "staging"      # 预发布环境【预留】
-    PRODUCTION = "production"  # 生产环境，必须保障安全和可用性
+    DEVELOP = "develop"      # Local development
+    TESTING = "testing"      # Testing environment
+    STAGING = "staging"      # Staging environment (reserved)
+    PRODUCTION = "production"  # Production environment
 
 
 class ConfigManagement:

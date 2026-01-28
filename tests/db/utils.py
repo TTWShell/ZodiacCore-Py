@@ -23,7 +23,7 @@ DB_URLS = [
 
 @contextmanager
 def managed_db_session(url, connect_args=None):
-    """管理数据库会话的生命周期"""
+    """Manage the lifecycle of a database session."""
     extras = dict(connect_args=connect_args) if connect_args else {}
     engine = create_engine(url, **extras)
 
