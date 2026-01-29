@@ -13,6 +13,7 @@ class LogFileOptions(BaseModel):
 
     Allows arbitrary extra arguments to be passed to loguru.add() via extra="allow".
     """
+
     rotation: str = "10 MB"
     retention: str = "1 week"
     compression: str = "zip"

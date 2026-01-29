@@ -11,7 +11,7 @@ DB_URLS = [
     (
         "postgresql",
         os.getenv("POSTGRES_URL", DEFAULT_PG_URL),
-        {"options": "-c timezone=utc"}
+        {"options": "-c timezone=utc"},
     ),
     (
         "mysql",

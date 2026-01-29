@@ -27,7 +27,7 @@ class TraceIDMiddleware(BaseHTTPMiddleware):
         self,
         app: ASGIApp,
         header_name: str = "X-Request-ID",
-        generator: Callable[[], str] = None
+        generator: Callable[[], str] = None,
     ) -> None:
         super().__init__(app)
         self.header_name = header_name

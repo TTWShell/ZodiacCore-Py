@@ -20,6 +20,7 @@ class PageParams(BaseModel):
             limit = page_params.size
             ...
     """
+
     page: int = Field(1, ge=1, description="Page number (1-based)")
     size: int = Field(20, ge=1, le=100, description="Page size")
 
@@ -38,6 +39,7 @@ class PagedResponse(BaseModel, Generic[T]):
             users, total_count = db.find_users(...)
             return PagedResponse.create(users, total_count, page_params)
     """
+
     model_config = ConfigDict(populate_by_name=True)
 
     items: List[T] = Field(description="List of items for the current page")
@@ -50,7 +52,7 @@ class PagedResponse(BaseModel, Generic[T]):
         cls,
         items: List[T],
         total: int,
-        params: PageParams
+        params: PageParams,
     ) -> "PagedResponse[T]":
         """
         Factory method to create a PagedResponse from items, total count, and PageParams.
@@ -64,5 +66,5 @@ class PagedResponse(BaseModel, Generic[T]):
             items=items,
             total=total,
             page=params.page,
-            size=params.size
+            size=params.size,
         )

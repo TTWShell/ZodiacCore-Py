@@ -70,9 +70,9 @@ def test_provide_config_recursive_list():
     config_dict = {
         "services": [
             {"name": "auth", "port": 8080},
-            {"name": "gateway", "port": 80}
+            {"name": "gateway", "port": 80},
         ],
-        "meta": {"tags": ["api", "v1"]}
+        "meta": {"tags": ["api", "v1"]},
     }
     config_obj = ConfigManagement.provide_config(config_dict)
 

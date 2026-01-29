@@ -47,7 +47,7 @@ class TestZodiacRouting:
         @zodiac_router.post(
             "/conflict",
             response_model=User,
-            responses={409: {"model": ErrorMessage, "description": "Conflict"}}
+            responses={409: {"model": ErrorMessage, "description": "Conflict"}},
         )
         async def create_user_conflict():
             return Response(code=409, message="User already exists", data=None)

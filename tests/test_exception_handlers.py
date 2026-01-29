@@ -103,7 +103,7 @@ class TestExceptionHandlers:
         init_kwargs,
         expected_status,
         expected_msg,
-        expected_data
+        expected_data,
     ):
         """Test handler_zodiac_exception with various exception types and parameters"""
         exc = exception_cls(**init_kwargs)

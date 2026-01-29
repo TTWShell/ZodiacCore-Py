@@ -12,9 +12,10 @@ class Environment(str, Enum):
     """
     Supported application environments.
     """
-    DEVELOP = "develop"      # Local development
-    TESTING = "testing"      # Testing environment
-    STAGING = "staging"      # Staging environment (reserved)
+
+    DEVELOP = "develop"  # Local development
+    TESTING = "testing"  # Testing environment
+    STAGING = "staging"  # Staging environment (reserved)
     PRODUCTION = "production"  # Production environment
 
 
@@ -33,7 +34,7 @@ class ConfigManagement:
     def get_config_files(
         search_paths: List[Union[str, Path]],
         env_var: str = "APPLICATION_ENVIRONMENT",
-        default_env: str = "production"
+        default_env: str = "production",
     ) -> List[str]:
         """
         Scans specified directories for configuration files and returns them in loading order.
@@ -139,7 +140,7 @@ class ConfigManagement:
 
         Base files are identified by having one dot in their name.
         """
-        return filename.count('.') == 1
+        return filename.count(".") == 1
 
     @staticmethod
     def __get_configuration_env(filename: str) -> str:
@@ -148,7 +149,7 @@ class ConfigManagement:
 
         Expected format: {name}.{env}.ini
         """
-        parts = filename.split('.')
+        parts = filename.split(".")
         # Caller ensure we have at least 2 dots (split into >= 3 parts)
         # by checking __is_base_config_file first.
         return parts[-2].lower()

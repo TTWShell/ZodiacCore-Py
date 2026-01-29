@@ -18,7 +18,7 @@ async def test_setup_loguru_file_output():
             level="DEBUG",
             json_format=False,
             log_file=log_file,
-            service_name="test-service"
+            service_name="test-service",
         )
 
         # 2. Log some message
@@ -46,7 +46,7 @@ async def test_setup_loguru_json_file_output_with_options():
         options = LogFileOptions(
             rotation="1 KB",
             enqueue=True,  # Async logging
-            encoding="utf-8"
+            encoding="utf-8",
         )
 
         setup_loguru(
@@ -54,7 +54,7 @@ async def test_setup_loguru_json_file_output_with_options():
             json_format=True,
             log_file=log_file,
             service_name="json-service",
-            file_options=options
+            file_options=options,
         )
 
         # 2. Log some message
@@ -84,14 +84,14 @@ async def test_setup_loguru_with_pydantic_options():
             retention="1 day",
             compression="gz",
             # Extra field allowed by ConfigDict
-            delay=True
+            delay=True,
         )
 
         # 2. Setup
         setup_loguru(
             level="INFO",
             log_file=log_file,
-            file_options=options
+            file_options=options,
         )
 
         logger.info("Pydantic Config Test")

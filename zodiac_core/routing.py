@@ -28,7 +28,7 @@ class ZodiacRoute(APIRoute):
         *,
         response_model: Any = None,
         responses: Optional[Dict[Union[int, str], Dict[str, Any]]] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         # Resolve Placeholder
         if isinstance(response_model, DefaultPlaceholder):
@@ -52,7 +52,7 @@ class ZodiacRoute(APIRoute):
             endpoint,
             response_model=response_model,
             responses=responses,
-            **kwargs
+            **kwargs,
         )
 
     @staticmethod
@@ -104,6 +104,7 @@ class APIRouter(FastAPIRouter):
     """
     Zodiac-enhanced APIRouter that uses ZodiacRoute by default.
     """
+
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("route_class", ZodiacRoute)
         super().__init__(*args, **kwargs)

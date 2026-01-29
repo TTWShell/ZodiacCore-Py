@@ -62,6 +62,7 @@ class DatabaseManager:
             )
         ```
     """
+
     _instance = None
 
     def __new__(cls):
@@ -79,7 +80,7 @@ class DatabaseManager:
         pool_size: int = 10,
         max_overflow: int = 20,
         pool_pre_ping: bool = True,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Initialize the Async Engine and Session Factory.

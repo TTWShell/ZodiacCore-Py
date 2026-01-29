@@ -55,7 +55,7 @@ class ZodiacClient(httpx.AsyncClient):
         super().__init__(
             timeout=timeout,
             event_hooks=_merge_hooks(event_hooks, _inject_trace_id_async_hook),
-            **kwargs
+            **kwargs,
         )
 
 
@@ -75,5 +75,5 @@ class ZodiacSyncClient(httpx.Client):
         super().__init__(
             timeout=timeout,
             event_hooks=_merge_hooks(event_hooks, _inject_trace_id_hook),
-            **kwargs
+            **kwargs,
         )

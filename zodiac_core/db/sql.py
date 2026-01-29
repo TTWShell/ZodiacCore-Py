@@ -24,17 +24,17 @@ class utcnow(expression.FunctionElement):
     inherit_cache = True
 
 
-@compiles(utcnow, 'postgresql')
+@compiles(utcnow, "postgresql")
 def pg_utcnow(element, compiler, **kw):
     return "timezone('utc', now())"
 
 
-@compiles(utcnow, 'mysql')
+@compiles(utcnow, "mysql")
 def mysql_utcnow(element, compiler, **kw):
     return "UTC_TIMESTAMP()"
 
 
-@compiles(utcnow, 'sqlite')
+@compiles(utcnow, "sqlite")
 def sqlite_utcnow(element, compiler, **kw):
     return "datetime('now')"
 
@@ -44,6 +44,7 @@ class SQLDateTimeMixin(SQLModel):
     Mixin for created_at and updated_at with SQLAlchemy server-side defaults.
     Supports PostgreSQL, MySQL, and SQLite with proper UTC handling.
     """
+
     created_at: datetime = Field(
         default_factory=utc_now,
         sa_column_kwargs={
@@ -51,7 +52,7 @@ class SQLDateTimeMixin(SQLModel):
             "nullable": False,
         },
         sa_type=DateTime(timezone=True),
-        description="Record creation timestamp (UTC)"
+        description="Record creation timestamp (UTC)",
     )
     updated_at: datetime = Field(
         default_factory=utc_now,
@@ -61,14 +62,14 @@ class SQLDateTimeMixin(SQLModel):
             "nullable": False,
         },
         sa_type=DateTime(timezone=True),
-        description="Record last update timestamp (UTC)"
+        description="Record last update timestamp (UTC)",
     )
 
 
-@event.listens_for(Session, 'before_flush')
+@event.listens_for(Session, "before_flush")
 def receive_before_flush(session, flush_context, instances):
     for obj in session.dirty:
-        if hasattr(obj, 'updated_at') and isinstance(obj, SQLDateTimeMixin):
+        if hasattr(obj, "updated_at") and isinstance(obj, SQLDateTimeMixin):
             if session.is_modified(obj, include_collections=False):
                 obj.updated_at = utc_now()
 
@@ -78,16 +79,17 @@ class SQLBase(SQLDateTimeMixin):
     Base class for SQLModel models.
     Includes created_at and updated_at fields.
     """
-    pass
 
 
 class IntIDMixin(SQLModel):
     """Mixin for Integer primary key."""
+
     id: int = Field(primary_key=True, nullable=False)
 
 
 class UUIDMixin(SQLModel):
     """Mixin for UUID primary key."""
+
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,
         primary_key=True,
@@ -101,7 +103,6 @@ class IntIDModel(SQLBase, IntIDMixin):
     Base SQLModel with Integer ID and Timestamps.
     Includes: ID (int) + CreatedAt + UpdatedAt.
     """
-    pass
 
 
 class UUIDModel(SQLBase, UUIDMixin):
@@ -109,4 +110,3 @@ class UUIDModel(SQLBase, UUIDMixin):
     Base SQLModel with UUID and Timestamps.
     Includes: ID (UUID) + CreatedAt + UpdatedAt.
     """
-    pass
