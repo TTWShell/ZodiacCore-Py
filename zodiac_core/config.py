@@ -58,14 +58,14 @@ class ConfigManagement:
             A list of absolute paths to configuration files, sorted by priority (Base -> Env).
 
         Example:
-            .. code-block:: python
+            ```python
+            from pathlib import Path
+            from zodiac_core import ConfigManagement
 
-                from pathlib import Path
-                from zodiac_core import ConfigManagement
-
-                # Resolve config path relative to your main application file
-                config_dir = Path(__file__).parent / "config"
-                files = ConfigManagement.get_config_files(search_paths=[config_dir])
+            # Resolve config path relative to your main application file
+            config_dir = Path(__file__).parent / "config"
+            files = ConfigManagement.get_config_files(search_paths=[config_dir])
+            ```
         """
 
         target_env = os.environ.get(env_var, default_env).lower()
