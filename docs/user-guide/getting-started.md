@@ -10,6 +10,7 @@ First, we setup the core components: **Logging** and **Middleware**.
 
 ```python
 from fastapi import FastAPI
+from zodiac_core.routing import APIRouter
 from zodiac_core.logging import setup_loguru
 from zodiac_core.middleware import register_middleware
 from zodiac_core.exception_handlers import register_exception_handlers
@@ -18,22 +19,50 @@ from zodiac_core.exception_handlers import register_exception_handlers
 setup_loguru(level="INFO", json_format=True, service_name="my-service")
 
 app = FastAPI(title="Zodiac Demo App")
+router = APIRouter()
 
 # 2. Register Middleware (Trace ID, Access Logs)
 register_middleware(app)
 
 # 3. Register Global Exception Handlers (Standardized 4xx/5xx responses)
 register_exception_handlers(app)
+
+# 4. Include Router (Must be done after adding routes, but shown here for setup)
+# app.include_router(router)
 ```
 
-## 2. Handling Exceptions
+## 2. Standard Response Wrapper
+
+When you use Zodiac's `APIRouter`, **all** successful responses are automatically wrapped in a standard structure. You don't need to manually return a `Response` object; just return your data (dict, Pydantic model, or list).
+
+```python
+@router.get("/profile")
+async def get_profile():
+    return {"username": "zodiac_user", "email": "user@example.com"}
+```
+
+The resulting JSON will be:
+```json
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "username": "zodiac_user",
+    "email": "user@example.com"
+  }
+}
+```
+
+This ensures that your frontend developers always receive a predictable response format, whether it's a success or an error.
+
+## 3. Handling Exceptions
 
 Forget `try-except` blocks everywhere. Just raise `ZodiacException` subclasses.
 
 ```python
 from zodiac_core.exceptions import NotFoundException, BadRequestException
 
-@app.get("/items/{item_id}")
+@router.get("/items/{item_id}")
 async def read_item(item_id: int):
     if item_id == 0:
         # Automatically returns 400 Bad Request with standard error format
@@ -56,7 +85,7 @@ async def read_item(item_id: int):
     }
     ```
 
-## 3. Implementing Pagination
+## 4. Implementing Pagination
 
 Use `PageParams` for input and `PagedResponse` for output. No more manual math.
 
@@ -74,7 +103,7 @@ class UserSchema(BaseModel):
 # Mock database
 USERS_DB = [UserSchema(id=i, name=f"User {i}") for i in range(1, 100)]
 
-@app.get("/users", response_model=PagedResponse[UserSchema])
+@router.get("/users", response_model=PagedResponse[UserSchema])
 async def list_users(
     page_params: Annotated[PageParams, Query()]
 ):
@@ -98,17 +127,18 @@ async def list_users(
     )
 ```
 
-## 4. Database Integration (SQLAlchemy)
+## 5. Database Integration (SQLModel)
 
-Use `BaseSQLRepository` for a clean, async repository pattern.
+Use `BaseSQLRepository` for a clean, async repository pattern with SQLModel.
 
 First, define your model (using SQLModel or pure SQLAlchemy):
 
 ```python
-from sqlmodel import SQLModel, Field
+from sqlmodel import Field
+from zodiac_core.db.sql import IntIDModel
 
-class Hero(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+# Inherit from IntIDModel to get 'id', 'created_at', and 'updated_at' automatically
+class Hero(IntIDModel, table=True):
     name: str
     secret_name: str
 ```
@@ -153,10 +183,13 @@ async def on_startup():
 async def on_shutdown():
     await db.shutdown()
 
-@app.post("/heroes")
+@router.post("/heroes")
 async def create_hero(hero: Hero):
     repo = HeroRepository()
     return await repo.create(hero)
+
+# Finally, include the router in the app
+app.include_router(router)
 ```
 
 ## Summary

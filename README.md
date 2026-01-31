@@ -23,6 +23,7 @@ Every new FastAPI project starts the same way: setting up logging, error handlin
 *   **🔍 Observability First**: Built-in JSON structured logging with **Trace ID** injection across the entire request lifecycle (Middleware -> Context -> Log).
 *   **🛡️ Robust Error Handling**: Centralized exception handlers that automatically map business exceptions (`ZodiacException`) to standard HTTP 4xx/5xx JSON responses.
 *   **💾 Database Abstraction**: Lightweight async SQLAlchemy session management with context vars support (`BaseSQLRepository`).
+*   **🎁 Standard Response Wrapper**: Automatic wrapping of all API responses into a consistent JSON structure (`code`, `data`, `message`) via `APIRouter`.
 *   **📄 Standard Pagination**: Drop-in Pydantic models for request parameters (`PageParams`) and responses (`PagedResponse`).
 *   **⚡ Async Ready**: Designed from the ground up for Python 3.12+ async/await ecosystems.
 
@@ -31,19 +32,19 @@ Every new FastAPI project starts the same way: setting up logging, error handlin
 Standard installation:
 
 ```bash
-pip install zodiac-core
+uv add zodiac-core
 ```
 
 With SQL support:
 
 ```bash
-pip install "zodiac-core[sql]"
+uv add "zodiac-core[sql]"
 ```
 
 With MongoDB support:
 
 ```bash
-pip install "zodiac-core[mongo]"
+uv add "zodiac-core[mongo]"
 ```
 
 For detailed installation instructions, please refer to the **Installation Guide** in the documentation.
@@ -52,10 +53,12 @@ For detailed installation instructions, please refer to the **Installation Guide
 
 ```python
 from fastapi import FastAPI
+from zodiac_core.routing import APIRouter
 from zodiac_core.logging import setup_loguru
 from zodiac_core.middleware import register_middleware
 from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.exceptions import NotFoundException
+from loguru import logger
 
 # 1. Initialize Standard Logging
 setup_loguru(level="INFO", json_format=True)
@@ -66,12 +69,18 @@ app = FastAPI()
 register_middleware(app)
 register_exception_handlers(app)
 
-@app.get("/items/{item_id}")
+# 3. Use Zodiac APIRouter (Automatic response wrapping)
+router = APIRouter()
+
+@router.get("/items/{item_id}")
 async def read_item(item_id: int):
+    logger.info(f"request: item_id={item_id}")
     if item_id == 0:
         # Raises standard 404 JSON response
         raise NotFoundException(message="Item not found")
     return {"item_id": item_id}
+
+app.include_router(router)
 ```
 
 ## 📚 Documentation
