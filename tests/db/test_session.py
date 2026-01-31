@@ -3,7 +3,14 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from zodiac_core.db.session import DatabaseManager, db, get_session, init_db_resource, manage_session
+from zodiac_core.db.session import (
+    DEFAULT_DB_NAME,
+    DatabaseManager,
+    db,
+    get_session,
+    init_db_resource,
+    manage_session,
+)
 
 from .utils import DB_URLS
 
@@ -22,24 +29,26 @@ class TestDatabaseManager:
     @pytest.mark.asyncio
     async def test_property_guards(self):
         """Ensure engine and factory raise error if accessed before setup."""
-        if db._engine:
+        if db._engines:
             await db.shutdown()
 
-        with pytest.raises(RuntimeError, match="DatabaseManager is not initialized"):
+        with pytest.raises(RuntimeError, match="Database engine 'default' is not initialized"):
             _ = db.engine
 
-        with pytest.raises(RuntimeError, match="DatabaseManager is not initialized"):
+        with pytest.raises(RuntimeError, match="Session factory for 'default' is not initialized"):
             _ = db.session_factory
 
     @pytest.mark.parametrize("name, url, connect_args", DB_URLS)
     @pytest.mark.asyncio
     async def test_lifecycle_setup_shutdown(self, name, url, connect_args):
         """Verify setup, idempotency, and shutdown state across different DBs."""
-        if db._engine:
+        if db._engines:
             await db.shutdown()
 
         # 1. Setup
         db.setup(url, connect_args=connect_args)
+        assert DEFAULT_DB_NAME in db._engines
+        assert DEFAULT_DB_NAME in db._session_factories
         assert db.engine is not None
         assert db.session_factory is not None
 
@@ -50,8 +59,8 @@ class TestDatabaseManager:
 
         # 3. Shutdown
         await db.shutdown()
-        assert db._engine is None
-        assert db._session_factory is None
+        assert DEFAULT_DB_NAME not in db._engines
+        assert DEFAULT_DB_NAME not in db._session_factories
 
 
 class TestSessionManagement:
@@ -86,7 +95,7 @@ class TestSessionManagement:
     @pytest.mark.asyncio
     async def test_singleton_session_context(self, name, url, connect_args):
         """Verify the global db.session() works across different DBs."""
-        if db._engine:
+        if db._engines:
             await db.shutdown()
 
         db.setup(url, connect_args=connect_args)
@@ -107,24 +116,24 @@ class TestDependencyIntegration:
     @pytest.mark.asyncio
     async def test_init_db_resource_lifecycle(self, name, url, connect_args):
         """Verify dependency_injector resource provider manages full lifecycle."""
-        if db._engine:
+        if db._engines:
             await db.shutdown()
 
         gen = init_db_resource(url, connect_args=connect_args)
         try:
             yielded_db = await anext(gen)
             assert yielded_db is db
-            assert db._engine is not None
+            assert "default" in db._engines
         finally:
             await gen.aclose()
             # Explicit check after cleanup
-            assert db._engine is None
+            assert "default" not in db._engines
 
     @pytest.mark.parametrize("name, url, connect_args", DB_URLS)
     @pytest.mark.asyncio
     async def test_get_session_fastapi_dependency(self, name, url, connect_args):
         """Verify FastAPI get_session dependency works across different DBs."""
-        if db._engine:
+        if db._engines:
             await db.shutdown()
 
         db.setup(url, connect_args=connect_args)

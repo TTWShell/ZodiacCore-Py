@@ -17,7 +17,7 @@ class TestBaseSQLRepository:
     @pytest.mark.asyncio
     async def test_repository_with_singleton_fallback(self, name, url, connect_args):
         """Test that repo uses global db singleton across different DBs."""
-        if db._engine:
+        if db._engines:
             await db.shutdown()
 
         db.setup(url, connect_args=connect_args)
