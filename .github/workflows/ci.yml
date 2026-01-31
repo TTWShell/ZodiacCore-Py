@@ -77,14 +77,14 @@ jobs:
 
       - name: Run Integration Tests (Serial)
         env:
-          POSTGRES_URL: postgresql://postgres:password@localhost:5432/zodiac_test
-          MYSQL_URL: mysql+pymysql://root:root@localhost:3306/zodiac_test
+          POSTGRES_URL: postgresql+asyncpg://postgres:password@localhost:5432/zodiac_test
+          MYSQL_URL: mysql+aiomysql://root:root@localhost:3306/zodiac_test
         run: make test-serial
 
       - name: Run all Test (312)
         env:
-          POSTGRES_URL: postgresql://postgres:password@localhost:5432/zodiac_test
-          MYSQL_URL: mysql+pymysql://root:root@localhost:3306/zodiac_test
+          POSTGRES_URL: postgresql+asyncpg://postgres:password@localhost:5432/zodiac_test
+          MYSQL_URL: mysql+aiomysql://root:root@localhost:3306/zodiac_test
         run: uvx --with tox-uv tox -e py312
 
   build:

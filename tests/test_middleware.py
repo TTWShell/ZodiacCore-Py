@@ -72,32 +72,48 @@ class TestMiddlewareStack:
 
         return app
 
-    async def test_stack_json_logging(self, app, capsys):
+    async def test_stack_json_logging(self, app):
         """Test the middleware stack with JSON logging format."""
-        setup_loguru(level="INFO", json_format=True, service_name="test-service")
+        # Use a list as a sink to capture logs reliably
+        log_capture = []
+        setup_loguru(
+            level="INFO",
+            json_format=True,
+            service_name="test-service",
+            # Force synchronous logging for tests
+            console_options={"sink": log_capture.append, "enqueue": False},
+        )
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/log-test")
             trace_id = resp.headers["X-Request-ID"]
 
-        captured = capsys.readouterr()
-        log_entry = json.loads(captured.err.strip().split("\n")[-1])
+        # Verify logs
+        assert len(log_capture) > 0
+        log_entry = json.loads(log_capture[-1])
 
         assert log_entry["record"]["extra"]["service"] == "test-service"
         assert log_entry["record"]["extra"]["request_id"] == trace_id
         assert log_entry["record"]["extra"]["path"] == "/log-test"
         assert "latency" in log_entry["record"]["extra"]
 
-    async def test_stack_text_logging(self, app, capsys):
+    async def test_stack_text_logging(self, app):
         """Test the middleware stack with Text logging format."""
-        setup_loguru(level="INFO", json_format=False)
+        log_capture = []
+        setup_loguru(
+            level="INFO",
+            json_format=False,
+            # Force synchronous logging for tests
+            console_options={"sink": log_capture.append, "enqueue": False},
+        )
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/log-test")
             trace_id = resp.headers["X-Request-ID"]
 
-        captured = capsys.readouterr()
-        last_log = captured.err.strip().split("\n")[-1]
+        # Verify logs
+        assert len(log_capture) > 0
+        last_log = log_capture[-1]
 
         assert len(trace_id) == 36
         assert "GET /log-test" in last_log
