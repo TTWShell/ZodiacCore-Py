@@ -1,3 +1,5 @@
+import importlib.metadata
+
 from .config import ConfigManagement, Environment
 from .context import get_request_id
 from .db.repository import BaseSQLRepository
@@ -27,7 +29,14 @@ from .response import (
 )
 from .routing import APIRouter, ZodiacRoute
 
+try:
+    __version__ = importlib.metadata.version("zodiac-core")
+except importlib.metadata.PackageNotFoundError:
+    # Package is not installed (e.g., during development without 'pip install -e .')
+    __version__ = "unknown"
+
 __all__ = [
+    "__version__",
     "Response",
     "create_response",
     "response_ok",

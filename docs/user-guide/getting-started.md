@@ -146,8 +146,12 @@ from zodiac_core.db.session import db
 # Initialize DB (usually in startup event)
 @app.on_event("startup")
 async def on_startup():
-    db.init("sqlite+aiosqlite:///database.db")
-    # create_all() logic here...
+    db.setup("sqlite+aiosqlite:///database.db")
+    await db.create_all()
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await db.shutdown()
 
 @app.post("/heroes")
 async def create_hero(hero: Hero):

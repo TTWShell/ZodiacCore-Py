@@ -71,8 +71,6 @@ dev = [
     "uvicorn>=0.40.0",
 ]
 
-sql = ["sqlmodel>=0.0.31"]
-
 docs = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.0",

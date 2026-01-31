@@ -9,67 +9,55 @@ ZodiacCore is designed to be modular. You can install only what you need.
 
 ## 1. Basic Installation
 
-For a minimal setup (Core utilities, Logging, Exception Handling, Middleware):
+For a minimal setup (Core utilities, Logging, Exception Handling, Middleware, ...):
 
-=== "uv"
-    ```bash
-    uv add zodiac-core
-    ```
-
-=== "pip"
-    ```bash
-    pip install zodiac-core
-    ```
+```bash
+uv add zodiac-core
+```
 
 ## 2. Installing with Database Support
 
-ZodiacCore separates database dependencies to keep the core lightweight.
+ZodiacCore separates database dependencies to keep the core lightweight. You can choose to install a single database backend or multiple backends simultaneously.
 
 ### SQL Support (SQLAlchemy + SQLModel)
-Includes `sqlmodel`, `asyncpg`, `aiosqlite`, etc.
+To use SQL databases, you must install the `sql` extra along with the appropriate **async database driver** for your specific database.
 
-=== "uv"
-    ```bash
-    uv add "zodiac-core[sql]"
-    ```
+```bash
+# 1. Install SQL support
+uv add "zodiac-core[sql]"
 
-=== "pip"
-    ```bash
-    pip install "zodiac-core[sql]"
-    ```
+# 2. Install preferred async driver (Examples)
+uv add asyncpg       # For PostgreSQL
+uv add aiosqlite     # For SQLite
+uv add aiomysql      # For MySQL
+```
 
 ### MongoDB Support (Motor)
-Includes `motor` (Async MongoDB driver).
+Includes `motor`, the standard async MongoDB driver.
 
-=== "uv"
-    ```bash
-    uv add "zodiac-core[mongo]"
-    ```
+```bash
+uv add "zodiac-core[mongo]"
+```
 
-=== "pip"
-    ```bash
-    pip install "zodiac-core[mongo]"
-    ```
+### Multiple Databases
+To install support for both SQL and MongoDB:
+
+```bash
+uv add "zodiac-core[sql,mongo]"
+```
 
 ## 3. Installing Everything (For Development)
 
 If you are setting up a development environment or need all features:
 
-=== "uv"
-    ```bash
-    # Install all extras
-    uv sync --all-extras
-    ```
-
-=== "pip"
-    ```bash
-    pip install "zodiac-core[sql,mongo]"
-    ```
+```bash
+uv sync --all-extras --all-groups
+```
 
 ## 4. Verifying Installation
 
 You can verify the installed version and importability:
 
-```bash
+```python
 python -c "import zodiac_core; print(zodiac_core.__version__)"
 ```

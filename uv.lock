@@ -1588,9 +1588,6 @@ docs = [
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
 ]
-sql = [
-    { name = "sqlmodel" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -1626,4 +1623,3 @@ docs = [
     { name = "mkdocs-material", specifier = ">=9.5.0" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.24.0" },
 ]
-sql = [{ name = "sqlmodel", specifier = ">=0.0.31" }]
