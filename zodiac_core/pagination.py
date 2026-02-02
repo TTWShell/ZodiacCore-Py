@@ -10,6 +10,7 @@ class PageParams(BaseModel):
     Standard pagination query parameters.
 
     Usage:
+        ```python
         from typing import Annotated
         from fastapi import Query
         from zodiac_core.pagination import PageParams
@@ -19,6 +20,7 @@ class PageParams(BaseModel):
             skip = (page_params.page - 1) * page_params.size
             limit = page_params.size
             ...
+        ```
     """
 
     page: int = Field(1, ge=1, description="Page number (1-based)")
@@ -30,6 +32,7 @@ class PagedResponse(BaseModel, Generic[T]):
     Standard generic paginated response model.
 
     Usage:
+        ```python
         from typing import Annotated
         from fastapi import Query
         from zodiac_core.pagination import PagedResponse, PageParams
@@ -38,6 +41,7 @@ class PagedResponse(BaseModel, Generic[T]):
         def list_users(page_params: Annotated[PageParams, Query()]):
             users, total_count = db.find_users(...)
             return PagedResponse.create(users, total_count, page_params)
+        ```
     """
 
     model_config = ConfigDict(populate_by_name=True)

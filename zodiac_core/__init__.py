@@ -3,6 +3,7 @@ import importlib.metadata
 from .config import ConfigManagement, Environment
 from .context import get_request_id
 from .db.repository import BaseSQLRepository
+from .db.session import DEFAULT_DB_NAME
 from .exception_handlers import register_exception_handlers
 from .exceptions import (
     BadRequestException,
@@ -28,6 +29,7 @@ from .response import (
     response_unprocessable_entity,
 )
 from .routing import APIRouter, ZodiacRoute
+from .schemas import CoreModel, IntIDSchema, UtcDatetime, UUIDSchema
 
 try:
     __version__ = importlib.metadata.version("zodiac-core")
@@ -52,6 +54,7 @@ __all__ = [
     "ZodiacRoute",
     "APIRouter",
     "BaseSQLRepository",
+    "DEFAULT_DB_NAME",
     "ZodiacException",
     "BadRequestException",
     "UnauthorizedException",
@@ -65,4 +68,8 @@ __all__ = [
     "get_request_id",
     "ConfigManagement",
     "Environment",
+    "CoreModel",
+    "IntIDSchema",
+    "UUIDSchema",
+    "UtcDatetime",
 ]

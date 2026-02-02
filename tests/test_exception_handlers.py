@@ -93,6 +93,8 @@ class TestExceptionHandlers:
             (NotFoundException, {}, 404, "Not Found", None),
             (ConflictException, {}, 409, "Conflict", None),
             (ZodiacException, {}, 500, "Internal Server Error", None),
+            # Custom business code test
+            (BadRequestException, {"code": 1001, "message": "Custom Error"}, 400, "Custom Error", None),
         ],
     )
     @pytest.mark.asyncio
@@ -111,6 +113,29 @@ class TestExceptionHandlers:
 
         assert resp.status_code == expected_status
         data = json.loads(resp.body)
-        assert data["code"] == expected_status
+        # Verify custom code is preserved, fallback to status_code if not provided
+        expected_code = init_kwargs.get("code", expected_status)
+        assert data["code"] == expected_code
         assert data["message"] == expected_msg
         assert data["data"] == expected_data
+
+    @pytest.mark.asyncio
+    async def test_custom_subclass_exception(self, mock_request):
+        """Test a realistic custom subclass as shown in documentation"""
+
+        class InsufficientBalanceException(BadRequestException):
+            def __init__(self, current_balance: float):
+                super().__init__(
+                    code=1001,
+                    message="Your account balance is too low.",
+                    data={"current_balance": current_balance},
+                )
+
+        exc = InsufficientBalanceException(current_balance=50.5)
+        resp = await handler_zodiac_exception(mock_request, exc)
+
+        assert resp.status_code == 400
+        data = json.loads(resp.body)
+        assert data["code"] == 1001
+        assert data["message"] == "Your account balance is too low."
+        assert data["data"] == {"current_balance": 50.5}

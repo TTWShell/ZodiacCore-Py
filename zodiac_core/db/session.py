@@ -39,6 +39,48 @@ class DatabaseManager:
     """
     Manages multiple Async Database Engines and Session Factories.
     Implemented as a Strict Singleton to coordinate connection pools.
+
+    Integration Examples:
+
+    1. **Native FastAPI (Lifespan + Depends):**
+
+        ```python
+        # main.py
+        from contextlib import asynccontextmanager
+        from fastapi import FastAPI, Depends
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from zodiac_core.db.session import db, get_session
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            db.setup("sqlite+aiosqlite:///database.db")
+            yield
+            await db.shutdown()
+
+        app = FastAPI(lifespan=lifespan)
+
+        @app.get("/items")
+        async def list_items(session: AsyncSession = Depends(get_session)):
+            return {"status": "ok"}
+        ```
+
+    2. **Dependency Injector (Using provided init_db_resource):**
+
+        ```python
+        # containers.py
+        from dependency_injector import containers, providers
+        from zodiac_core.db.session import init_db_resource
+
+        class Container(containers.DeclarativeContainer):
+            config = providers.Configuration()
+
+            # Use the pre-built resource helper
+            db_manager = providers.Resource(
+                init_db_resource,
+                database_url=config.db.url,
+                echo=config.db.echo.as_bool(),
+            )
+        ```
     """
 
     _instance = None

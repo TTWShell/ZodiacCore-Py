@@ -57,9 +57,11 @@ nav:
       - Basic Usage: user-guide/getting-started.md
   - API Reference:
       - Configuration: api/config.md
-      - Context & Request ID: api/context.md
-      - Logging: api/logging.md
+      - Context & Tracing: api/context.md
+      - Database: api/db.md
       - Exception Handling: api/exceptions.md
+      - Logging: api/logging.md
       - Middleware: api/middleware.md
       - Pagination: api/pagination.md
-      - Database: api/db.md
+      - Routing & Response: api/routing.md
+      - Data Schemas: api/schemas.md

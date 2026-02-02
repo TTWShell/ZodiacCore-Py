@@ -11,8 +11,10 @@ def get_request_id() -> Optional[str]:
     Retrieve the current Request ID from the context.
 
     Usage:
+        ```python
         headers = {"X-Request-ID": get_request_id()}
         requests.get(url, headers=headers)
+        ```
     """
     return _request_id_ctx_var.get()
 
