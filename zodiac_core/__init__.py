@@ -13,8 +13,10 @@ from .exceptions import (
     UnauthorizedException,
     ZodiacException,
 )
+from .http import ZodiacClient, ZodiacSyncClient
 from .logging import LogFileOptions, setup_loguru
-from .middleware import TraceIDMiddleware, register_middleware
+from .middleware import AccessLogMiddleware, TraceIDMiddleware, register_middleware
+from .pagination import PagedResponse, PageParams
 from .response import (
     Response,
     create_response,
@@ -29,7 +31,15 @@ from .response import (
     response_unprocessable_entity,
 )
 from .routing import APIRouter, ZodiacRoute
-from .schemas import CoreModel, IntIDSchema, UtcDatetime, UUIDSchema
+from .schemas import (
+    CoreModel,
+    DateTimeSchemaMixin,
+    IntIDSchema,
+    IntIDSchemaMixin,
+    UtcDatetime,
+    UUIDSchema,
+    UUIDSchemaMixin,
+)
 
 try:
     __version__ = importlib.metadata.version("zodiac-core")
@@ -39,6 +49,7 @@ except importlib.metadata.PackageNotFoundError:
 
 __all__ = [
     "__version__",
+    # response
     "Response",
     "create_response",
     "response_ok",
@@ -50,11 +61,23 @@ __all__ = [
     "response_conflict",
     "response_unprocessable_entity",
     "response_server_error",
-    "register_middleware",
+    # routing
     "ZodiacRoute",
     "APIRouter",
+    # middleware
+    "register_middleware",
+    "TraceIDMiddleware",
+    "AccessLogMiddleware",
+    # http client
+    "ZodiacClient",
+    "ZodiacSyncClient",
+    # pagination
+    "PageParams",
+    "PagedResponse",
+    # db
     "BaseSQLRepository",
     "DEFAULT_DB_NAME",
+    # exceptions
     "ZodiacException",
     "BadRequestException",
     "UnauthorizedException",
@@ -62,14 +85,20 @@ __all__ = [
     "NotFoundException",
     "ConflictException",
     "register_exception_handlers",
+    # logging
     "setup_loguru",
     "LogFileOptions",
-    "TraceIDMiddleware",
+    # context
     "get_request_id",
+    # config
     "ConfigManagement",
     "Environment",
+    # schemas
     "CoreModel",
     "IntIDSchema",
     "UUIDSchema",
+    "IntIDSchemaMixin",
+    "UUIDSchemaMixin",
+    "DateTimeSchemaMixin",
     "UtcDatetime",
 ]

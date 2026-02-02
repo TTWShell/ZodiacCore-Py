@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 try:
     from sqlalchemy import DateTime, event
@@ -84,7 +85,7 @@ class SQLBase(SQLDateTimeMixin):
 class IntIDMixin(SQLModel):
     """Mixin for Integer primary key."""
 
-    id: int = Field(primary_key=True, nullable=False)
+    id: Optional[int] = Field(default=None, primary_key=True)
 
 
 class UUIDMixin(SQLModel):
