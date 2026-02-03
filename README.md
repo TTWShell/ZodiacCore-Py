@@ -26,25 +26,23 @@ Every new FastAPI project starts the same way: setting up logging, error handlin
 *   **🎁 Standard Response Wrapper**: Automatic wrapping of all API responses into a consistent JSON structure (`code`, `data`, `message`) via `APIRouter`.
 *   **📄 Standard Pagination**: Drop-in Pydantic models for request parameters (`PageParams`) and responses (`PagedResponse`).
 *   **⚡ Async Ready**: Designed from the ground up for Python 3.12+ async/await ecosystems.
+*   **⌨️ zodiac**: CLI for project scaffolding.
 
 ## 📦 Quick Install
 
-Standard installation:
+**zodiac-core** is the library; the **zodiac** CLI is an optional extra. Use the library in your project when building an app; add the **zodiac** extra when you need the `zodiac` command (e.g. to scaffold new projects).
+
+| Use case | Install |
+|----------|--------|
+| Library only (in your project) | `uv add zodiac-core` |
+| Library + CLI (e.g. global or dev) | `uv add "zodiac-core[zodiac]"` |
+
+More extras (can be combined):
 
 ```bash
-uv add zodiac-core
-```
-
-With SQL support:
-
-```bash
-uv add "zodiac-core[sql]"
-```
-
-With MongoDB support:
-
-```bash
-uv add "zodiac-core[mongo]"
+uv add "zodiac-core[sql]"      # SQL (SQLModel)
+uv add "zodiac-core[mongo]"    # MongoDB (motor)
+uv add "zodiac-core[zodiac]"   # CLI (zodiac command)
 ```
 
 For detailed installation instructions, please refer to the **Installation Guide** in the documentation.

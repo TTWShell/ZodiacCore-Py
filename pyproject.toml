@@ -38,9 +38,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-zodiac = []
+zodiac = ["click>=8.0", "jinja2>=3.0"]
 sql = ["sqlmodel>=0.0.31"]
 mongo = ["motor>=3.3.0"]
+
+[project.scripts]
+zodiac = "zodiac.main:main"
 
 [tool.setuptools.packages.find]
 include = ["zodiac*", "zodiac_core*"]

@@ -1631,6 +1631,10 @@ mongo = [
 sql = [
     { name = "sqlmodel" },
 ]
+zodiac = [
+    { name = "click" },
+    { name = "jinja2" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1659,8 +1663,10 @@ docs = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", marker = "extra == 'zodiac'", specifier = ">=8.0" },
     { name = "fastapi", specifier = ">=0.128.0" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "jinja2", marker = "extra == 'zodiac'", specifier = ">=3.0" },
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "motor", marker = "extra == 'mongo'", specifier = ">=3.3.0" },
     { name = "pydantic", specifier = ">=2.12.5" },

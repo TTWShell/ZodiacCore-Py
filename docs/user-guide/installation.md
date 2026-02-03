@@ -46,6 +46,15 @@ To install support for both SQL and MongoDB:
 uv add "zodiac-core[sql,mongo]"
 ```
 
+### CLI (zodiac command)
+To use the **zodiac** CLI for scaffolding projects:
+
+```bash
+uv add "zodiac-core[zodiac]"
+```
+
+Then run `zodiac --help`. See [zodiac CLI](cli.md) for usage.
+
 ## 3. Installing Everything (For Development)
 
 If you are setting up a development environment or need all features:
@@ -54,10 +63,30 @@ If you are setting up a development environment or need all features:
 uv sync --all-extras --all-groups
 ```
 
-## 4. Verifying Installation
+## 4. Local development (editable install)
+
+When developing the repo locally, install in **editable** mode so code changes take effect without reinstalling. To run the **zodiac** CLI while developing, include the **zodiac** extra:
+
+```bash
+uv pip install -e ".[zodiac]"
+```
+
+Then `zodiac --help` and `zodiac new ...` use the local code. To add dev/test/docs deps:
+
+```bash
+uv sync --all-extras --all-groups
+```
+
+## 5. Verifying Installation
 
 You can verify the installed version and importability:
 
 ```python
 python -c "import zodiac_core; print(zodiac_core.__version__)"
+```
+
+To verify the CLI (after installing with the zodiac extra):
+
+```bash
+zodiac --help
 ```
