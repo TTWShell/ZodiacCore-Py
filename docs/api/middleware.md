@@ -2,7 +2,7 @@
 
 ZodiacCore provides a standard stack of middlewares to handle cross-cutting concerns like request tracing, latency monitoring, and access logging.
 
-## 1. Core Middelewares
+## 1. Core Middlewares
 
 ### Trace ID Middleware
 The `TraceIDMiddleware` is the entry point for observability. It:

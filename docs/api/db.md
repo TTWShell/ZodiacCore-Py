@@ -47,27 +47,26 @@ Both `IntIDModel` and `UUIDModel` include `SQLDateTimeMixin`, which provides:
 You should initialize the database during your application's startup and ensure it shuts down cleanly.
 
 ### FastAPI Integration
+We recommend using the **lifespan** context manager (FastAPI 0.93+). The legacy `on_event("startup")` / `on_event("shutdown")` are deprecated.
+
 ```python
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from zodiac_core.db.session import db
 
-app = FastAPI()
-
-@app.on_event("startup")
-async def on_startup():
-    # Configure pool size, max_overflow, etc.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     db.setup(
         "postgresql+asyncpg://user:pass@localhost/dbname",
         pool_size=20,
         max_overflow=10,
         echo=False
     )
-    # Optional: Create tables if they don't exist
-    await db.create_all()
-
-@app.on_event("shutdown")
-async def on_shutdown():
+    await db.create_all()  # Optional: create tables if they don't exist
+    yield
     await db.shutdown()
+
+app = FastAPI(lifespan=lifespan)
 ```
 
 ---

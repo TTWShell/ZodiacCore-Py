@@ -46,15 +46,43 @@ config_files = ConfigManagement.get_config_files(
 
 ---
 
-## 3. Dot-Notation Wrapper
+## 3. Configuration Objects
 
-Once you have a dictionary of your configuration, convert it for easier access:
+ZodiacCore provides two ways to access your configuration data using `ConfigManagement.provide_config`:
+
+### Mode A: SimpleNamespace (Quick Access)
+This mode is useful for rapid prototyping. It converts the dictionary into a `SimpleNamespace`, allowing for dot-notation access but without type hints or validation.
 
 ```python
 raw_data = {"db": {"host": "localhost", "port": 5432}}
 config = ConfigManagement.provide_config(raw_data)
 
 print(config.db.host)  # 'localhost'
+```
+
+### Mode B: Pydantic Model (Recommended)
+For production applications, it is highly recommended to use a Pydantic model. This provides:
+1. **Type Safety**: Full IDE autocompletion and type checking.
+2. **Validation**: Runtime checks to ensure your configuration is valid.
+3. **Defaults**: Automatically fill in missing values defined in your schema.
+
+```python
+from pydantic import BaseModel
+from zodiac_core import ConfigManagement
+
+class DbConfig(BaseModel):
+    host: str
+    port: int = 5432
+
+class AppConfig(BaseModel):
+    db: DbConfig
+
+raw_data = {"db": {"host": "localhost"}}
+# Pass the model class as the second argument
+config = ConfigManagement.provide_config(raw_data, AppConfig)
+
+print(config.db.host)  # 'localhost' (with IDE autocomplete!)
+print(config.db.port)  # 5432 (default value applied)
 ```
 
 ---

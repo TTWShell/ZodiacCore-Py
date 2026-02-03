@@ -79,10 +79,13 @@ ZodiacCore's `APIRouter` dynamically generates Pydantic models for your response
       show_root_heading: false
       members:
         - Response
+        - create_response
         - response_ok
         - response_created
         - response_bad_request
         - response_unauthorized
         - response_forbidden
         - response_not_found
+        - response_conflict
+        - response_unprocessable_entity
         - response_server_error

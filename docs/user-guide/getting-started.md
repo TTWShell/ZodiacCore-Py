@@ -167,21 +167,20 @@ class HeroRepository(BaseSQLRepository):
             return result.scalars().all()
 ```
 
-Finally, use it in your route:
+Finally, use it in your route. Define a **lifespan** for DB lifecycle (FastAPI recommends this over the deprecated `on_event("startup")` / `on_event("shutdown")`). In **Step 1**, use `app = FastAPI(title="Zodiac Demo App", lifespan=lifespan)` instead of `app = FastAPI(...)`.
 
 ```python
-from fastapi import Depends
+from contextlib import asynccontextmanager
 from zodiac_core.db.session import db
 
-# Initialize DB (usually in startup event)
-@app.on_event("startup")
-async def on_startup():
+@asynccontextmanager
+async def lifespan(app):
     db.setup("sqlite+aiosqlite:///database.db")
     await db.create_all()
-
-@app.on_event("shutdown")
-async def on_shutdown():
+    yield
     await db.shutdown()
+
+# In Step 1, create app with: app = FastAPI(title="Zodiac Demo App", lifespan=lifespan)
 
 @router.post("/heroes")
 async def create_hero(hero: Hero):

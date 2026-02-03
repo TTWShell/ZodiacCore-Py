@@ -2,6 +2,7 @@ import os
 from types import SimpleNamespace
 
 from loguru import logger
+from pydantic import BaseModel
 
 from zodiac_core import ConfigManagement, Environment
 
@@ -98,3 +99,48 @@ def test_get_config_files_invalid_paths(tmp_path):
     # Should not raise exception, just return empty list or skip
     files = ConfigManagement.get_config_files([invalid_path], default_env="develop")
     assert len(files) == 0
+
+
+class DbConfig(BaseModel):
+    host: str
+    port: int = 5432
+
+
+class AppConfig(BaseModel):
+    db: DbConfig
+    debug: bool = False
+
+
+def test_provide_config_with_pydantic_model():
+    """Test provide_config with Pydantic model for type-safe config."""
+    config_dict = {"db": {"host": "localhost", "port": 3306}, "debug": True}
+
+    config = ConfigManagement.provide_config(config_dict, AppConfig)
+
+    assert isinstance(config, AppConfig)
+    assert isinstance(config.db, DbConfig)
+    assert config.db.host == "localhost"
+    assert config.db.port == 3306
+    assert config.debug is True
+
+
+def test_provide_config_pydantic_model_with_defaults():
+    """Test that Pydantic model defaults are applied."""
+    config_dict = {"db": {"host": "localhost"}}  # port and debug use defaults
+
+    config = ConfigManagement.provide_config(config_dict, AppConfig)
+
+    assert config.db.port == 5432  # default
+    assert config.debug is False  # default
+
+
+def test_provide_config_empty_with_model():
+    """Test provide_config with empty dict and model that has all defaults."""
+
+    class AllDefaultConfig(BaseModel):
+        name: str = "app"
+        version: str = "1.0.0"
+
+    config = ConfigManagement.provide_config({}, AllDefaultConfig)
+    assert config.name == "app"
+    assert config.version == "1.0.0"

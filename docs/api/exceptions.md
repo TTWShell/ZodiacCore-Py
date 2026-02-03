@@ -13,7 +13,7 @@ All business logic errors should inherit from `ZodiacException`. This base class
 - **`data`**: Optional payload for additional error details (e.g., validation errors).
 
 ### Automatic Transformation
-When a `ZodiacException` is raised, the `handler_zodiac_exception` middleware catches it and transforms it into a standard JSON response:
+When a `ZodiacException` is raised, the `handler_zodiac_exception` exception handler catches it and transforms it into a standard JSON response:
 
 ```json
 {

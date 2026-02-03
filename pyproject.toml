@@ -20,8 +20,9 @@ zodiac = []
 sql = ["sqlmodel>=0.0.31"]
 mongo = ["motor>=3.3.0"]
 
-[tool.setuptools]
-packages = ["zodiac", "zodiac_core"]
+[tool.setuptools.packages.find]
+include = ["zodiac*", "zodiac_core*"]
+exclude = ["tests*", "benchmarks*"]
 
 [tool.ruff]
 line-length = 120

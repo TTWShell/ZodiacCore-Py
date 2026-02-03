@@ -3,9 +3,11 @@ import os
 from enum import Enum
 from pathlib import Path
 from types import SimpleNamespace
-from typing import List, Union
+from typing import List, Type, TypeVar, Union, overload
 
 from loguru import logger
+
+T = TypeVar("T")
 
 
 class Environment(str, Enum):
@@ -106,24 +108,59 @@ class ConfigManagement:
 
         return base_files + env_files
 
+    @overload
     @staticmethod
-    def provide_config(config: dict = None) -> SimpleNamespace:
-        """
-        Recursively converts a configuration dictionary into a SimpleNamespace object.
+    def provide_config(config: dict) -> SimpleNamespace: ...
 
-        This allows accessing configuration values using dot notation (e.g., `config.db.host`)
-        instead of bracket notation (e.g., `config['db']['host']`). It also handles
-        nested dictionaries within lists.
+    @overload
+    @staticmethod
+    def provide_config(config: dict, model: Type[T]) -> T: ...
+
+    @staticmethod
+    def provide_config(config: dict = None, model: Type[T] = None) -> Union[SimpleNamespace, T]:
+        """
+        Converts a configuration dictionary into a structured object.
+
+        Supports two modes:
+        1. **SimpleNamespace mode** (default): Returns a SimpleNamespace for dot notation access.
+        2. **Pydantic model mode**: Pass a Pydantic model class to get type-safe, validated config.
 
         Args:
             config: The configuration dictionary to convert.
+            model: Optional Pydantic model class. If provided, returns an instance of this model.
 
         Returns:
-            A SimpleNamespace representation of the configuration.
+            SimpleNamespace if no model provided, otherwise an instance of the model.
+
+        Example:
+            ```python
+            # Mode 1: SimpleNamespace (no type hints, but convenient)
+            config = ConfigManagement.provide_config({"db": {"host": "localhost"}})
+            print(config.db.host)  # "localhost"
+
+            # Mode 2: Pydantic model (full type hints and validation)
+            from pydantic import BaseModel
+
+            class DbConfig(BaseModel):
+                host: str
+                port: int = 5432
+
+            class AppConfig(BaseModel):
+                db: DbConfig
+
+            config = ConfigManagement.provide_config({"db": {"host": "localhost"}}, AppConfig)
+            print(config.db.host)  # IDE autocomplete works!
+            print(config.db.port)  # 5432 (default value)
+            ```
         """
         if config is None:
-            return SimpleNamespace()
+            config = {}
 
+        # Pydantic model mode: delegate to Pydantic for validation and type coercion
+        if model is not None:
+            return model(**config)
+
+        # SimpleNamespace mode: recursive conversion
         def _convert(value):
             if isinstance(value, dict):
                 return SimpleNamespace(**{k: _convert(v) for k, v in value.items()})
