@@ -33,6 +33,9 @@ theme:
 
 plugins:
   - search
+  # mike injects this when running `mike deploy`; explicit config ensures site_url is updated per-version (see mike README).
+  - mike:
+      version_selector: true
   - mkdocstrings:
       handlers:
         python:

@@ -37,6 +37,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
+      # CI does a shallow clone; fetch gh-pages so mike can push on top of latest remote (mike README).
+      - name: Fetch gh-pages
+        run: git fetch origin gh-pages --depth=1 || true
+
       - name: Deploy version and set latest
         run: |
           uv run mike deploy --push --update-aliases "${{ env.VERSION }}" latest
