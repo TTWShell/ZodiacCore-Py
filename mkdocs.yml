@@ -14,6 +14,7 @@ theme:
     - navigation.expand
     - navigation.top
     - navigation.tracking
+    - navigation.toc
     - search.suggest
     - search.highlight
   palette:

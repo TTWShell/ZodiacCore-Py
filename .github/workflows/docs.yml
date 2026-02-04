@@ -39,5 +39,5 @@ jobs:
 
       - name: Deploy version and set latest
         run: |
-          mike deploy --push --update-aliases "${{ env.VERSION }}" latest
-          mike set-default --push latest
+          uv run mike deploy --push --update-aliases "${{ env.VERSION }}" latest
+          uv run mike set-default --push latest
