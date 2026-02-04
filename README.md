@@ -85,11 +85,8 @@ app.include_router(router)
 
 ## 📚 Documentation
 
-Detailed documentation is available in the `docs/` directory or can be viewed locally:
-
-```bash
-make docs-serve
-```
+- **Online**: [https://ttwshell.github.io/ZodiacCore-Py/](https://ttwshell.github.io/ZodiacCore-Py/) (multiple versions via release).
+- **Local**: `make docs-serve` (sources in `docs/`).
 
 ## 🤝 Contributing
 

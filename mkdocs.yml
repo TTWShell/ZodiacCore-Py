@@ -1,6 +1,10 @@
 site_name: ZodiacCore-Py
 site_description: A high-performance core library for modern Python web services.
-site_url: https://example.com/zodiac-core/
+site_url: https://ttwshell.github.io/ZodiacCore-Py/
+
+extra:
+  version:
+    provider: mike
 
 theme:
   name: material

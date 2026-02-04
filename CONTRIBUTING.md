@@ -38,6 +38,7 @@ uv sync --all-groups
 
 - User docs and API reference live in `docs/`, built with MkDocs.
 - Preview locally: `make docs-serve`.
+- **Docs release**: On each GitHub Release (published), the workflow **Deploy Docs** builds the docs from that tag and deploys to GitHub Pages via [mike](https://github.com/jimporter/mike). Multiple versions (e.g. `/0.1/`, `/0.2/`, `/latest/`) are available; enable **Settings → Pages → Source: Deploy from branch → gh-pages** once.
 
 ## Releases and Versioning
 
