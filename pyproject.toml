@@ -7,7 +7,7 @@ name = "zodiac-core"
 version = "0.2.0"
 description = "ZodiacCore-Py: A high-performance core library for modern Python web services."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.12,<3.15"
 keywords = [
     "fastapi",
@@ -22,7 +22,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: FastAPI",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -48,6 +47,9 @@ zodiac = "zodiac.main:main"
 [tool.setuptools.packages.find]
 include = ["zodiac*", "zodiac_core*"]
 exclude = ["tests*", "benchmarks*"]
+
+[tool.setuptools.package-data]
+zodiac = ["templates/**/*.jinja"]
 
 [tool.ruff]
 line-length = 120
