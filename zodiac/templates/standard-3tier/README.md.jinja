@@ -27,13 +27,33 @@ Set `APPLICATION_ENVIRONMENT` to `develop`, `testing`, `staging`, or `production
 uv sync
 ```
 
-### 2. Run the Application
+Or install with dev dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+### 2. Run Quality Checks
+
+Before running the application, it's recommended to run linting and tests:
+
+```bash
+# Lint code
+uv run ruff check .
+
+# Run tests
+uv run pytest
+```
+
+**Best Practice**: Always run `ruff check` and `pytest` before committing code to ensure code quality and catch issues early.
+
+### 3. Run the Application
 
 ```bash
 uvicorn main:app --reload
 ```
 
-### 3. API Documentation
+### 4. API Documentation
 
 Once running:
 

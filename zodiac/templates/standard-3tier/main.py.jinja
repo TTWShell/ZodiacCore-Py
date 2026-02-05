@@ -1,16 +1,14 @@
-from pathlib import Path
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
-
 from zodiac_core import ConfigManagement
+from zodiac_core.db import db
+from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.logging import setup_loguru
 from zodiac_core.middleware import register_middleware
-from zodiac_core.exception_handlers import register_exception_handlers
-from zodiac_core.db import db
 
 from app.core.container import Container
-from app.infrastructure.database.models.item_model import ItemModel  # noqa: F401
 
 
 @asynccontextmanager

@@ -1,16 +1,14 @@
 from typing import Annotated
 
+from dependency_injector.wiring import Provide, inject
 from fastapi import Depends
-from dependency_injector.wiring import inject, Provide
-
 from loguru import logger
-
+from zodiac_core.pagination import PagedResponse, PageParams
 from zodiac_core.routing import APIRouter
-from zodiac_core.pagination import PageParams, PagedResponse
 
-from app.core.container import Container
-from app.application.services.item_service import ItemService
 from app.api.schemas.item_schema import ItemSchema
+from app.application.services.item_service import ItemService
+from app.core.container import Container
 
 router = APIRouter()
 

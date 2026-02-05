@@ -1,0 +1,9 @@
+"""Tests for health endpoint."""
+
+
+def test_health_endpoint(client):
+    """Test that health endpoint returns 200."""
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    assert response.json() == {"code": 0, "data": {"status": "healthy"}, "message": "Success"}
+

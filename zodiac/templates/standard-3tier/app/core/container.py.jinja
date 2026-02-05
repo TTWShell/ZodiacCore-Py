@@ -1,13 +1,12 @@
 """Dependency injection container (dependency_injector). Composition root: wires infra + application only."""
 
 from dependency_injector import containers, providers
-
 from zodiac_core.http import ZodiacClient
 
+from app.application.services.github_service import GitHubService
+from app.application.services.item_service import ItemService
 from app.infrastructure.database.repositories.item_repository import ItemRepository
 from app.infrastructure.external.github_client import GitHubClient
-from app.application.services.item_service import ItemService
-from app.application.services.github_service import GitHubService
 
 
 class Container(containers.DeclarativeContainer):

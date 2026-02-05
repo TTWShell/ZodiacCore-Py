@@ -1,6 +1,7 @@
 """Tests for the `zodiac new` command."""
 
 import shutil
+import subprocess
 
 import pytest
 
@@ -213,4 +214,50 @@ class TestNewCommand:
         )
         assert len(generated_dirs) == len(template_dirs), (
             f"Directory count mismatch: generated={len(generated_dirs)}, template={len(template_dirs)}"
+        )
+
+
+class TestGeneratedProjectQuality:
+    """Tests for verifying quality of generated projects (ruff lint, pytest)."""
+
+    @pytest.fixture(scope="class")
+    def generated_project_path(self, tmp_path_factory):
+        """Generate a project once for all tests in this class."""
+        from click.testing import CliRunner
+
+        project_name = "test-quality-project"
+        test_output_dir = tmp_path_factory.mktemp("zodiac_quality_test")
+        target_path = test_output_dir / project_name
+
+        if target_path.exists():
+            shutil.rmtree(target_path)
+
+        # Generate project
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                project_name,
+                "--tpl",
+                "standard-3tier",
+                "-o",
+                str(test_output_dir),
+            ],
+        )
+        assert result.exit_code == 0, f"Failed to generate project: {result.output}"
+        assert target_path.exists(), f"Project was not created at {target_path}"
+
+        return target_path
+
+    def test_generated_project_ruff_lint(self, generated_project_path):
+        """Test that generated project passes ruff lint."""
+        ruff_check_result = subprocess.run(
+            ["ruff", "check", "."],
+            cwd=generated_project_path,
+            capture_output=True,
+            text=True,
+        )
+        assert ruff_check_result.returncode == 0, (
+            f"Ruff lint failed after auto-fix:\n{ruff_check_result.stdout}\n{ruff_check_result.stderr}"
         )
