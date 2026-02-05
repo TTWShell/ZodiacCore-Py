@@ -66,6 +66,7 @@ indent-style = "space"
 testpaths = ["tests", "benchmarks"]
 addopts = """
     --cov=zodiac_core
+    --cov=zodiac
     --cov-report=term-missing
     --no-cov-on-fail
     -s -vv
