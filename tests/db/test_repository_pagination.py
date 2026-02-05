@@ -10,19 +10,19 @@ from zodiac_core.pagination import PageParams
 
 
 # 1. Define Test Models
-class TestItem(SQLModel, table=True):
+class ItemModel(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     name: str
 
 
-class TestItemSchema(BaseModel):
+class ItemModelSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
 
 
 # 2. Setup Test Repository
-class TestItemRepository(BaseSQLRepository):
+class ItemModelRepository(BaseSQLRepository):
     def __init__(self):
         super().__init__()
 
@@ -38,7 +38,7 @@ class TestRepositoryPagination:
         # Seed Data: 25 items
         async with db.session() as session:
             for i in range(1, 26):
-                session.add(TestItem(name=f"Item {i:02d}"))
+                session.add(ItemModel(name=f"Item {i:02d}"))
             await session.commit()
 
         yield
@@ -47,11 +47,11 @@ class TestRepositoryPagination:
     @pytest.mark.asyncio
     async def test_paginate_first_page(self):
         """Test fetching the first page (default size 20)."""
-        repo = TestItemRepository()
+        repo = ItemModelRepository()
         params = PageParams(page=1, size=10)
 
         async with repo.session() as session:
-            stmt = select(TestItem).order_by(TestItem.id)
+            stmt = select(ItemModel).order_by(ItemModel.id)
             result = await repo.paginate(session, stmt, params)
 
             assert result.total == 25
@@ -64,11 +64,11 @@ class TestRepositoryPagination:
     @pytest.mark.asyncio
     async def test_paginate_last_page(self):
         """Test fetching the last page (remaining items)."""
-        repo = TestItemRepository()
+        repo = ItemModelRepository()
         params = PageParams(page=3, size=10)
 
         async with repo.session() as session:
-            stmt = select(TestItem).order_by(TestItem.id)
+            stmt = select(ItemModel).order_by(ItemModel.id)
             result = await repo.paginate(session, stmt, params)
 
             assert result.total == 25
@@ -79,25 +79,25 @@ class TestRepositoryPagination:
     @pytest.mark.asyncio
     async def test_paginate_with_transformer(self):
         """Test that transformer correctly converts DB models to schemas."""
-        repo = TestItemRepository()
+        repo = ItemModelRepository()
         params = PageParams(page=1, size=5)
 
         async with repo.session() as session:
-            stmt = select(TestItem)
-            result = await repo.paginate(session, stmt, params, transformer=TestItemSchema)
+            stmt = select(ItemModel)
+            result = await repo.paginate(session, stmt, params, transformer=ItemModelSchema)
 
             assert len(result.items) == 5
-            assert isinstance(result.items[0], TestItemSchema)
-            assert not isinstance(result.items[0], TestItem)
+            assert isinstance(result.items[0], ItemModelSchema)
+            assert not isinstance(result.items[0], ItemModel)
             assert result.items[0].name == "Item 01"
 
     @pytest.mark.asyncio
     async def test_paginate_query_convenience(self):
         """Test the paginate_query convenience method (auto session)."""
-        repo = TestItemRepository()
+        repo = ItemModelRepository()
         params = PageParams(page=2, size=10)
 
-        stmt = select(TestItem).order_by(TestItem.id)
+        stmt = select(ItemModel).order_by(ItemModel.id)
         result = await repo.paginate_query(stmt, params)
 
         assert result.total == 25
@@ -107,10 +107,10 @@ class TestRepositoryPagination:
     @pytest.mark.asyncio
     async def test_paginate_empty_result(self):
         """Test pagination on a query that returns no results."""
-        repo = TestItemRepository()
+        repo = ItemModelRepository()
         params = PageParams(page=1, size=10)
 
-        stmt = select(TestItem).where(TestItem.name == "Non-existent")
+        stmt = select(ItemModel).where(ItemModel.name == "Non-existent")
         result = await repo.paginate_query(stmt, params)
 
         assert result.total == 0
