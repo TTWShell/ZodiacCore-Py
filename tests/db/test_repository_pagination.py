@@ -14,19 +14,21 @@ class TestItem(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     name: str
 
+
 class TestItemSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
+
 
 # 2. Setup Test Repository
 class TestItemRepository(BaseSQLRepository):
     def __init__(self):
         super().__init__()
 
+
 # 3. Pagination Test Class
 class TestRepositoryPagination:
-
     @pytest_asyncio.fixture(autouse=True)
     async def setup_db(self):
         """Setup in-memory SQLite for each test."""

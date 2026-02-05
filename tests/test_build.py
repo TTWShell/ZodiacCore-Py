@@ -51,7 +51,6 @@ class TestPackageBuild:
             f"actual={actual_zodiac_core_files}"
         )
 
-
     def _count_wheel_files(self, wheel_path: Path, package_name: str) -> int:
         """Count files for a specific package in the wheel."""
         count = 0
@@ -62,7 +61,11 @@ class TestPackageBuild:
                     # Exclude metadata files and dist-info
                     if not any(
                         excluded in name
-                        for excluded in (".egg-info/", ".dist-info/", "__pycache__/")
+                        for excluded in (
+                            ".egg-info/",
+                            ".dist-info/",
+                            "__pycache__/",
+                        )
                     ):
                         count += 1
         return count

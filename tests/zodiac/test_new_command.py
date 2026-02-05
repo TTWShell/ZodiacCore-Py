@@ -188,11 +188,7 @@ class TestNewCommand:
 
         # Count template files (.jinja) and directories
         template_jinja_files = list(template_path.rglob("*.jinja"))
-        template_dirs = [
-            d
-            for d in template_path.rglob("*")
-            if d.is_dir() and d != template_path
-        ]
+        template_dirs = [d for d in template_path.rglob("*") if d.is_dir() and d != template_path]
 
         result = cli_runner.invoke(
             cli,
@@ -209,16 +205,12 @@ class TestNewCommand:
         assert result.exit_code == 0
 
         # Count generated files (non-jinja) and directories
-        generated_files = [
-            f for f in target_path.rglob("*") if f.is_file() and not f.name.endswith(".jinja")
-        ]
+        generated_files = [f for f in target_path.rglob("*") if f.is_file() and not f.name.endswith(".jinja")]
         generated_dirs = [d for d in target_path.rglob("*") if d.is_dir() and d != target_path]
 
         assert len(generated_files) == len(template_jinja_files), (
-            f"File count mismatch: generated={len(generated_files)}, "
-            f"template={len(template_jinja_files)}"
+            f"File count mismatch: generated={len(generated_files)}, template={len(template_jinja_files)}"
         )
         assert len(generated_dirs) == len(template_dirs), (
-            f"Directory count mismatch: generated={len(generated_dirs)}, "
-            f"template={len(template_dirs)}"
+            f"Directory count mismatch: generated={len(generated_dirs)}, template={len(template_dirs)}"
         )
