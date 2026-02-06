@@ -38,7 +38,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
     app.state.container = container
-    container.wire(modules=["app.api.routers.item_router"])
+    container.wire_routers()
 
     register_middleware(app)
     register_exception_handlers(app)

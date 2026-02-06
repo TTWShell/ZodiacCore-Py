@@ -243,52 +243,23 @@ The DI container wires all layers together, managing the lifecycle and dependenc
 
 ### Container Definition
 
+The container is typically defined in `app/core/container.py`: it declares providers (Factory/Singleton) for repositories, services, and other infrastructure. Only the **API layer** (routers) needs to request dependencies via `Depends(Provide[Container.xxx])`; the container injects service → repository and other lower-layer dependencies when it constructs those objects.
+
 ```python
 from dependency_injector import containers, providers
-from zodiac_core.http import ZodiacClient
-
-from app.application.services.github_service import GitHubService
-from app.application.services.item_service import ItemService
-from app.infrastructure.database.repositories.item_repository import ItemRepository
-from app.infrastructure.external.github_client import GitHubClient
 
 class Container(containers.DeclarativeContainer):
-    # Configuration provider (loaded from .ini files)
     config = providers.Configuration()
-
-    # Infrastructure layer
-    http_client = providers.Singleton(ZodiacClient)
     item_repository = providers.Factory(ItemRepository)
-
-    github_client = providers.Factory(
-        GitHubClient,
-        client=http_client,
-    )
-
-    # Application layer
-    item_service = providers.Factory(
-        ItemService,
-        item_repo=item_repository,
-    )
-
-    github_service = providers.Factory(
-        GitHubService,
-        github_client=github_client,
-    )
+    item_service = providers.Factory(ItemService, item_repo=item_repository)
+    # ...
 ```
 
 ### Wiring
 
-The container is "wired" to FastAPI routers in `main.py`:
+With **dependency-injector**, only the modules that **use** `Depends(Provide[Container.xxx])` must be "wired" to the container — i.e. the API router modules. You call `container.wire(modules=[...])` at startup with the list of those module names (e.g. `"app.api.routers.item_router"`). That way, when a route runs and asks for `Container.item_service`, the container can resolve it.
 
-```python
-from app.core.container import Container
-
-container = Container()
-container.wire(modules=[app.api.routers.item_router])
-```
-
-This enables `@inject` decorators in routers to resolve dependencies.
+Service and infrastructure layers do **not** need to be wired: they are created by the container via `providers.Factory(...)` and receive their dependencies in the constructor.
 
 ### Benefits
 

@@ -50,7 +50,7 @@ my_app/
 
 ### Dependency Injection Container
 
-The project uses `dependency-injector` to manage dependencies. The container is defined in `app/core/container.py`:
+The project uses `dependency-injector` to manage dependencies. The container is defined in `app/core/container.py`.
 
 ```python
 from dependency_injector import containers, providers
@@ -68,7 +68,7 @@ class Container(containers.DeclarativeContainer):
     )
 ```
 
-Dependencies are injected into routers using FastAPI's `Depends`:
+Dependencies are injected into routers using FastAPI's `Depends`. In `main.py`, the generated project calls `container.wire_routers()` so that all router modules under `app.api.routers` are wired in one go; when you add a new router file, it is picked up automatically.
 
 ```python
 from dependency_injector.wiring import Provide, inject

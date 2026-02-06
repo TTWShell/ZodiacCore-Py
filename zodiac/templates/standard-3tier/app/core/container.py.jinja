@@ -1,5 +1,8 @@
 """Dependency injection container (dependency_injector). Composition root: wires infra + application only."""
 
+import importlib
+import pkgutil
+
 from dependency_injector import containers, providers
 from zodiac_core.http import ZodiacClient
 
@@ -7,6 +10,13 @@ from app.application.services.github_service import GitHubService
 from app.application.services.item_service import ItemService
 from app.infrastructure.database.repositories.item_repository import ItemRepository
 from app.infrastructure.external.github_client import GitHubClient
+
+
+def get_router_modules(package_name: str = "app.api.routers") -> list[str]:
+    """Discover all router submodules under the package for container.wire()."""
+    pkg = importlib.import_module(package_name)
+    prefix = f"{pkg.__name__}."
+    return [f"{prefix}{name}" for _, name, _ in pkgutil.walk_packages(pkg.__path__, prefix) if name != "__init__"]
 
 
 class Container(containers.DeclarativeContainer):
@@ -28,4 +38,8 @@ class Container(containers.DeclarativeContainer):
         GitHubService,
         github_client=github_client,
     )
+
+    def wire_routers(self, package: str = "app.api.routers") -> None:
+        """Wire this container to all router modules under the given package."""
+        self.wire(modules=get_router_modules(package))
 
