@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from zodiac_core import ConfigManagement
 from zodiac_core.db import db
 from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.logging import setup_loguru
@@ -31,14 +30,10 @@ def create_app() -> FastAPI:
     )
 
     config_dir = Path(__file__).resolve().parent / "config"
-    config_files = ConfigManagement.get_config_files(search_paths=[config_dir])
-    container = Container()
-    for path in config_files:
-        container.config.from_ini(path)
+    container = Container.initialize([config_dir])
 
     app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
     app.state.container = container
-    container.wire_routers()
 
     register_middleware(app)
     register_exception_handlers(app)
