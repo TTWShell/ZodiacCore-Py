@@ -1,0 +1,12 @@
+"""API response schemas (no dependency on infrastructure models)."""
+
+from pydantic import Field
+from zodiac_core.schemas import IntIDSchema
+
+
+class ItemSchema(IntIDSchema):
+    """Item response for API."""
+
+    name: str = Field(..., description="Item name")
+    description: str | None = Field(default=None, description="Optional description")
+

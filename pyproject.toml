@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zodiac-core"
-version = "0.1.2"
+version = "0.2.0"
 description = "ZodiacCore-Py: A high-performance core library for modern Python web services."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.12,<3.15"
 keywords = [
     "fastapi",
@@ -22,7 +22,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: FastAPI",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -38,13 +37,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-zodiac = []
+zodiac = ["click>=8.0", "jinja2>=3.0"]
 sql = ["sqlmodel>=0.0.31"]
 mongo = ["motor>=3.3.0"]
+
+[project.scripts]
+zodiac = "zodiac.main:main"
 
 [tool.setuptools.packages.find]
 include = ["zodiac*", "zodiac_core*"]
 exclude = ["tests*", "benchmarks*"]
+
+[tool.setuptools.package-data]
+zodiac = ["templates/**/*.jinja"]
 
 [tool.ruff]
 line-length = 120
@@ -63,6 +68,7 @@ indent-style = "space"
 testpaths = ["tests", "benchmarks"]
 addopts = """
     --cov=zodiac_core
+    --cov=zodiac
     --cov-report=term-missing
     --no-cov-on-fail
     -s -vv
@@ -70,10 +76,21 @@ addopts = """
     --benchmark-warmup=on
     --benchmark-warmup-iterations=10
     --benchmark-min-rounds=5
-    --benchmark-autosave
 """
 log_cli = true
 markers = ["serial: marks tests that must run serially (e.g., database tests)"]
+
+[tool.coverage.run]
+source = ["zodiac_core", "zodiac"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/.*",
+    "*/benchmarks/*",
+    "*/templates/*",
+    "*/*.jinja",
+]
 
 [dependency-groups]
 dev = [
@@ -84,6 +101,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-env>=1.2.0",
     "pytest-benchmark>=5.1.0",
+    "py-cpuinfo>=9.0.0",
     "respx>=0.22.0",
     "psycopg2-binary>=2.9.9",
     "pymysql>=1.1.0",

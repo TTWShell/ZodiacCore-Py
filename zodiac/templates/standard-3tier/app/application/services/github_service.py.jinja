@@ -1,0 +1,16 @@
+from loguru import logger
+
+from app.infrastructure.external.github_client import GitHubClient
+
+
+class GitHubService:
+    """Service for GitHub operations."""
+
+    def __init__(self, github_client: GitHubClient) -> None:
+        self.github_client = github_client
+
+    async def get_homepage_info(self) -> dict:
+        """Get GitHub homepage information."""
+        logger.debug("Fetching GitHub homepage")
+        return await self.github_client.fetch_homepage()
+

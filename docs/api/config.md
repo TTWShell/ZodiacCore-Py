@@ -62,6 +62,7 @@ print(config.db.host)  # 'localhost'
 
 ### Mode B: Pydantic Model (Recommended)
 For production applications, it is highly recommended to use a Pydantic model. This provides:
+
 1. **Type Safety**: Full IDE autocompletion and type checking.
 2. **Validation**: Runtime checks to ensure your configuration is valid.
 3. **Defaults**: Automatically fill in missing values defined in your schema.

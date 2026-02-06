@@ -1,0 +1,36 @@
+from typing import Annotated
+
+from dependency_injector.wiring import Provide, inject
+from fastapi import Depends
+from loguru import logger
+from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.routing import APIRouter
+
+from app.api.schemas.item_schema import ItemSchema
+from app.application.services.item_service import ItemService
+from app.core.container import Container
+
+router = APIRouter()
+
+
+@router.get("", response_model=PagedResponse[ItemSchema])
+@inject
+async def list_items(
+    page_params: Annotated[PageParams, Depends()],
+    service: Annotated[ItemService, Depends(Provide[Container.item_service])],
+):
+    """List items with pagination."""
+    result = await service.list_items(page_params)
+    logger.info(f"list_items total={result.total}")
+    return result
+
+
+@router.get("/{item_id}", response_model=ItemSchema)
+@inject
+async def get_item(
+    item_id: int,
+    service: Annotated[ItemService, Depends(Provide[Container.item_service])],
+):
+    """Get a single item by id."""
+    return await service.get_by_id(item_id)
+

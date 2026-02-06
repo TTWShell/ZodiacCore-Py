@@ -1,0 +1,17 @@
+from loguru import logger
+from zodiac_core.routing import APIRouter
+
+from app.api.routers.item_router import router as item_router
+
+api_router = APIRouter(prefix="/api/v1")
+
+
+@api_router.get("/health", tags=["System"])
+async def health_check():
+    """System health check endpoint."""
+    logger.info("Health check triggered")
+    return {"status": "healthy"}
+
+
+api_router.include_router(item_router, prefix="/items", tags=["Items"])
+

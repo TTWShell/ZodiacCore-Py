@@ -1,0 +1,22 @@
+from loguru import logger
+from zodiac_core.http import ZodiacClient
+
+
+class GitHubClient:
+    """GitHub API client using ZodiacClient for automatic Trace ID injection."""
+
+    def __init__(self, client: ZodiacClient) -> None:
+        self.client = client
+        self.base_url = "https://api.github.com"
+
+    async def fetch_homepage(self) -> dict:
+        """Fetch GitHub homepage data."""
+        try:
+            response = await self.client.get(f"{self.base_url}/")
+            response.raise_for_status()
+            logger.debug(f"Fetched GitHub homepage, status={response.status_code}")
+            return response.json()
+        except Exception as e:
+            logger.error(f"Failed to fetch GitHub homepage: {e}")
+            raise
+

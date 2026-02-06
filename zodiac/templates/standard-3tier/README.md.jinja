@@ -1,0 +1,70 @@
+# {{ project_name }}
+
+A modern web service scaffolded with **ZodiacCore**.
+
+## Architecture
+
+This project follows a **Standard 3-Tier Layered Architecture**:
+
+1. **API (Presentation)**: `app/api/` — FastAPI routers and request/response handling.
+2. **Application (Logic)**: `app/application/` — Business logic and use case orchestration.
+3. **Infrastructure (Implementation)**: `app/infrastructure/` — Database models, repositories, and external integrations.
+
+## Configuration
+
+Database and other settings are loaded from **config files** under `config/`:
+
+- `config/app.ini` — Base settings (all environments).
+- `config/app.develop.ini` — Overrides when `APPLICATION_ENVIRONMENT=develop`.
+
+Set `APPLICATION_ENVIRONMENT` to `develop`, `testing`, `staging`, or `production` to select the environment. Config is merged (base first, then environment-specific).
+
+## Getting Started
+
+### 1. Install Dependencies
+
+```bash
+uv sync
+```
+
+Or install with dev dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+### 2. Run Quality Checks
+
+Before running the application, it's recommended to run linting and tests:
+
+```bash
+# Lint code
+uv run ruff check .
+
+# Run tests
+uv run pytest
+```
+
+**Best Practice**: Always run `ruff check` and `pytest` before committing code to ensure code quality and catch issues early.
+
+### 3. Run the Application
+
+```bash
+uvicorn main:app --reload
+```
+
+### 4. API Documentation
+
+Once running:
+
+- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health: [http://127.0.0.1:8000/api/v1/health](http://127.0.0.1:8000/api/v1/health)
+- Items list (paginated): `GET /api/v1/items?page=1&size=20`
+- Item by id: `GET /api/v1/items/{item_id}`
+
+## Tech Stack
+
+- **Framework**: [FastAPI](https://fastapi.tiangolo.com/)
+- **Core Library**: [ZodiacCore](https://github.com/TTWShell/ZodiacCore-Py)
+- **Database**: [SQLModel](https://sqlmodel.tiangolo.com/) (SQLAlchemy + Pydantic)
+- **Logging**: [Loguru](https://github.com/Delgan/loguru)

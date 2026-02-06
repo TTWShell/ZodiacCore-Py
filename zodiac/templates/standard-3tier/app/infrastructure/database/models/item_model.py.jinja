@@ -1,0 +1,9 @@
+from sqlmodel import Field
+from zodiac_core.db.sql import IntIDModel
+
+
+class ItemModel(IntIDModel, table=True):
+    __tablename__ = "items"
+    name: str = Field(index=True)
+    description: str | None = Field(default=None)
+

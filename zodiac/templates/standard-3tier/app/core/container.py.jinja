@@ -1,0 +1,56 @@
+"""Dependency injection container (dependency_injector). Composition root: wires infra + application only."""
+
+import importlib
+import pkgutil
+from pathlib import Path
+from typing import Union
+
+from dependency_injector import containers, providers
+from zodiac_core.config import ConfigManagement
+from zodiac_core.http import ZodiacClient
+
+from app.application.services.github_service import GitHubService
+from app.application.services.item_service import ItemService
+from app.infrastructure.database.repositories.item_repository import ItemRepository
+from app.infrastructure.external.github_client import GitHubClient
+
+
+def get_router_modules(package_name: str = "app.api.routers") -> list[str]:
+    """Discover router submodules (name ending with _router) under the package for container.wire()."""
+    pkg = importlib.import_module(package_name)
+    prefix = f"{pkg.__name__}."
+    return [name for _, name, _ in pkgutil.walk_packages(pkg.__path__, prefix) if name.endswith("_router")]
+
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Configuration()
+    http_client = providers.Singleton(ZodiacClient)
+
+    item_repository = providers.Factory(ItemRepository)
+
+    item_service = providers.Factory(
+        ItemService,
+        item_repo=item_repository,
+    )
+
+    github_client = providers.Factory(
+        GitHubClient,
+        client=http_client,
+    )
+    github_service = providers.Factory(
+        GitHubService,
+        github_client=github_client,
+    )
+
+    @staticmethod
+    def initialize(search_paths: list[Union[str, Path]]):
+        """Load config from .ini and wire router modules (*_router). Returns the container."""
+        config_files = ConfigManagement.get_config_files(search_paths=search_paths)
+        container = Container()
+        for path in config_files:
+            container.config.from_ini(path)
+
+        container.wire(modules=get_router_modules("app.api.routers"))
+
+        return container
+

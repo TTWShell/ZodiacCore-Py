@@ -1,0 +1,19 @@
+from sqlalchemy import select
+from zodiac_core.db.repository import BaseSQLRepository
+from zodiac_core.pagination import PagedResponse, PageParams
+
+from app.infrastructure.database.models.item_model import ItemModel
+
+
+class ItemRepository(BaseSQLRepository):
+    async def get_by_id(self, item_id: int) -> ItemModel | None:
+        async with self.session() as session:
+            stmt = select(ItemModel).where(ItemModel.id == item_id)
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+
+    async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
+        """List items with pagination using BaseSQLRepository.paginate_query."""
+        stmt = select(ItemModel).order_by(ItemModel.id)
+        return await self.paginate_query(stmt, params)
+

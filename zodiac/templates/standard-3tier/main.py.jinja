@@ -1,0 +1,49 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI
+from zodiac_core.db import db
+from zodiac_core.exception_handlers import register_exception_handlers
+from zodiac_core.logging import setup_loguru
+from zodiac_core.middleware import register_middleware
+
+from app.core.container import Container
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    container = app.state.container
+    db.setup(
+        database_url=container.config.db.url(),
+        echo=container.config.db.get("echo", as_=bool),
+    )
+    await db.create_all()
+    yield
+    await db.shutdown()
+
+
+def create_app() -> FastAPI:
+    setup_loguru(
+        level="INFO",
+        json_format=True,
+        service_name="{{ project_name }}",
+    )
+
+    config_dir = Path(__file__).resolve().parent / "config"
+    container = Container.initialize([config_dir])
+
+    app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
+    app.state.container = container
+
+    register_middleware(app)
+    register_exception_handlers(app)
+
+    from app.api.router import api_router
+
+    app.include_router(api_router)
+
+    return app
+
+
+app = create_app()
+

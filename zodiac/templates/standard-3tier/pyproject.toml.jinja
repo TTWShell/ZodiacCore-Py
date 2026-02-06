@@ -1,0 +1,48 @@
+[project]
+name = "{{ project_name }}"
+version = "0.1.0"
+description = "A modern web service built with ZodiacCore"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "zodiac-core[sql]",
+    "dependency-injector>=4.41.0",
+    "aiosqlite>=0.20.0",
+    "uvicorn>=0.30.0",
+    "httpx>=0.28.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.9.3",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv", ".tox"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = """
+    -s -vv
+    --strict-markers
+"""
+markers = [
+    "serial: marks tests that must run serially (e.g., database tests)",
+]
+

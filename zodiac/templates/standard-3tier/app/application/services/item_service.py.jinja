@@ -1,0 +1,24 @@
+from loguru import logger
+from zodiac_core.exceptions import NotFoundException
+from zodiac_core.pagination import PagedResponse, PageParams
+
+from app.infrastructure.database.models.item_model import ItemModel
+from app.infrastructure.database.repositories.item_repository import ItemRepository
+
+
+class ItemService:
+    def __init__(self, item_repo: ItemRepository) -> None:
+        self.item_repo = item_repo
+
+    async def get_by_id(self, item_id: int) -> ItemModel:
+        item = await self.item_repo.get_by_id(item_id)
+        if not item:
+            raise NotFoundException(message=f"Item id '{item_id}' not found")
+        return item
+
+    async def list_items(self, page_params: PageParams) -> PagedResponse[ItemModel]:
+        """List items with pagination."""
+        result = await self.item_repo.list_items(page_params)
+        logger.bind(page=page_params.page, size=page_params.size, total=result.total).debug("list_items")
+        return result
+
