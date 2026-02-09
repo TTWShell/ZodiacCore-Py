@@ -15,5 +15,6 @@ The opinionated, async-first core library for modern Python web services.
 
 ## Project links
 
+- [Changelog](changelog.md) — Version history and release notes.
 - [Contributing](https://github.com/TTWShell/ZodiacCore-Py/blob/master/CONTRIBUTING.md) — How to contribute.
 - [License](https://github.com/TTWShell/ZodiacCore-Py/blob/master/LICENSE) — MIT License.

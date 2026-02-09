@@ -75,3 +75,4 @@ nav:
       - Pagination: api/pagination.md
       - Routing & Response: api/routing.md
       - Data Schemas: api/schemas.md
+  - Changelog: changelog.md

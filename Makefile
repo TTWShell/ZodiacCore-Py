@@ -1,4 +1,4 @@
-.PHONY: lint test test-parallel test-serial bench bench-save bench-compare clean docs-serve docs-build
+.PHONY: lint test test-parallel test-serial bench bench-save bench-compare clean docs-serve docs-build docs-sync
 
 test: test-parallel test-serial
 
@@ -14,10 +14,13 @@ bench-compare:
 lint:
 	uvx --with tox-uv tox -e lint
 
-docs-serve:
+docs-sync:
+	cp CHANGELOG.md docs/changelog.md
+
+docs-serve: docs-sync
 	uv run --group docs mkdocs serve
 
-docs-build:
+docs-build: docs-sync
 	uv run --group docs mkdocs build
 
 test-parallel:

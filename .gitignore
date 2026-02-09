@@ -13,3 +13,6 @@ wheels/
 demo
 demo*
 site/
+
+# Auto-generated docs files
+docs/changelog.md

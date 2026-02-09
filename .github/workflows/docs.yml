@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group docs
 
+      - name: Sync CHANGELOG to docs
+        run: make docs-sync
+
       - name: Configure git for mike push
         run: |
           git config user.name "github-actions[bot]"
