@@ -2,8 +2,6 @@ import importlib.metadata
 
 from .config import ConfigManagement, Environment
 from .context import get_request_id
-from .db.repository import BaseSQLRepository
-from .db.session import DEFAULT_DB_NAME
 from .exception_handlers import register_exception_handlers
 from .exceptions import (
     BadRequestException,
@@ -74,9 +72,6 @@ __all__ = [
     # pagination
     "PageParams",
     "PagedResponse",
-    # db
-    "BaseSQLRepository",
-    "DEFAULT_DB_NAME",
     # exceptions
     "ZodiacException",
     "BadRequestException",
