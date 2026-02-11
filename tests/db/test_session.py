@@ -92,6 +92,20 @@ class TestDatabaseManager:
 
         await db.shutdown()
 
+    @pytest.mark.asyncio
+    async def test_verify_connection(self):
+        """Verify db.verify() successfully checks database connection."""
+        if db._engines:
+            await db.shutdown()
+
+        url = "sqlite+aiosqlite:///:memory:"
+        db.setup(url)
+        try:
+            result = await db.verify()
+            assert result is True
+        finally:
+            await db.shutdown()
+
 
 class TestSessionManagement:
     """Tests for session lifecycle handling and helper functions."""

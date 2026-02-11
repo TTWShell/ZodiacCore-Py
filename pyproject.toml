@@ -70,6 +70,7 @@ addopts = """
     --cov=zodiac_core
     --cov=zodiac
     --cov-report=term-missing
+    --cov-report=xml
     --no-cov-on-fail
     -s -vv
     -p no:warnings

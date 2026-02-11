@@ -139,3 +139,27 @@ class TestExceptionHandlers:
         assert data["code"] == 1001
         assert data["message"] == "Your account balance is too low."
         assert data["data"] == {"current_balance": 50.5}
+
+    @pytest.mark.asyncio
+    async def test_register_exception_handlers(self):
+        """Test that register_exception_handlers registers all handlers."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from zodiac_core.exception_handlers import register_exception_handlers
+
+        app = FastAPI()
+        register_exception_handlers(app)
+
+        @app.get("/err")
+        def raise_err():
+            raise ValueError("trigger global handler")
+
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/err")
+        assert resp.status_code == 500
+        assert resp.json() == {
+            "code": 500,
+            "message": "Internal Server Error",
+            "data": None,
+        }
