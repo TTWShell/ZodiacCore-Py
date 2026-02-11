@@ -16,3 +16,6 @@ site/
 
 # Auto-generated docs files
 docs/changelog.md
+
+# Coverage reports
+coverage.xml

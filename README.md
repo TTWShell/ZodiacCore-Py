@@ -6,6 +6,7 @@
   <img src="https://img.shields.io/badge/Pydantic-v2-e92063.svg?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic v2">
   <img src="https://img.shields.io/badge/Async-First-purple.svg?style=for-the-badge" alt="Async First">
   <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="MIT License">
+  [![codecov](https://codecov.io/github/TTWShell/ZodiacCore-Py/graph/badge.svg?token=ZVSMW38NIA)](https://codecov.io/github/TTWShell/ZodiacCore-Py)
 </p>
 
 > **The opinionated, async-first core library for modern Python web services.**
