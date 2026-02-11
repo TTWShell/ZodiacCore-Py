@@ -1,13 +1,13 @@
 # ZodiacCore-Py
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.12+-blue.svg?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12+">
-  <img src="https://img.shields.io/badge/FastAPI-0.109+-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Pydantic-v2-e92063.svg?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic v2">
-  <img src="https://img.shields.io/badge/Async-First-purple.svg?style=for-the-badge" alt="Async First">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="MIT License">
-  [![codecov](https://codecov.io/github/TTWShell/ZodiacCore-Py/graph/badge.svg?token=ZVSMW38NIA)](https://codecov.io/github/TTWShell/ZodiacCore-Py)
-</p>
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)](https://fastapi.tiangolo.com/)
+[![Pydantic v2](https://img.shields.io/badge/Pydantic-v2-e92063.svg)](https://docs.pydantic.dev/)
+[![Async First](https://img.shields.io/badge/Async-First-purple.svg)](https://docs.python.org/3/library/asyncio.html)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen)](https://ttwshell.github.io/ZodiacCore-Py/)
+[![PyPI version](https://img.shields.io/pypi/v/zodiac-core.svg)](https://pypi.org/project/zodiac-core/)
+[![codecov](https://codecov.io/github/TTWShell/ZodiacCore-Py/graph/badge.svg?token=ZVSMW38NIA)](https://codecov.io/github/TTWShell/ZodiacCore-Py)
+[![License](https://img.shields.io/:license-mit-blue.svg)](https://opensource.org/licenses/MIT)
 
 > **The opinionated, async-first core library for modern Python web services.**
 
