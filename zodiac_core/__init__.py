@@ -9,6 +9,7 @@ from .exceptions import (
     ForbiddenException,
     NotFoundException,
     UnauthorizedException,
+    UnprocessableEntityException,
     ZodiacException,
 )
 from .http import ZodiacClient, ZodiacSyncClient
@@ -73,12 +74,13 @@ __all__ = [
     "PageParams",
     "PagedResponse",
     # exceptions
-    "ZodiacException",
     "BadRequestException",
     "UnauthorizedException",
     "ForbiddenException",
     "NotFoundException",
     "ConflictException",
+    "UnprocessableEntityException",
+    "ZodiacException",
     "register_exception_handlers",
     # logging
     "setup_loguru",

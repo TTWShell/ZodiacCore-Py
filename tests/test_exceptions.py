@@ -6,6 +6,7 @@ from zodiac_core.exceptions import (
     ForbiddenException,
     NotFoundException,
     UnauthorizedException,
+    UnprocessableEntityException,
     ZodiacException,
 )
 
@@ -19,6 +20,7 @@ from zodiac_core.exceptions import (
         (ForbiddenException, 403),
         (NotFoundException, 404),
         (ConflictException, 409),
+        (UnprocessableEntityException, 422),
     ],
 )
 class TestZodiacExceptions:

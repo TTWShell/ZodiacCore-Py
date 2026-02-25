@@ -13,6 +13,7 @@ from .exceptions import (
     ForbiddenException,
     NotFoundException,
     UnauthorizedException,
+    UnprocessableEntityException,
     ZodiacException,
 )
 from .response import (
@@ -49,6 +50,8 @@ async def handler_zodiac_exception(
             return response_not_found(**kwargs)
         case ConflictException():
             return response_conflict(**kwargs)
+        case UnprocessableEntityException():
+            return response_unprocessable_entity(**kwargs)
         case _:
             return response_server_error(**kwargs)
 
