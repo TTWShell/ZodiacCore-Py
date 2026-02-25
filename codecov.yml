@@ -1,0 +1,7 @@
+# https://docs.codecov.com/docs/pull-request-comments
+comment:
+  layout: "header, diff, flags, files, footer"
+  behavior: default
+  require_changes: false   # always post (even when coverage change is tiny/none)
+  require_base: false      # allow when base has no report yet
+  require_head: true
