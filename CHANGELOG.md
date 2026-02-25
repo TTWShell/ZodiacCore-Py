@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-02-25
+
+### Added
+
+- **Exceptions**: `UnprocessableEntityException` (HTTP 422) for business/semantic validation errors when the request is well-formed but not processable. Exception definitions, handlers, exports, and docs are ordered by HTTP status code (400–422).
+- **CI & coverage**: Upload coverage reports to Codecov in CI and enable XML coverage reports (`--cov-report=xml`) for tooling integration.
+- **Database tests**: Add an async integration test for `DatabaseManager.verify()` to ensure database connectivity can be checked reliably.
+
+### Changed
+
+- **README**: Replace badge layout with concise shields, adding direct links to documentation, PyPI, and Codecov status.
+- **Tooling**: Update ignore rules to keep generated coverage artifacts (`coverage.xml`) out of version control, while keeping docs changelog managed through the docs site.
+
 ## [0.2.1] - 2026-02-11
 
 ### Fixed
