@@ -49,3 +49,9 @@ class ConflictException(ZodiacException):
     """Exception raised for 409 Conflict errors."""
 
     http_code = status.HTTP_409_CONFLICT
+
+
+class UnprocessableEntityException(ZodiacException):
+    """Exception raised for 422 Unprocessable Entity (business validation / semantic errors)."""
+
+    http_code = status.HTTP_422_UNPROCESSABLE_ENTITY

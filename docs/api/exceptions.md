@@ -59,6 +59,7 @@ ZodiacCore includes several common exceptions ready to use:
 | `ForbiddenException` | 403 | Insufficient permissions. |
 | `NotFoundException` | 404 | Resource does not exist. |
 | `ConflictException` | 409 | Resource state conflict (e.g., duplicate entry). |
+| `UnprocessableEntityException` | 422 | Business/semantic validation failed (entity well-formed but not processable). |
 
 ---
 
@@ -125,6 +126,7 @@ register_exception_handlers(app)
         - ForbiddenException
         - NotFoundException
         - ConflictException
+        - UnprocessableEntityException
 
 ### Global Handler Registration
 ::: zodiac_core.exception_handlers

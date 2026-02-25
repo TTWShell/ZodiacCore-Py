@@ -14,6 +14,7 @@ from zodiac_core.exceptions import (
     ForbiddenException,
     NotFoundException,
     UnauthorizedException,
+    UnprocessableEntityException,
     ZodiacException,
 )
 
@@ -92,6 +93,7 @@ class TestExceptionHandlers:
             (ForbiddenException, {}, 403, "Forbidden", None),
             (NotFoundException, {}, 404, "Not Found", None),
             (ConflictException, {}, 409, "Conflict", None),
+            (UnprocessableEntityException, {}, 422, "Unprocessable Entity", None),
             (ZodiacException, {}, 500, "Internal Server Error", None),
             # Custom business code test
             (BadRequestException, {"code": 1001, "message": "Custom Error"}, 400, "Custom Error", None),
