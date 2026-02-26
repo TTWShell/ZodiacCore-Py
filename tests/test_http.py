@@ -83,3 +83,23 @@ class TestZodiacHttpClients:
             headers = mock.calls.last.request.headers
             assert headers["X-Request-ID"] == trace_id
             assert headers["X-Custom"] == "val"
+
+    @pytest.mark.asyncio
+    async def test_request_hook_as_single_callable(self):
+        """Test that a single callable (non-list) for request hook is merged correctly with trace hook."""
+
+        async def single_hook(request):
+            request.headers["X-Single"] = "yes"
+
+        trace_id = str(uuid.uuid4())
+        set_request_id(trace_id)
+
+        async with respx.mock(base_url="http://test") as mock:
+            mock.get("/").mock(return_value=Response(200))
+
+            async with ZodiacClient(base_url="http://test", event_hooks={"request": single_hook}) as client:
+                await client.get("/")
+
+            headers = mock.calls.last.request.headers
+            assert headers["X-Request-ID"] == trace_id
+            assert headers["X-Single"] == "yes"
