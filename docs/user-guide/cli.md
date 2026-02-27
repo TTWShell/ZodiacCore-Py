@@ -4,7 +4,7 @@ The **zodiac** command is the CLI for scaffolding Zodiac-based projects. Use the
 
 ## Install
 
-To use the CLI:
+`uv add` must be run from within a project directory. Create one first with `uv init` if needed (see [Installation](installation.md#about-uv)).
 
 ```bash
 uv add "zodiac-core[zodiac]"
@@ -29,6 +29,8 @@ uv add "zodiac-core[zodiac]"
 ```bash
 zodiac new my_app --tpl standard-3tier -o ./projects
 ```
+
+This creates `./projects/my_app/`. For the full scaffold-from-scratch flow (init → add → generate → run), see [Getting Started](getting-started.md).
 
 ## Generated Project Architecture
 

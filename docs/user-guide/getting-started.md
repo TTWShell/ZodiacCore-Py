@@ -4,15 +4,27 @@ This guide will walk you through building a complete, production-ready FastAPI a
 
 ## 1. Generate Your Project
 
-The easiest way to get started is using the **zodiac CLI** to scaffold a complete project structure:
+The easiest way to get started is using the **zodiac** CLI to scaffold a complete project structure. The CLI must be run from within a project directory (see [Installation](installation.md#about-uv)).
+
+> **Note**: Replace `my_app` with your desired project name.
 
 ```bash
-# Install the CLI
-uv add "zodiac-core[zodiac]"
+# Create a project directory and initialize with uv
+mkdir my_app
+cd my_app
+uv init --python 3.12
 
-# Generate a new project
-zodiac new my_app --tpl standard-3tier -o ./projects
-cd projects/my_app
+# Install the CLI and SQL support (required by the standard-3tier template)
+uv add "zodiac-core[zodiac,sql]"
+
+# Generate the project (output to parent dir, overwrite current dir with --force)
+zodiac new my_app --tpl standard-3tier -o .. --force
+
+# Add FastAPI CLI for running the app
+uv add "fastapi[standard]" --dev
+
+# Run the application
+uv run fastapi run --reload
 ```
 
 The `standard-3tier` template generates a project following the **Standard 3-Tier Layered Architecture** with **Dependency Injection**:
@@ -207,15 +219,14 @@ The response will automatically follow the standard error format:
 
 ## 7. Running Your Application
 
-Install dependencies and run:
+The scaffolding flow in Step 1 already includes `uv run fastapi run --reload`. If you prefer `uvicorn` or need to re-sync dependencies:
 
 ```bash
-# Install dependencies
 uv sync
-
-# Run the application
 uv run uvicorn main:app --reload
 ```
+
+Or use `uv run fastapi run --reload` (requires `fastapi[standard]`).
 
 Visit:
 
