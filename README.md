@@ -52,7 +52,6 @@ Use the **zodiac** CLI to generate a full project: 3-tier architecture, dependen
 mkdir dfd-service
 cd dfd-service
 uv init --python 3.12
-uv venv
 
 uv add "zodiac-core[zodiac,sql]"
 zodiac new dfd-service --tpl standard-3tier -o .. --force
