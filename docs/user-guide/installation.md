@@ -5,7 +5,27 @@ ZodiacCore is designed to be modular. You can install only what you need.
 ## Prerequisites
 
 - **Python**: 3.12 or higher
-- **Package Manager**: `pip` (standard) or `uv` (recommended for performance)
+- **Package Manager**: `pip` (standard) or [uv](https://docs.astral.sh/uv/) (recommended for performance)
+
+## About uv
+
+Commands like `uv add` and `uv sync` must be run **inside a project directory** that contains `pyproject.toml`. To create a new project, use `uv init` first:
+
+```bash
+uv init my-project    # creates my-project/ with pyproject.toml
+cd my-project
+uv add zodiac-core
+```
+
+Or initialize in the current directory:
+
+```bash
+mkdir my-project && cd my-project
+uv init
+uv add zodiac-core
+```
+
+uv will automatically create a virtual environment (`.venv`) and lockfile (`uv.lock`) when you first run `uv add` or `uv sync`. See the [uv documentation](https://docs.astral.sh/uv/) for details.
 
 ## 1. Basic Installation
 

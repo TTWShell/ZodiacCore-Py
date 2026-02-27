@@ -46,11 +46,18 @@ Extras (combinable): `zodiac-core[sql]` (SQLModel), `zodiac-core[mongo]` (Motor,
 
 Use the **zodiac** CLI to generate a full project: 3-tier architecture, dependency injection, config, and tests.
 
+> **Note**: `dfd-service` below is the name of the new project you want to create; replace it with your own.
+
 ```bash
-uv add "zodiac-core[zodiac]"
-zodiac new my_app --tpl standard-3tier -o ./projects
-cd projects/my_app
-uv sync --extra dev && uv run fastapi run --reload
+mkdir dfd-service
+cd dfd-service
+uv init --python 3.12
+
+uv add "zodiac-core[zodiac,sql]"
+zodiac new dfd-service --tpl standard-3tier -o .. --force
+
+uv add "fastapi[standard]" --dev
+uv run fastapi run --reload
 ```
 
 Open `http://127.0.0.1:8000/docs` and `http://127.0.0.1:8000/api/v1/health`. See [Getting started](https://ttwshell.github.io/ZodiacCore-Py/user-guide/getting-started/) and [CLI docs](https://ttwshell.github.io/ZodiacCore-Py/user-guide/cli/).

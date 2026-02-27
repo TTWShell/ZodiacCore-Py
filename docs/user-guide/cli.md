@@ -4,7 +4,7 @@ The **zodiac** command is the CLI for scaffolding Zodiac-based projects. Use the
 
 ## Install
 
-To use the CLI:
+`uv add` must be run from within a project directory. Create one first with `uv init` if needed (see [Installation](installation.md#about-uv)).
 
 ```bash
 uv add "zodiac-core[zodiac]"
@@ -30,14 +30,8 @@ uv add "zodiac-core[zodiac]"
 zodiac new my_app --tpl standard-3tier -o ./projects
 ```
 
+This creates `./projects/my_app/`. For the full scaffold-from-scratch flow (init → add → generate → run), see [Getting Started](getting-started.md).
+
 ## Generated Project Architecture
 
-The `standard-3tier` template generates a project following the **Standard 3-Tier Layered Architecture** with **Dependency Injection**:
-
-- **API (Presentation)**: FastAPI routers and request/response handling
-- **Application (Logic)**: Business logic and use case orchestration
-- **Infrastructure (Implementation)**: Database models, repositories, and external integrations
-
-The project uses `dependency-injector` for managing component dependencies, providing a clean separation of concerns and making the codebase more testable and maintainable.
-
-> **Note**: While the template uses a 3-tier architecture, ZodiacCore supports flexible layered architectures. You can extend it to a 4-tier architecture with a Domain layer when needed. See the [Architecture Guide](architecture.md) for detailed information.
+The `standard-3tier` template uses a 3-tier layered architecture with dependency injection. See [Getting Started](getting-started.md) or [Architecture Guide](architecture.md) for details.
