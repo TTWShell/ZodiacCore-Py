@@ -8,8 +8,10 @@ bench:
 bench-save:
 	uv run pytest benchmarks/ -v --benchmark-save=baseline
 
+# Compare against a saved run. Use the ID from the filename, e.g. 0001 for 0001_baseline.json.
+# Usage: make bench-compare [ID=0001]   (default ID=0001)
 bench-compare:
-	uv run pytest benchmarks/ -v --benchmark-compare=baseline
+	uv run pytest benchmarks/ -v --benchmark-compare=$(or $(ID),0001)
 
 lint:
 	uvx --with tox-uv tox -e lint
