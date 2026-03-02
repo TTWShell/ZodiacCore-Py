@@ -55,6 +55,7 @@ class TraceIDMiddleware:
 
         token = set_request_id(request_id)
         try:
+
             async def send_wrapper(message: Message) -> None:
                 if message["type"] == "http.response.start":
                     out_headers = MutableHeaders(scope=message)
