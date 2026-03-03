@@ -4,8 +4,8 @@ ZodiacCore provides built-in support for **Distributed Tracing**. It ensures tha
 
 ## 1. How it Works
 
-1. **Extraction**: `TraceIDMiddleware` catches `X-Request-ID` from incoming headers (or generates a new one).
-2. **Storage**: The ID is stored in a thread-safe `ContextVar` (managed by `zodiac_core.context`).
+1. **Extraction**: `TraceIDMiddleware` catches `X-Request-ID` from incoming HTTP or WebSocket upgrade headers (or generates a new one).
+2. **Storage**: The ID is stored in a thread-safe `ContextVar` (managed by `zodiac_core.context`) and reset when the request or connection ends (via `request_id_scope`).
 3. **Observation**: Logging utilities automatically pick up this ID from the context.
 4. **Propagation**: `ZodiacClient` automatically injects this ID into outgoing HTTP requests.
 
@@ -49,6 +49,8 @@ request_id = get_request_id()
 # Manually pass it to other systems...
 ```
 
+For custom ASGI middleware that must set and reset request ID (so it does not leak to the next request), use the `request_id_scope(request_id)` context manager from `zodiac_core.context`.
+
 ---
 
 ## 4. API Reference
@@ -69,3 +71,4 @@ request_id = get_request_id()
       show_root_heading: false
       members:
         - get_request_id
+        - request_id_scope

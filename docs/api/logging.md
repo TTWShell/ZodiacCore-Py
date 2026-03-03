@@ -8,7 +8,7 @@ ZodiacCore provides a pre-configured, production-ready logging system based on *
 By default, ZodiacCore outputs logs in **JSON format**. This is ideal for production environments (e.g., ELK stack, Datadog, CloudWatch) as it makes log parsing and searching significantly easier.
 
 ### Trace ID Correlation
-Every log message automatically includes a `request_id` if it was generated during an active web request. This allows you to correlate multiple log lines across different services for a single transaction.
+Every log message automatically includes a `request_id` if it was set during an active HTTP request or WebSocket connection (by `TraceIDMiddleware`). This allows you to correlate multiple log lines across different services for a single transaction.
 
 ---
 
