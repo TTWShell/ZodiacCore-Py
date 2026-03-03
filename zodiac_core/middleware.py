@@ -48,36 +48,27 @@ class TraceIDMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # ASGI scope["type"]: "http" | "websocket" | "lifespan" (see module docstring links)
         if scope["type"] == "http":
-            await self._handle_http(scope, receive, send)
+            headers = MutableHeaders(scope=scope)
+            header_value = headers.get(self.header_name)
+            request_id = self.generator() if header_value is None or len(header_value) != 36 else header_value
+            with request_id_scope(request_id):
+
+                async def send_wrapper(message: Message) -> None:
+                    if message["type"] == "http.response.start":
+                        out_headers = MutableHeaders(scope=message)
+                        out_headers.append(self.header_name, request_id)
+                    await send(message)
+
+                await self.app(scope, receive, send_wrapper)
             return
         if scope["type"] == "websocket":
-            await self._handle_websocket(scope, receive, send)
+            headers = MutableHeaders(scope=scope)
+            header_value = headers.get(self.header_name)
+            request_id = self.generator() if header_value is None or len(header_value) != 36 else header_value
+            with request_id_scope(request_id):
+                await self.app(scope, receive, send)
             return
         await self.app(scope, receive, send)
-
-    def _get_or_generate_request_id(self, scope: Scope) -> str:
-        headers = MutableHeaders(scope=scope)
-        header_value = headers.get(self.header_name)
-        if header_value is None or len(header_value) != 36:
-            return self.generator()
-        return header_value
-
-    async def _handle_http(self, scope: Scope, receive: Receive, send: Send) -> None:
-        request_id = self._get_or_generate_request_id(scope)
-        with request_id_scope(request_id):
-
-            async def send_wrapper(message: Message) -> None:
-                if message["type"] == "http.response.start":
-                    out_headers = MutableHeaders(scope=message)
-                    out_headers.append(self.header_name, request_id)
-                await send(message)
-
-            await self.app(scope, receive, send_wrapper)
-
-    async def _handle_websocket(self, scope: Scope, receive: Receive, send: Send) -> None:
-        request_id = self._get_or_generate_request_id(scope)
-        with request_id_scope(request_id):
-            await self.app(scope, receive, send)
 
 
 class AccessLogMiddleware:
@@ -96,51 +87,40 @@ class AccessLogMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # ASGI scope["type"]: "http" | "websocket" | "lifespan" (see module docstring links)
         if scope["type"] == "http":
-            await self._handle_http(scope, receive, send)
+            start_time = time.perf_counter()
+            status_code = 500
+
+            async def send_wrapper(message: Message) -> None:
+                nonlocal status_code
+                if message["type"] == "http.response.start":
+                    status_code = message.get("status", 500)
+                await send(message)
+
+            try:
+                await self.app(scope, receive, send_wrapper)
+            finally:
+                process_time = (time.perf_counter() - start_time) * 1000
+                logger.info(
+                    "{method} {path} - {status_code} - {latency:.2f}ms",
+                    method=scope.get("method", "GET"),
+                    path=scope.get("path", "/"),
+                    status_code=status_code,
+                    latency=process_time,
+                )
             return
         if scope["type"] == "websocket":
-            await self._handle_websocket(scope, receive, send)
+            start_time = time.perf_counter()
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                process_time = (time.perf_counter() - start_time) * 1000
+                logger.info(
+                    "WEBSOCKET {path} - 101 - {latency:.2f}ms",
+                    path=scope.get("path", "/"),
+                    latency=process_time,
+                )
             return
         await self.app(scope, receive, send)
-
-    def _log_access(
-        self,
-        scope: Scope,
-        start_time: float,
-        method: str | None = None,
-        status_code: int = 500,
-    ) -> None:
-        process_time = (time.perf_counter() - start_time) * 1000
-        method = method or scope.get("method", "GET")
-        path = scope.get("path", "/")
-        logger.info(
-            "{method} {path} - {status_code} - {latency:.2f}ms",
-            method=method,
-            path=path,
-            status_code=status_code,
-            latency=process_time,
-        )
-
-    async def _handle_http(self, scope: Scope, receive: Receive, send: Send) -> None:
-        start_time = time.perf_counter()
-        log_info: dict[str, int] = {"status_code": 500}
-
-        async def send_wrapper(message: Message) -> None:
-            if message["type"] == "http.response.start":
-                log_info["status_code"] = message.get("status", 500)
-            await send(message)
-
-        try:
-            await self.app(scope, receive, send_wrapper)
-        finally:
-            self._log_access(scope, start_time, status_code=log_info["status_code"])
-
-    async def _handle_websocket(self, scope: Scope, receive: Receive, send: Send) -> None:
-        start_time = time.perf_counter()
-        try:
-            await self.app(scope, receive, send)
-        finally:
-            self._log_access(scope, start_time, method="WEBSOCKET", status_code=101)
 
 
 def register_middleware(app: ASGIApp) -> None:
