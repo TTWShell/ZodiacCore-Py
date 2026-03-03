@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Optional
 
@@ -32,3 +33,16 @@ def reset_request_id(token):
     Internal use: Reset the context to its previous state.
     """
     _request_id_ctx_var.reset(token)
+
+
+@contextmanager
+def request_id_scope(request_id: str):
+    """
+    Set request_id for the current context and reset on exit (normal or exception).
+    Use in middleware so the id never leaks to the next request.
+    """
+    token = set_request_id(request_id)
+    try:
+        yield
+    finally:
+        reset_request_id(token)

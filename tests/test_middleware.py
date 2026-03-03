@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from zodiac_core import TraceIDMiddleware, get_request_id, setup_loguru
-from zodiac_core.middleware import register_middleware
+from zodiac_core.middleware import AccessLogMiddleware, register_middleware
 
 
 @pytest.mark.asyncio
@@ -56,6 +56,71 @@ async def test_context_reset():
 
     # Context should be empty outside request
     assert get_request_id() is None
+
+
+@pytest.mark.asyncio
+class TestTraceIDMiddleware:
+    """TraceIDMiddleware: WebSocket and lifespan (non-HTTP) behavior."""
+
+    async def test_websocket_sets_request_id_from_header(self):
+        seen_request_id = []
+
+        async def fake_app(scope, receive, send):
+            seen_request_id.append(get_request_id())
+            await send({"type": "websocket.accept"})
+
+        middleware = TraceIDMiddleware(fake_app)
+        custom_id = str(uuid.uuid4())
+        scope = {
+            "type": "websocket",
+            "path": "/ws",
+            "headers": [[b"x-request-id", custom_id.encode()]],
+        }
+        received = []
+
+        async def fake_receive():
+            return {"type": "websocket.disconnect"}
+
+        async def fake_send(message):
+            received.append(message)
+
+        await middleware(scope, fake_receive, fake_send)
+        assert len(received) == 1
+        assert received[0]["type"] == "websocket.accept"
+        assert seen_request_id == [custom_id]
+        assert get_request_id() is None
+
+    async def test_websocket_generates_request_id(self):
+        seen_request_id = []
+
+        async def fake_app(scope, receive, send):
+            seen_request_id.append(get_request_id())
+            await send({"type": "websocket.accept"})
+
+        async def noop_send(m):
+            pass
+
+        middleware = TraceIDMiddleware(fake_app)
+        scope = {"type": "websocket", "path": "/ws", "headers": []}
+        await middleware(scope, lambda: {"type": "websocket.disconnect"}, noop_send)
+        assert len(seen_request_id) == 1
+        assert len(seen_request_id[0]) == 36
+        assert get_request_id() is None
+
+    async def test_lifespan_passthrough(self):
+        seen_request_id = []
+
+        async def fake_app(scope, receive, send):
+            seen_request_id.append(get_request_id())
+            await send({"type": "lifespan.startup.complete"})
+
+        async def noop_send(m):
+            pass
+
+        middleware = TraceIDMiddleware(fake_app)
+        scope = {"type": "lifespan"}
+        await middleware(scope, lambda: {"type": "lifespan.startup"}, noop_send)
+        assert seen_request_id == [None]
 
 
 @pytest.mark.asyncio
@@ -118,3 +183,49 @@ class TestMiddlewareStack:
         assert len(trace_id) == 36
         assert "GET /log-test" in last_log
         assert "200" in last_log
+
+
+@pytest.mark.asyncio
+class TestAccessLogMiddleware:
+    """AccessLogMiddleware: WebSocket and lifespan behavior."""
+
+    async def test_websocket_logs(self):
+        last_log = []
+        setup_loguru(
+            level="INFO",
+            json_format=False,
+            console_options={"sink": last_log.append, "enqueue": False},
+        )
+
+        async def fake_app(scope, receive, send):
+            await send({"type": "websocket.accept"})
+
+        async def noop_send(m):
+            pass
+
+        middleware = AccessLogMiddleware(fake_app)
+        scope = {"type": "websocket", "path": "/ws"}
+        await middleware(scope, lambda: {"type": "websocket.disconnect"}, noop_send)
+        assert len(last_log) >= 1
+        log_line = last_log[-1]
+        assert "WEBSOCKET" in log_line
+        assert "/ws" in log_line
+        assert "101" in log_line
+
+    async def test_lifespan_passthrough(self):
+        call_count = 0
+
+        async def fake_app(scope, receive, send):
+            nonlocal call_count
+            call_count += 1
+
+        async def noop_receive():
+            return {}
+
+        async def noop_send(msg):
+            pass
+
+        middleware = AccessLogMiddleware(fake_app)
+        scope = {"type": "lifespan"}
+        await middleware(scope, noop_receive, noop_send)
+        assert call_count == 1
