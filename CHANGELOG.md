@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-03
+
+### Added
+
+- **Middleware**: WebSocket support for `TraceIDMiddleware` and `AccessLogMiddleware`. Request ID is read from the WebSocket upgrade request headers (or generated), set in context for the connection lifetime, and reset on close. Access log records `WEBSOCKET {path} - 101 - {latency}ms`. Lifespan scope is passed through without request_id or access log.
+- **Context**: `request_id_scope(request_id)` context manager to set and reset request ID on exit (used internally by middleware; available for custom ASGI apps that need the same semantics).
+
+### Changed
+
+- **Middleware**: Replace `BaseHTTPMiddleware` with Pure ASGI implementation for `TraceIDMiddleware` and `AccessLogMiddleware`. Request handling uses `scope` / `receive` / `send` directly, improving latency and stability under load. Module docstring links to ASGI spec for scope types (`http`, `websocket`, `lifespan`).
+- **Makefile**: `make bench-compare` supports an optional run ID (e.g. `make bench-compare ID=0002`); default remains `0001`.
+- **Docs**: Clarify uv usage and scaffold flow in installation and getting-started; reduce redundancy in CLI and scaffold docs.
+- **Template**: Use async httpx client in standard-3tier generated tests.
+
+### Other
+
+- **Tests**: Add middleware tests for WebSocket and lifespan behavior; add coverage for response helpers, HTTP client hooks, and schemas `ensure_utc`.
+
 ## [0.3.0] - 2026-02-25
 
 ### Added
