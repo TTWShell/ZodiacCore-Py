@@ -68,6 +68,23 @@ class TestCacheManager:
                 caches._caches.pop("test_zodiac_alias", None)
 
     @pytest.mark.asyncio
+    async def test_get_cache_returns_same_instance(self):
+        """get_cache(name) returns the same ZodiacCache when called twice."""
+        cache.setup(prefix="same", default_ttl=60)
+        c1 = cache.get_cache(DEFAULT_CACHE_NAME)
+        c2 = cache.get_cache(DEFAULT_CACHE_NAME)
+        assert c1 is c2
+
+    @pytest.mark.asyncio
+    async def test_setup_same_name_twice_skips(self):
+        """Setup with same name again skips (idempotent); first config wins."""
+        cache.setup(prefix="idem", default_ttl=60)
+        first = cache.cache
+        cache.setup(prefix="idem", default_ttl=120)
+        second = cache.get_cache(DEFAULT_CACHE_NAME)
+        assert first is second
+
+    @pytest.mark.asyncio
     async def test_shutdown_closes_and_removes_backend(self):
         """shutdown() closes wrappers and removes backends from aiocache; cache.cache then raises."""
         cache.setup(prefix="shutdown_test", default_ttl=60)

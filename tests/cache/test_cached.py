@@ -113,3 +113,24 @@ class TestCachedDecorator:
         assert calls == 1
         # Named cache has namespace zodiac_cache:other
         assert cache.get_cache("other").backend.namespace == f"{ZODIAC_CACHE_NAMESPACE}:other"
+
+    @pytest.mark.asyncio
+    async def test_cached_key_builder_fallback_when_pickle_fails(self):
+        """Default key_builder falls back to repr hash when pickle.dumps raises (e.g. lambda in args)."""
+        cache.setup(prefix="deco_fallback", default_ttl=300)
+        calls = 0
+
+        @cached(ttl=60)
+        async def fn(x):
+            nonlocal calls
+            calls += 1
+            return 42  # picklable so cache can store it
+
+        # Unpicklable arg triggers except branch in key_builder; same ref => same key => cache hit
+        def unpicklable():
+            return 1
+
+        assert await fn(unpicklable) == 42
+        assert calls == 1
+        assert await fn(unpicklable) == 42
+        assert calls == 1
