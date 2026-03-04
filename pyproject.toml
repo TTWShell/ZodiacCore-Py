@@ -40,6 +40,7 @@ dependencies = [
 zodiac = ["click>=8.0", "jinja2>=3.0"]
 sql = ["sqlmodel>=0.0.31"]
 mongo = ["motor>=3.3.0"]
+cache = ["aiocache>=0.12.0"]
 
 [project.scripts]
 zodiac = "zodiac.main:main"
@@ -95,6 +96,7 @@ omit = [
 
 [dependency-groups]
 dev = [
+    "aiocache>=0.12.0",
     "ruff>=0.9.3",
     "ipython>=9.9.0",
     "pytest>=9.0.2",

@@ -68,6 +68,7 @@ nav:
   - API Reference:
       - Configuration: api/config.md
       - Context & Tracing: api/context.md
+      - Cache: api/cache.md
       - Database: api/db.md
       - Exception Handling: api/exceptions.md
       - Logging: api/logging.md
