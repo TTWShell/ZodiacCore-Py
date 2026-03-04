@@ -153,7 +153,7 @@ class CacheManager:
         """
         Configure a cache using aiocache's unified config. All ``kwargs`` are
         passed through to aiocache (e.g. ``cache``, ``endpoint``, ``port``,
-        ```serializer``, ``ttl``). We only set default ``namespace`` to
+        ``serializer``, ``ttl``). We only set default ``namespace`` to
         ``{ZODIAC_CACHE_NAMESPACE}:{prefix}`` and minimal defaults (cache class,
         serializer) when omitted.
         """

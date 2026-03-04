@@ -50,6 +50,24 @@ cache.setup(
 
 To reuse an existing alias config: `cache.setup(prefix="myapp", **caches.get_alias_config("my_redis"))`. Namespace is still set to `zodiac_cache:myapp`.
 
+### Named caches (`name`)
+
+You can register multiple caches under different names (e.g. default in-memory + a Redis cache for sessions). Use the **`name`** parameter:
+
+- **In `cache.setup(prefix=..., name=...)`**
+  Registers a cache under that name. Default is `"default"`. Each name has its own backend config and namespace `zodiac_cache:{prefix}`. Example: `cache.setup(prefix="myapp", default_ttl=300)` uses `name="default"`; `cache.setup(prefix="sessions", name="sessions", cache="aiocache.RedisCache", endpoint="...")` adds a second cache.
+
+- **`cache.cache`**
+  Shorthand for `cache.get_cache("default")` (the default cache).
+
+- **`cache.get_cache(name)`**
+  Returns the `ZodiacCache` for that name. Use this when you have multiple caches and want to call `get` / `set` / `get_or_set` on a specific one.
+
+- **In `@cached(..., name=...)`**
+  The decorator uses that named cache instead of the default. Example: `@cached(ttl=60, name="sessions")` stores entries in the cache registered with `name="sessions"`.
+
+Typical use: one default cache (e.g. in-memory or Redis) plus an optional second cache (e.g. Redis for sessions) with a different backend or TTL; call `cache.get_cache("sessions")` or `@cached(name="sessions")` for the second one.
+
 ### FastAPI lifespan
 
 ```python
@@ -72,7 +90,7 @@ app = FastAPI(lifespan=lifespan)
 
 **get_or_set:** `c = cache.cache` then `await c.get_or_set("key", producer, ttl=60)`.
 
-**@cached:** Key from `module:qualname:hash(args,kwargs)`. Uses default cache; pass `name="other"` to use `cache.get_cache("other")`.
+**@cached:** Key from `module:qualname:hash(args,kwargs)`. Uses the default cache unless you pass `name="other"` to use the cache registered with that name (see [Named caches](#named-caches-name)).
 
 ```python
 from zodiac_core.cache import cache, cached
