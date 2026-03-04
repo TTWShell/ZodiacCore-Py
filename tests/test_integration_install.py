@@ -69,6 +69,12 @@ class TestOptionalDependencies:
         assert "SQLModel and SQLAlchemy[asyncio] are required" in res.stderr
         assert "pip install 'zodiac-core[sql]'" in res.stderr
 
+        # 4. Verify importing cache module fails with helpful guidance (no aiocache)
+        res = run_in_venv(python_exe, "from zodiac_core.cache import cache")
+        assert res.returncode != 0
+        assert "aiocache is required" in res.stderr
+        assert "pip install 'zodiac-core[cache]'" in res.stderr
+
     def test_install_sql_extra(self, built_wheel, tmp_path):
         """Verify that SQL features work when [sql] extra is installed."""
         venv_dir = tmp_path / "venv_sql"
@@ -94,3 +100,27 @@ class TestOptionalDependencies:
         res = run_in_venv(python_exe, "import motor; print('Motor OK')")
         assert res.returncode == 0, res.stderr
         assert "Motor OK" in res.stdout
+
+    def test_install_cache_extra(self, built_wheel, tmp_path):
+        """Verify that cache features work when [cache] extra is installed."""
+        venv_dir = tmp_path / "venv_cache"
+        python_exe = create_uv_venv(venv_dir)
+
+        # 1. Install wheel with [cache] extra
+        venv_pip_install(python_exe, [f"{built_wheel.absolute()}[cache]"])
+
+        # 2. Verify cache module is importable and setup/cache work
+        code = """
+import asyncio
+from zodiac_core.cache import cache, cached, ZodiacCache
+
+cache.setup(prefix="test", default_ttl=60)
+c = cache.cache
+assert c is not None
+asyncio.run(c.set("k", 1))
+assert asyncio.run(c.get("k")) == 1
+print("Cache OK")
+"""
+        res = run_in_venv(python_exe, code)
+        assert res.returncode == 0, (res.stdout or "") + (res.stderr or "")
+        assert "Cache OK" in (res.stdout or "")
