@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+
+## [0.5.0] - 2026-03-04
+
+### Added
+
+- **Cache**: Unified cache layer on aiocache (optional extra `zodiac-core[cache]`). `CacheManager` singleton with `setup(prefix, ...)` / `get_cache(name)` / `shutdown()`; `ZodiacCache` with `get` / `set` / `delete` / `exists` and `get_or_set` (RedLock stampede protection, optional `skip_cache_func`). `@cached(ttl, key_builder, name, skip_cache_func)` decorator for async functions; default key builder hashes fn + args (pickle with repr fallback for unpicklable args). Namespace `zodiac_cache:{prefix}`; multi-cache via `name` parameter.
+- **Docs**: Cache API documentation (`docs/api/cache.md`) for setup, decorator, get_or_set, and named caches.
+- **Tests**: Cache test suite (decorator key/name/skip_cache_func, manager setup/get_cache/shutdown, ZodiacCache get_or_set/RedLock/skip_cache_func); integration test for optional `[cache]` extra.
+
 ## [0.4.0] - 2026-03-03
 
 ### Added
