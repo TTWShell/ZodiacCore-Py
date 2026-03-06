@@ -90,16 +90,28 @@ app = FastAPI(lifespan=lifespan)
 
 **get_or_set:** `c = cache.cache` then `await c.get_or_set("key", producer, ttl=60)`.
 
-**@cached:** Key from `module:qualname:hash(args,kwargs)`. Uses the default cache unless you pass `name="other"` to use the cache registered with that name (see [Named caches](#named-caches-name)).
+**@cached:** Key from `module:qualname:hash(args,kwargs)`. Supports both **async** and **sync** functions.
+
+> **Important:** The decorated function **always becomes asynchronous**. If you decorate a sync function, you must still `await` the result. Avoid slow blocking work in sync functions to prevent blocking the event loop.
 
 ```python
 from zodiac_core.cache import cache, cached
 
 cache.setup(prefix="myapp", default_ttl=300)
 
+# Async function (standard usage)
 @cached(ttl=60)
 async def get_user(user_id: int):
     return await db.fetch_user(user_id)
+
+# Sync function (now supported, but caller MUST await)
+@cached(ttl=120)
+def get_config(key: str):
+    return {"key": key, "value": "some_value"}
+
+# Usage:
+# user = await get_user(1)
+# config = await get_config("theme")  # Await is required here!
 ```
 
 ---

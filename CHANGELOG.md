@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.5.1] - 2026-03-06
+
+### Added
+
+- **Cache**: Support for synchronous functions in the `@cached` decorator. The decorated function becomes asynchronous and must be awaited by the caller, allowing cache reuse for both async and sync business logic.
+- **Template**: Integrated cache support into the `standard-3tier` project template, including optional dependency, configuration, initialization in `main.py`, and README usage notes.
+- **Tests**: Test cases for sync function support in the `@cached` decorator.
+
+### Changed
+
+- **Docs**: Cache API docs clarify that `@cached` supports both async and sync functions; add usage examples and note that caller must always await.
+
 ## [0.5.0] - 2026-03-04
 
 ### Added

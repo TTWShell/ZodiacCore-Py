@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from zodiac_core.cache import cache
 from zodiac_core.db import db
 from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.logging import setup_loguru
@@ -16,6 +17,10 @@ async def lifespan(app: FastAPI):
     db.setup(
         database_url=container.config.db.url(),
         echo=container.config.db.get("echo", as_=bool),
+    )
+    cache.setup(
+        prefix=container.config.cache.prefix(),
+        default_ttl=container.config.cache.get("default_ttl", as_=int),
     )
     await db.create_all()
     yield

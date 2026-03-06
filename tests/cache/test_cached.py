@@ -28,6 +28,25 @@ class TestCachedDecorator:
         assert calls == 2
 
     @pytest.mark.asyncio
+    async def test_cached_sync_function_supported(self):
+        """@cached works with sync functions; decorated callable is async, so caller must await."""
+        cache.setup(prefix="deco_sync", default_ttl=300)
+        calls = 0
+
+        @cached(ttl=60)
+        def fetch_sync(x: int):
+            nonlocal calls
+            calls += 1
+            return x * 3
+
+        assert await fetch_sync(1) == 3
+        assert calls == 1
+        assert await fetch_sync(1) == 3
+        assert calls == 1
+        assert await fetch_sync(2) == 6
+        assert calls == 2
+
+    @pytest.mark.asyncio
     async def test_cached_without_setup_raises(self):
         """Calling a @cached function before cache.setup() raises RuntimeError."""
 

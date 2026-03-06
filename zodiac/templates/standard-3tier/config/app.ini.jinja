@@ -1,3 +1,7 @@
 [db]
 url = sqlite+aiosqlite:///:memory:
 echo = false
+
+[cache]
+prefix = {{ project_name }}
+default_ttl = 300
