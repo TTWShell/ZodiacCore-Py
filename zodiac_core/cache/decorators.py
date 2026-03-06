@@ -1,8 +1,9 @@
 """
-@cached decorator: cache async function result using the configured default cache.
+@cached decorator: cache async or sync function result using the configured default cache.
 """
 
 import hashlib
+import inspect
 import pickle
 from collections.abc import Awaitable, Callable
 from functools import wraps
@@ -40,7 +41,9 @@ def cached(
     skip_cache_func: Optional[Callable[[T], bool]] = None,
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
-    Decorate an async function to cache its return value with the configured cache.
+    Decorate an async or sync function to cache its return value with the configured cache.
+    The decorated callable is always async (await the result). Sync functions are called
+    inside the cache layer; avoid slow blocking sync work to not block the event loop.
 
     Uses ``cache.get_cache(name)`` when ``name`` is set, otherwise ``cache.cache`` (default).
     Key is built from module, qualname, and args/kwargs (or custom key_builder).
@@ -74,7 +77,9 @@ def cached(
             key = builder(fn, args, kwargs)
 
             async def producer() -> T:
-                return await fn(*args, **kwargs)
+                if inspect.iscoroutinefunction(fn):
+                    return await fn(*args, **kwargs)
+                return fn(*args, **kwargs)
 
             return await backend.get_or_set(key, producer, ttl=ttl, skip_cache_func=skip)
 
