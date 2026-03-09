@@ -54,4 +54,4 @@ class ConflictException(ZodiacException):
 class UnprocessableEntityException(ZodiacException):
     """Exception raised for 422 Unprocessable Entity (business validation / semantic errors)."""
 
-    http_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    http_code = status.HTTP_422_UNPROCESSABLE_CONTENT

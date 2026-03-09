@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zodiac-core"
-version = "0.5.1"
+version = "0.5.2"
 description = "ZodiacCore-Py: A high-performance core library for modern Python web services."
 readme = "README.md"
 license = "MIT"
@@ -31,6 +31,7 @@ classifiers = [
 ]
 dependencies = [
     "fastapi>=0.128.0",
+    "starlette>=0.48.0",  # HTTP_422_UNPROCESSABLE_CONTENT (RFC 9110)
     "pydantic>=2.12.5",
     "loguru>=0.7.2",
     "httpx>=0.28.1",
