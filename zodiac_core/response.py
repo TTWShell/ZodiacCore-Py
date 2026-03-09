@@ -111,7 +111,7 @@ def response_unprocessable_entity(
     message: str = "Unprocessable Entity",
 ) -> JSONResponse:
     """Create an unprocessable entity response (422 Unprocessable Entity)"""
-    return create_response(status.HTTP_422_UNPROCESSABLE_ENTITY, code=code, data=data, message=message)
+    return create_response(status.HTTP_422_UNPROCESSABLE_CONTENT, code=code, data=data, message=message)
 
 
 def response_server_error(
