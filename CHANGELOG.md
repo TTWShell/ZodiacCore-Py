@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [0.5.2] - 2026-03-09
+
+### Fixed
+
+- **HTTP**: Use `HTTP_422_UNPROCESSABLE_CONTENT` (RFC 9110) instead of deprecated `HTTP_422_UNPROCESSABLE_ENTITY` in `UnprocessableEntityException` and `response_unprocessable_entity()`, resolving Starlette deprecation warnings.
+
+### Changed
+
+- **Dependencies**: Require `starlette>=0.48.0` so the RFC 9110 status constant is available.
+
 ## [0.5.1] - 2026-03-06
 
 ### Added
