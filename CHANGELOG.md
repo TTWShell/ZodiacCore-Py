@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-03-17
 
+### Fixed
+
+- **Logging**: When `json_format=True`, use empty `"text"` in serialized JSON so the message appears only in `record.message`, avoiding duplication and reducing log size (loguru#594).
+
+### Changed
+
+- **Logging**: Unify console and file sink defaults in `setup_loguru()` via shared `_sink_defaults` and `_apply_sink_defaults()`; document empty-text behavior and override via `console_options`/`file_options` in docstring.
 
 ## [0.5.2] - 2026-03-09
 

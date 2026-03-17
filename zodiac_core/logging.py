@@ -36,7 +36,10 @@ def setup_loguru(
 
     Args:
         level: Logging level (INFO, DEBUG, etc.)
-        json_format: Whether to output JSON (True) or Text (False).
+        json_format: Whether to output JSON (True) or Text (False). When True, the
+            serialized JSON has an empty "text" field to avoid duplicating the message
+            (see record.message); pass a custom "format" in console_options/file_options
+            if you need a non-empty "text".
         service_name: Name of the service (added to JSON logs).
         log_file: Optional file path to save logs.
         console_options: Extra kwargs to pass to the console sink (e.g. {"enqueue": True}).
@@ -72,35 +75,29 @@ def setup_loguru(
             "| {file.path}:{line}\n"
         )
 
-    # 4. Prepare Console Config
-    c_config = console_options or {}
-    c_config.setdefault("level", level)
-    c_config.setdefault("sink", sys.stderr)
-    c_config.setdefault("enqueue", True)  # Use thread-safe queue
-
+    # 4. Sink defaults shared by console and file (level, enqueue, format/serialize)
+    # Empty format avoids duplicating message in "text" and "record.message" (see loguru#594)
     if json_format:
-        c_config.setdefault("serialize", True)
+        _format_defaults: Dict[str, Any] = {"serialize": True, "format": lambda _: ""}
     else:
-        c_config.setdefault("format", _dev_formatter)
+        _format_defaults = {"format": _dev_formatter}
+    # enqueue=True for thread-safe sink
+    _sink_defaults: Dict[str, Any] = {"level": level, "enqueue": True, **_format_defaults}
 
-    # Add Console Sink
+    def _apply_sink_defaults(config: Dict[str, Any], sink: Any) -> None:
+        for key, value in _sink_defaults.items():
+            config.setdefault(key, value)
+        config.setdefault("sink", sink)
+
+    # 5. Console sink
+    c_config = console_options or {}
+    _apply_sink_defaults(c_config, sys.stderr)
     logger.add(**c_config)
 
-    # 5. Prepare File Config (if enabled)
+    # 6. File sink (if enabled)
     if log_file:
         if file_options is None:
             file_options = LogFileOptions()
         f_config = file_options.model_dump()
-
-        # Ensure mandatory defaults
-        f_config.setdefault("sink", log_file)
-        f_config.setdefault("level", level)
-        f_config.setdefault("enqueue", True)
-
-        if json_format:
-            f_config.setdefault("serialize", True)
-        else:
-            f_config.setdefault("format", _dev_formatter)
-
-        # Add File Sink
+        _apply_sink_defaults(f_config, log_file)
         logger.add(**f_config)
