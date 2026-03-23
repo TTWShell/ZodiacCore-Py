@@ -51,9 +51,16 @@ class ZodiacCache:
         """The underlying aiocache backend instance."""
         return self._backend
 
+    async def _get_raw(self, key: str) -> Any:
+        """Retrieve the raw backend value, including internal sentinels."""
+        return await self._backend.get(key)
+
     async def get(self, key: str) -> Any:
         """Retrieve a value from the cache."""
-        return await self._backend.get(key)
+        value = await self._get_raw(key)
+        if isinstance(value, _CachedNoneSentinel):
+            return None
+        return value
 
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Store a value in the cache with an optional TTL."""
@@ -86,7 +93,7 @@ class ZodiacCache:
             lease: Lock lease in seconds for stampede protection.
             skip_cache_func: If it returns True, the produced value is not stored.
         """
-        value = await self.get(key)
+        value = await self._get_raw(key)
         if isinstance(value, _CachedNoneSentinel):
             return None
         if value is not None:
@@ -94,7 +101,7 @@ class ZodiacCache:
 
         lease_sec = lease if lease is not None and lease > 0 else 2.0
         async with RedLock(self._backend, key, lease=lease_sec):
-            value = await self.get(key)
+            value = await self._get_raw(key)
             if isinstance(value, _CachedNoneSentinel):
                 return None
             if value is not None:

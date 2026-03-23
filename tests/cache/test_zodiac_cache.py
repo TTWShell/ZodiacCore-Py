@@ -170,3 +170,16 @@ class TestZodiacCacheGetOrSet:
         out2 = await zc.get_or_set("k", producer_none)
         assert out2 is None
         assert call_count == 1  # from cache
+
+    @pytest.mark.asyncio
+    async def test_get_returns_none_after_cached_none(self):
+        """Public get() should decode the internal sentinel back to None."""
+        backend = Cache(namespace="cached_none_get")
+        zc = ZodiacCache(backend)
+
+        async def producer_none():
+            return None
+
+        out = await zc.get_or_set("k", producer_none)
+        assert out is None
+        assert await zc.get("k") is None
