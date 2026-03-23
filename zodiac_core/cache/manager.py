@@ -3,6 +3,7 @@ Unified cache layer: config (setup) + prefix + @cached decorator.
 """
 
 from collections.abc import Awaitable, Callable
+from copy import deepcopy
 from typing import Any, Dict, Optional, TypeVar
 
 try:
@@ -132,6 +133,7 @@ class CacheManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._wrappers: Dict[str, ZodiacCache] = {}
+            cls._instance._setup_configs: Dict[str, Dict[str, Any]] = {}
         return cls._instance
 
     def get_cache(self, name: str = DEFAULT_CACHE_NAME) -> ZodiacCache:
@@ -164,17 +166,23 @@ class CacheManager:
         ``{ZODIAC_CACHE_NAMESPACE}:{prefix}`` and minimal defaults (cache class,
         serializer) when omitted.
         """
+        config = dict(kwargs)
+        config["namespace"] = f"{ZODIAC_CACHE_NAMESPACE}:{prefix}"  # always apply our namespace
+        config.setdefault("cache", "aiocache.SimpleMemoryCache")
+        config.setdefault("serializer", {"class": "aiocache.serializers.PickleSerializer"})
+
         if name in self._wrappers:
-            logger.warning(f"Cache '{name}' is already configured, skipping.")
-            return
+            existing = self._setup_configs.get(name)
+            current = {"default_ttl": default_ttl, "config": config}
+            if existing == current:
+                logger.debug(f"Cache '{name}' is already configured with the same settings, skipping.")
+                return
+            raise RuntimeError(f"Cache '{name}' is already configured with different settings")
 
-        kwargs["namespace"] = f"{ZODIAC_CACHE_NAMESPACE}:{prefix}"  # always apply our namespace
-        kwargs.setdefault("cache", "aiocache.SimpleMemoryCache")
-        kwargs.setdefault("serializer", {"class": "aiocache.serializers.PickleSerializer"})
-
-        aiocaches.add(name, kwargs)
+        aiocaches.add(name, config)
         instance = aiocaches.get(name)
         self._wrappers[name] = ZodiacCache(backend=instance, default_ttl=default_ttl)
+        self._setup_configs[name] = {"default_ttl": default_ttl, "config": deepcopy(config)}
         logger.info(f"Cache '{name}' initialized with prefix={prefix}")
 
     async def shutdown(self) -> None:
@@ -184,6 +192,7 @@ class CacheManager:
             getattr(aiocaches, "_caches", {}).pop(name, None)
             getattr(aiocaches, "_config", {}).pop(name, None)
             del self._wrappers[name]
+            self._setup_configs.pop(name, None)
 
 
 cache = CacheManager()

@@ -23,6 +23,7 @@ Requires `aiocache>=0.12.0`. For Redis etc., see [aiocache docs](https://aiocach
 ## 3. Configuration
 
 Call `cache.setup` at startup; optionally `await cache.shutdown()` on shutdown.
+Calling `cache.setup(...)` again with the same `name` is allowed only when the effective configuration is identical; different settings for an existing name raise `RuntimeError`.
 
 ### In-memory (default)
 
