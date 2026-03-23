@@ -86,6 +86,7 @@ class TestCacheManager:
         rebuilt = cache.get_cache(DEFAULT_CACHE_NAME)
         assert rebuilt is not original
         assert rebuilt.backend.namespace == f"{ZODIAC_CACHE_NAMESPACE}:same"
+        assert rebuilt._default_ttl == 60
 
     @pytest.mark.asyncio
     async def test_setup_same_name_twice_with_same_config_is_idempotent(self):

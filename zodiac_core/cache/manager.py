@@ -143,7 +143,11 @@ class CacheManager:
                 backend = aiocaches.get(name)
             except Exception as e:
                 raise RuntimeError(f"Cache '{name}' is not initialized: {e}") from e
-            self._wrappers[name] = ZodiacCache(backend=backend)
+            setup_config = self._setup_configs.get(name, {})
+            self._wrappers[name] = ZodiacCache(
+                backend=backend,
+                default_ttl=setup_config.get("default_ttl"),
+            )
         return self._wrappers[name]
 
     @property
