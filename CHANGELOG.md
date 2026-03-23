@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-03-23
+
+### Changed
+
+- **Cache**: Restrict the default `@cached` key builder to stable immutable parameters and require an explicit `key_builder` for complex arguments instead of falling back to unstable automatic keys.
+- **Cache**: Make `cache.setup(...)` deterministic by allowing repeated setup only for identical effective configuration and raising `RuntimeError` for conflicting settings.
+- **Docs**: Clarify cache setup idempotency rules and document the supported/default key-builder constraints for `@cached`.
+
+### Fixed
+
+- **Cache**: Decode the internal cached-`None` sentinel in public `get()` while preserving correct `get_or_set()` hit detection under lock rechecks.
+- **Cache**: Preserve `default_ttl` when rebuilding a `ZodiacCache` wrapper from an existing aiocache alias.
+
+### Added
+
+- **Tests**: Expand cache coverage for tuple-based default keys, deterministic setup behavior, wrapper rebuild state, public `get()` after cached `None`, and the cached-`None` lock recheck path.
+
 ## [0.5.3] - 2026-03-17
 
 ### Fixed

@@ -76,13 +76,34 @@ class TestCacheManager:
         assert c1 is c2
 
     @pytest.mark.asyncio
-    async def test_setup_same_name_twice_skips(self):
-        """Setup with same name again skips (idempotent); first config wins."""
+    async def test_get_cache_rebuilds_wrapper_from_existing_aiocache_alias(self):
+        """get_cache(name) should rebuild the ZodiacCache wrapper if only the wrapper cache was cleared."""
+        cache.setup(prefix="same", default_ttl=60)
+        original = cache.cache
+
+        cache._wrappers.clear()
+
+        rebuilt = cache.get_cache(DEFAULT_CACHE_NAME)
+        assert rebuilt is not original
+        assert rebuilt.backend.namespace == f"{ZODIAC_CACHE_NAMESPACE}:same"
+        assert rebuilt._default_ttl == 60
+
+    @pytest.mark.asyncio
+    async def test_setup_same_name_twice_with_same_config_is_idempotent(self):
+        """Setup with the same config again is idempotent."""
         cache.setup(prefix="idem", default_ttl=60)
         first = cache.cache
-        cache.setup(prefix="idem", default_ttl=120)
+        cache.setup(prefix="idem", default_ttl=60)
         second = cache.get_cache(DEFAULT_CACHE_NAME)
         assert first is second
+
+    @pytest.mark.asyncio
+    async def test_setup_same_name_with_different_config_raises(self):
+        """Setup with different settings for the same name should fail fast."""
+        cache.setup(prefix="idem", default_ttl=60)
+
+        with pytest.raises(RuntimeError, match="already configured with different settings"):
+            cache.setup(prefix="idem", default_ttl=120)
 
     @pytest.mark.asyncio
     async def test_shutdown_closes_and_removes_backend(self):
@@ -92,5 +113,6 @@ class TestCacheManager:
         await c.set("x", 1)
         await cache.shutdown()
         assert DEFAULT_CACHE_NAME not in cache._wrappers
+        assert DEFAULT_CACHE_NAME not in cache._setup_configs
         with pytest.raises(RuntimeError, match="not initialized"):
             _ = cache.cache

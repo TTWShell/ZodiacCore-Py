@@ -19,18 +19,31 @@ def _skip_none(result: Any) -> bool:
     return result is None
 
 
+def _normalize_key_part(value: Any) -> Any:
+    """Normalize supported arguments into a stable structure for the default key builder."""
+    if value is None or isinstance(value, bool | int | float | str | bytes):
+        return value
+    if isinstance(value, tuple):
+        return tuple(_normalize_key_part(item) for item in value)
+    raise TypeError(f"unsupported type {type(value).__qualname__}")
+
+
 def _default_key_builder(
     fn: Callable[..., Awaitable[Any]],
     args: tuple,
     kwargs: dict,
 ) -> str:
-    """Build cache key from function identity and arguments."""
+    """Build cache key from function identity and supported immutable arguments."""
     base = f"{fn.__module__}:{fn.__qualname__}"
     try:
-        raw = pickle.dumps((args, sorted(kwargs.items())))
-        h = hashlib.sha256(raw).hexdigest()[:16]
-    except Exception:
-        h = hashlib.sha256(f"{args!r}:{kwargs!r}".encode()).hexdigest()[:16]
+        normalized_args = tuple(_normalize_key_part(arg) for arg in args)
+        normalized_kwargs = tuple((key, _normalize_key_part(value)) for key, value in sorted(kwargs.items()))
+    except TypeError as e:
+        raise TypeError(
+            f"Unsupported argument type for cached key in {base}; provide key_builder explicitly for complex parameters"
+        ) from e
+    raw = pickle.dumps((normalized_args, normalized_kwargs))
+    h = hashlib.sha256(raw).hexdigest()[:16]
     return f"{base}:{h}"
 
 
@@ -46,7 +59,8 @@ def cached(
     inside the cache layer; avoid slow blocking sync work to not block the event loop.
 
     Uses ``cache.get_cache(name)`` when ``name`` is set, otherwise ``cache.cache`` (default).
-    Key is built from module, qualname, and args/kwargs (or custom key_builder).
+    Key is built from module, qualname, and supported immutable args/kwargs
+    (or a custom key_builder).
     TTL comes from decorator, then from the cache instance default_ttl.
 
     **Exception handling:** If the wrapped function raises, the exception
@@ -61,7 +75,8 @@ def cached(
 
     Args:
         ttl: TTL in seconds for this function's entries. If None, uses cache default_ttl.
-        key_builder: Optional (fn, args, kwargs) -> str. Default uses module:qualname:hash(args,kwargs).
+        key_builder: Optional (fn, args, kwargs) -> str. Default supports stable
+            immutable parameters only; provide explicitly for complex types.
         name: Name of the cache (from cache.setup(..., name=...)). If None, uses default.
         skip_cache_func: Callable(result) -> bool; if True, result is not stored.
             Default is to skip when result is None.
