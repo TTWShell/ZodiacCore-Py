@@ -76,6 +76,18 @@ class TestCacheManager:
         assert c1 is c2
 
     @pytest.mark.asyncio
+    async def test_get_cache_rebuilds_wrapper_from_existing_aiocache_alias(self):
+        """get_cache(name) should rebuild the ZodiacCache wrapper if only the wrapper cache was cleared."""
+        cache.setup(prefix="same", default_ttl=60)
+        original = cache.cache
+
+        cache._wrappers.clear()
+
+        rebuilt = cache.get_cache(DEFAULT_CACHE_NAME)
+        assert rebuilt is not original
+        assert rebuilt.backend.namespace == f"{ZODIAC_CACHE_NAMESPACE}:same"
+
+    @pytest.mark.asyncio
     async def test_setup_same_name_twice_with_same_config_is_idempotent(self):
         """Setup with the same config again is idempotent."""
         cache.setup(prefix="idem", default_ttl=60)

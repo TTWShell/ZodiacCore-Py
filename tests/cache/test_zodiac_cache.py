@@ -1,11 +1,14 @@
 """Tests for ZodiacCache (get/set/delete/get_or_set, namespace, RedLock)."""
 
 import asyncio
+from contextlib import asynccontextmanager
 
 import pytest
 from aiocache import Cache
 
 from zodiac_core.cache import ZodiacCache
+from zodiac_core.cache import manager as cache_manager_module
+from zodiac_core.cache.manager import _CACHED_NONE
 
 
 class TestZodiacCachePrefix:
@@ -183,3 +186,31 @@ class TestZodiacCacheGetOrSet:
         out = await zc.get_or_set("k", producer_none)
         assert out is None
         assert await zc.get("k") is None
+
+    @pytest.mark.asyncio
+    async def test_get_or_set_returns_none_when_lock_recheck_hits_cached_none(self, monkeypatch):
+        """If another worker stores cached None before the lock recheck, get_or_set should return None."""
+        backend = Cache(namespace="cached_none_recheck")
+        zc = ZodiacCache(backend)
+        values = iter([None, _CACHED_NONE])
+
+        async def fake_get_raw(_key: str):
+            return next(values)
+
+        @asynccontextmanager
+        async def fake_redlock(*args, **kwargs):
+            yield
+
+        monkeypatch.setattr(zc, "_get_raw", fake_get_raw)
+        monkeypatch.setattr(cache_manager_module, "RedLock", fake_redlock)
+
+        producer_called = False
+
+        async def producer():
+            nonlocal producer_called
+            producer_called = True
+            return "fresh"
+
+        out = await zc.get_or_set("k", producer)
+        assert out is None
+        assert producer_called is False

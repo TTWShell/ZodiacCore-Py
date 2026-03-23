@@ -128,6 +128,23 @@ class TestCachedDecorator:
         assert calls == 1
 
     @pytest.mark.asyncio
+    async def test_cached_tuple_args_use_default_key_builder(self):
+        """Default key builder should support nested tuples of stable values."""
+        cache.setup(prefix="deco_tuple", default_ttl=300)
+        calls = 0
+
+        @cached(ttl=60)
+        async def fetch(payload: tuple):
+            nonlocal calls
+            calls += 1
+            return payload
+
+        payload = ("tenant", (1, "user", None))
+        assert await fetch(payload) == payload
+        assert await fetch(payload) == payload
+        assert calls == 1
+
+    @pytest.mark.asyncio
     async def test_cached_with_name_uses_named_cache(self):
         """@cached(name='other') uses cache.get_cache('other')."""
         cache.setup(prefix="default", default_ttl=60, name="default")
