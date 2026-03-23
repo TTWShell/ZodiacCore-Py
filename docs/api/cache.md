@@ -90,7 +90,7 @@ app = FastAPI(lifespan=lifespan)
 
 **get_or_set:** `c = cache.cache` then `await c.get_or_set("key", producer, ttl=60)`.
 
-**@cached:** Key from `module:qualname:hash(args,kwargs)`. Supports both **async** and **sync** functions.
+**@cached:** Key from `module:qualname:hash(args,kwargs)`. The default key builder only supports stable immutable parameters (`None`, `bool`, `int`, `float`, `str`, `bytes`, and tuples of those values). Supports both **async** and **sync** functions.
 
 > **Important:** The decorated function **always becomes asynchronous**. If you decorate a sync function, you must still `await` the result. Avoid slow blocking work in sync functions to prevent blocking the event loop.
 
@@ -113,6 +113,8 @@ def get_config(key: str):
 # user = await get_user(1)
 # config = await get_config("theme")  # Await is required here!
 ```
+
+If your function takes complex parameters such as `dict`, `list`, ORM objects, request/session objects, or custom class instances, pass `key_builder=...` explicitly. The default key builder raises `TypeError` for unsupported argument types instead of guessing an unstable cache key.
 
 ---
 

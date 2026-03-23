@@ -112,6 +112,22 @@ class TestCachedDecorator:
         assert calls == 1  # from cache
 
     @pytest.mark.asyncio
+    async def test_cached_kwargs_order_maps_to_same_default_key(self):
+        """Default key builder should keep kwargs order-insensitive."""
+        cache.setup(prefix="deco_kwargs", default_ttl=300)
+        calls = 0
+
+        @cached(ttl=60)
+        async def fetch(*, a: int, b: int):
+            nonlocal calls
+            calls += 1
+            return a + b
+
+        assert await fetch(a=1, b=2) == 3
+        assert await fetch(b=2, a=1) == 3
+        assert calls == 1
+
+    @pytest.mark.asyncio
     async def test_cached_with_name_uses_named_cache(self):
         """@cached(name='other') uses cache.get_cache('other')."""
         cache.setup(prefix="default", default_ttl=60, name="default")
@@ -134,22 +150,13 @@ class TestCachedDecorator:
         assert cache.get_cache("other").backend.namespace == f"{ZODIAC_CACHE_NAMESPACE}:other"
 
     @pytest.mark.asyncio
-    async def test_cached_key_builder_fallback_when_pickle_fails(self):
-        """Default key_builder falls back to repr hash when pickle.dumps raises (e.g. lambda in args)."""
+    async def test_cached_unsupported_args_require_custom_key_builder(self):
+        """Default key_builder rejects complex parameters instead of guessing an unstable key."""
         cache.setup(prefix="deco_fallback", default_ttl=300)
-        calls = 0
 
         @cached(ttl=60)
         async def fn(x):
-            nonlocal calls
-            calls += 1
-            return 42  # picklable so cache can store it
+            return 42
 
-        # Unpicklable arg triggers except branch in key_builder; same ref => same key => cache hit
-        def unpicklable():
-            return 1
-
-        assert await fn(unpicklable) == 42
-        assert calls == 1
-        assert await fn(unpicklable) == 42
-        assert calls == 1
+        with pytest.raises(TypeError, match="provide key_builder explicitly"):
+            await fn({"user_id": 1})
