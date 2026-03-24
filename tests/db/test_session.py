@@ -63,6 +63,34 @@ class TestDatabaseManager:
         await db.shutdown()
         assert DEFAULT_DB_NAME not in db._engines
         assert DEFAULT_DB_NAME not in db._session_factories
+        assert DEFAULT_DB_NAME not in db._setup_configs
+
+    @pytest.mark.asyncio
+    async def test_setup_same_name_with_different_config_raises(self):
+        """Setup with different settings for the same database name should fail fast."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:")
+
+        with pytest.raises(RuntimeError, match="already configured with different settings"):
+            db.setup("sqlite+aiosqlite:///another.db")
+
+        await db.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_setup_same_sqlite_name_ignores_unused_pool_settings(self):
+        """SQLite setup should stay idempotent when only ignored pool args differ."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:", pool_size=10, max_overflow=20)
+        original_engine = db.engine
+
+        db.setup("sqlite+aiosqlite:///:memory:", pool_size=99, max_overflow=199)
+
+        assert db.engine is original_engine
+        await db.shutdown()
 
     @pytest.mark.asyncio
     async def test_create_all(self):

@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from copy import deepcopy
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from loguru import logger
@@ -104,6 +105,7 @@ class DatabaseManager:
             cls._instance = super().__new__(cls)
             cls._instance._engines: Dict[str, AsyncEngine] = {}
             cls._instance._session_factories: Dict[str, async_sessionmaker[AsyncSession]] = {}
+            cls._instance._setup_configs: Dict[str, Dict[str, Any]] = {}
         return cls._instance
 
     def get_engine(self, name: str = DEFAULT_DB_NAME) -> AsyncEngine:
@@ -140,10 +142,6 @@ class DatabaseManager:
         **kwargs,
     ) -> None:
         """Initialize an Async Engine and Session Factory with a specific name."""
-        if name in self._engines:
-            logger.warning(f"Database '{name}' is already configured, skipping duplicate setup.")
-            return
-
         engine_args = {
             "echo": echo,
             "pool_pre_ping": pool_pre_ping,
@@ -155,6 +153,18 @@ class DatabaseManager:
             engine_args["pool_size"] = pool_size
             engine_args["max_overflow"] = max_overflow
 
+        current = {
+            "database_url": database_url,
+            "engine_args": deepcopy(engine_args),
+        }
+
+        if name in self._engines:
+            existing = self._setup_configs.get(name)
+            if existing == current:
+                logger.debug(f"Database '{name}' is already configured with the same settings, skipping.")
+                return
+            raise RuntimeError(f"Database '{name}' is already configured with different settings")
+
         engine = create_async_engine(database_url, **engine_args)
         factory = async_sessionmaker(
             bind=engine,
@@ -165,6 +175,7 @@ class DatabaseManager:
 
         self._engines[name] = engine
         self._session_factories[name] = factory
+        self._setup_configs[name] = current
         logger.info(f"Database '{name}' initialized successfully.")
 
     async def shutdown(self) -> None:
@@ -173,6 +184,7 @@ class DatabaseManager:
             await engine.dispose()
         self._engines.clear()
         self._session_factories.clear()
+        self._setup_configs.clear()
 
     @asynccontextmanager
     async def session(self, name: str = DEFAULT_DB_NAME) -> AsyncGenerator[AsyncSession, None]:
