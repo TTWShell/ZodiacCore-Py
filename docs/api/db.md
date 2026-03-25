@@ -45,6 +45,7 @@ Both `IntIDModel` and `UUIDModel` include `SQLDateTimeMixin`, which provides:
 ## 3. Configuration & Lifecycle
 
 You should initialize the database during your application's startup and ensure it shuts down cleanly.
+Calling `db.setup(...)` again with the same `name` is allowed only when the effective configuration is identical; different settings for an existing name raise `RuntimeError`.
 
 ### FastAPI Integration
 We recommend using the **lifespan** context manager (FastAPI 0.93+). The legacy `on_event("startup")` / `on_event("shutdown")` are deprecated.
