@@ -32,7 +32,7 @@ You can use `ConfigManagement` to find the correct files and then load them usin
 
 ```python
 from pathlib import Path
-from zodiac_core import ConfigManagement
+from zodiac_core.config import ConfigManagement
 
 # 1. Get the list of files in correct loading order
 config_dir = Path(__file__).parent / "config"
@@ -46,7 +46,7 @@ config_files = ConfigManagement.get_config_files(
 # ConfigManagement.get_config_files(search_paths=[config_dir], default_env="develop")
 ```
 
-### Using With dependency-injector
+### Integrating with dependency-injector
 
 This is the default integration pattern used by the generated project template.
 
@@ -121,7 +121,7 @@ For production applications, it is highly recommended to use a Pydantic model. T
 
 ```python
 from pydantic import BaseModel
-from zodiac_core import ConfigManagement
+from zodiac_core.config import ConfigManagement
 
 class DbConfig(BaseModel):
     host: str

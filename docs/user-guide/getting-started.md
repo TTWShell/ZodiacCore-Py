@@ -232,7 +232,6 @@ The scaffolding flow in Step 1 already includes `uv run fastapi run --reload`. I
 
 ```bash
 uv sync
-export APPLICATION_ENVIRONMENT=develop
 uv run uvicorn main:app --reload
 ```
 
