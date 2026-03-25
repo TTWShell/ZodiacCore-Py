@@ -1,4 +1,5 @@
-from typing import Any, Dict, Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Dict, Optional
 
 import httpx
 from loguru import logger
@@ -77,3 +78,15 @@ class ZodiacSyncClient(httpx.Client):
             event_hooks=_merge_hooks(event_hooks, _inject_trace_id_hook),
             **kwargs,
         )
+
+
+@asynccontextmanager
+async def init_http_client(
+    *,
+    timeout: float = 30.0,
+    event_hooks: Optional[Dict[str, Any]] = None,
+    **kwargs: Any,
+) -> AsyncGenerator[ZodiacClient, None]:
+    """Create and close a shared ZodiacClient within an application lifecycle."""
+    async with ZodiacClient(timeout=timeout, event_hooks=event_hooks, **kwargs) as client:
+        yield client

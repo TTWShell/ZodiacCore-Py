@@ -173,8 +173,8 @@ class GitHubClient:
         self.client = client
 
     async def fetch_homepage(self) -> str:
-        """Fetch GitHub homepage HTML."""
-        response = await self.client.get("https://github.com")
+        """Fetch GitHub homepage HTML using the configured base URL."""
+        response = await self.client.get("/")
         logger.info("Fetched GitHub homepage")
         return response.text
 ```
@@ -183,6 +183,7 @@ class GitHubClient:
 
 - Repositories inherit from `BaseSQLRepository` for pagination and session management
 - External clients use `ZodiacClient` for HTTP requests with trace ID injection
+- Configure service-specific `base_url` at the container/resource level, then use relative paths inside the external client
 - Infrastructure is **swappable** - you can change databases or APIs without touching business logic
 
 ---
@@ -247,9 +248,14 @@ The container is typically defined in `app/core/container.py`: it declares provi
 
 ```python
 from dependency_injector import containers, providers
+from zodiac_core.http import init_http_client
 
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration()
+    http_client = providers.Resource(
+        init_http_client,
+        base_url=config.github.base_url,
+    )
     item_repository = providers.Factory(ItemRepository)
     item_service = providers.Factory(ItemService, item_repo=item_repository)
     # ...

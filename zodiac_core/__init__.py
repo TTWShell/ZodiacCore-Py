@@ -12,7 +12,7 @@ from .exceptions import (
     UnprocessableEntityException,
     ZodiacException,
 )
-from .http import ZodiacClient, ZodiacSyncClient
+from .http import ZodiacClient, ZodiacSyncClient, init_http_client
 from .logging import LogFileOptions, setup_loguru
 from .middleware import AccessLogMiddleware, TraceIDMiddleware, register_middleware
 from .pagination import PagedResponse, PageParams
@@ -70,6 +70,7 @@ __all__ = [
     # http client
     "ZodiacClient",
     "ZodiacSyncClient",
+    "init_http_client",
     # pagination
     "PageParams",
     "PagedResponse",

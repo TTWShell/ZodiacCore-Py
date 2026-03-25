@@ -36,6 +36,27 @@ def sync_call():
         return resp.status_code
 ```
 
+### Shared Client Resource
+
+When your application uses dependency injection or manages startup/shutdown explicitly, use `init_http_client()` to create a shared async client resource for the application lifecycle.
+
+```python
+from dependency_injector import containers, providers
+from zodiac_core.http import init_http_client
+
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Configuration()
+
+    external_http_client = providers.Resource(
+        init_http_client,
+        base_url=config.external.base_url,
+        timeout=10.0,
+    )
+```
+
+This is useful when a downstream client should receive a preconfigured `ZodiacClient`, for example with `base_url`, `timeout`, or custom `event_hooks`.
+
 ---
 
 ## 3. Manual Context Access
@@ -63,6 +84,7 @@ For custom ASGI middleware that must set and reset request ID (so it does not le
       members:
         - ZodiacClient
         - ZodiacSyncClient
+        - init_http_client
 
 ### Context Utilities
 ::: zodiac_core.context

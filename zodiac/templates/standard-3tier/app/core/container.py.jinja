@@ -7,7 +7,7 @@ from typing import Union
 
 from dependency_injector import containers, providers
 from zodiac_core.config import ConfigManagement
-from zodiac_core.http import ZodiacClient
+from zodiac_core.http import init_http_client
 
 from app.application.services.github_service import GitHubService
 from app.application.services.item_service import ItemService
@@ -21,10 +21,9 @@ def get_router_modules(package_name: str = "app.api.routers") -> list[str]:
     prefix = f"{pkg.__name__}."
     return [name for _, name, _ in pkgutil.walk_packages(pkg.__path__, prefix) if name.endswith("_router")]
 
-
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration()
-    http_client = providers.Singleton(ZodiacClient)
+    http_client = providers.Resource(init_http_client)
 
     item_repository = providers.Factory(ItemRepository)
 
@@ -53,4 +52,3 @@ class Container(containers.DeclarativeContainer):
         container.wire(modules=get_router_modules("app.api.routers"))
 
         return container
-
