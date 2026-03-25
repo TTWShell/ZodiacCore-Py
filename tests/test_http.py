@@ -5,7 +5,7 @@ import respx
 from httpx import Response
 
 from zodiac_core.context import set_request_id
-from zodiac_core.http import ZodiacClient, ZodiacSyncClient
+from zodiac_core.http import ZodiacClient, ZodiacSyncClient, init_http_client
 
 
 class TestZodiacHttpClients:
@@ -103,3 +103,28 @@ class TestZodiacHttpClients:
             headers = mock.calls.last.request.headers
             assert headers["X-Request-ID"] == trace_id
             assert headers["X-Single"] == "yes"
+
+    @pytest.mark.asyncio
+    async def test_init_http_client_resource_usage(self):
+        """Test using init_http_client as a shared async client resource."""
+
+        async def custom_hook(request):
+            request.headers["X-Resource"] = "yes"
+
+        trace_id = str(uuid.uuid4())
+        set_request_id(trace_id)
+
+        async with respx.mock(base_url="http://test") as mock:
+            mock.get("/resource").mock(return_value=Response(200))
+
+            async with init_http_client(
+                base_url="http://test",
+                timeout=5.0,
+                event_hooks={"request": [custom_hook]},
+            ) as client:
+                assert isinstance(client, ZodiacClient)
+                await client.get("/resource")
+
+            headers = mock.calls.last.request.headers
+            assert headers["X-Request-ID"] == trace_id
+            assert headers["X-Resource"] == "yes"
