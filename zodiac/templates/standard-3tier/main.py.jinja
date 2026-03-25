@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,18 +13,25 @@ from app.core.container import Container
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    container = app.state.container
-    db.setup(
-        database_url=container.config.db.url(),
-        echo=container.config.db.get("echo", as_=bool),
-    )
-    cache.setup(
-        prefix=container.config.cache.prefix(),
-        default_ttl=container.config.cache.get("default_ttl", as_=int),
-    )
-    await db.create_all()
-    yield
-    await db.shutdown()
+    async with AsyncExitStack() as stack:
+        container = app.state.container
+        await container.init_resources()
+        stack.push_async_callback(container.shutdown_resources)
+
+        db.setup(
+            database_url=container.config.db.url(),
+            echo=container.config.db.get("echo", as_=bool),
+        )
+        stack.push_async_callback(db.shutdown)
+
+        cache.setup(
+            prefix=container.config.cache.prefix(),
+            default_ttl=container.config.cache.get("default_ttl", as_=int),
+        )
+        stack.push_async_callback(cache.shutdown)
+
+        await db.create_all()
+        yield
 
 
 def create_app() -> FastAPI:
@@ -51,4 +58,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

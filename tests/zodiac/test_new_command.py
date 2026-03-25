@@ -255,8 +255,8 @@ class TestGeneratedProjectQuality:
         pyproject_path = target_path / "pyproject.toml"
         content = pyproject_path.read_text()
         content = content.replace(
-            '"zodiac-core[sql]"',
-            f'"zodiac-core[sql] @ {repo_root.as_uri()}"',
+            '"zodiac-core[sql,cache]"',
+            f'"zodiac-core[sql,cache] @ {repo_root.as_uri()}"',
         )
         pyproject_path.write_text(content)
 
