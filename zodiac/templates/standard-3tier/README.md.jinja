@@ -17,7 +17,7 @@ Database and other settings are loaded from **config files** under `config/`:
 - `config/app.ini` — Base settings (all environments).
 - `config/app.develop.ini` — Overrides when `APPLICATION_ENVIRONMENT=develop`.
 
-Set `APPLICATION_ENVIRONMENT` to `develop`, `testing`, `staging`, or `production` to select the environment. Config is merged (base first, then environment-specific).
+The generated project reads only `APPLICATION_ENVIRONMENT`. If it is unset, the template defaults to `develop`. Config is merged in order: base first, then environment-specific overrides.
 
 ## Getting Started
 
@@ -50,6 +50,7 @@ uv run pytest
 ### 3. Run the Application
 
 ```bash
+export APPLICATION_ENVIRONMENT=develop
 uvicorn main:app --reload
 ```
 

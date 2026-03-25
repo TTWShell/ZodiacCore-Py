@@ -38,10 +38,11 @@ config_dir = Path(__file__).parent / "config"
 config_files = ConfigManagement.get_config_files(
     search_paths=[config_dir],
     env_var="APPLICATION_ENVIRONMENT",  # Default: APPLICATION_ENVIRONMENT
-    default_env="develop"                # Fallback if env_var is missing
+    default_env="production"            # Default fallback if env_var is missing
 )
 
-# Returns: ['.../config/app.ini', '.../config/app.develop.ini']
+# For local app templates, you can override the fallback explicitly:
+# ConfigManagement.get_config_files(search_paths=[config_dir], default_env="develop")
 ```
 
 ---

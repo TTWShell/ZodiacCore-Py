@@ -354,9 +354,9 @@ Configuration is managed through `.ini` files:
 
 - `config/app.ini` - Base configuration (all environments)
 - `config/app.develop.ini` - Development overrides
-- `config/app.production.ini` - Production overrides
+- `config/app.production.ini` - Production overrides you can add when needed
 
-The container loads configuration:
+The generated template container loads configuration from `APPLICATION_ENVIRONMENT` and defaults to `develop`:
 
 ```python
 from pathlib import Path
@@ -365,7 +365,7 @@ from zodiac_core.config import ConfigManagement
 config_dir = Path(__file__).resolve().parent.parent / "config"
 config_files = ConfigManagement.get_config_files(
     search_paths=[config_dir],
-    env_var="ENV",
+    env_var="APPLICATION_ENVIRONMENT",
     default_env="develop",
 )
 container.config.from_ini(*config_files)
