@@ -116,3 +116,25 @@ class TestCacheManager:
         assert DEFAULT_CACHE_NAME not in cache._setup_configs
         with pytest.raises(RuntimeError, match="not initialized"):
             _ = cache.cache
+
+    @pytest.mark.asyncio
+    async def test_named_shutdown_only_removes_target_cache(self):
+        """shutdown(name=...) only closes and deregisters the selected cache."""
+        cache.setup(prefix="default-cache", default_ttl=60)
+        cache.setup(prefix="secondary-cache", name="secondary", default_ttl=120)
+
+        default_cache = cache.get_cache(DEFAULT_CACHE_NAME)
+        secondary_cache = cache.get_cache("secondary")
+
+        await default_cache.set("default-key", 1)
+        await secondary_cache.set("secondary-key", 2)
+
+        await cache.shutdown(name="secondary")
+
+        assert "secondary" not in cache._wrappers
+        assert "secondary" not in cache._setup_configs
+        assert DEFAULT_CACHE_NAME in cache._wrappers
+        assert await default_cache.get("default-key") == 1
+
+        with pytest.raises(RuntimeError, match="not initialized"):
+            cache.get_cache("secondary")

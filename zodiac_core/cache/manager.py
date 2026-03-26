@@ -189,14 +189,29 @@ class CacheManager:
         self._setup_configs[name] = {"default_ttl": default_ttl, "config": deepcopy(config)}
         logger.info(f"Cache '{name}' initialized with prefix={prefix}")
 
-    async def shutdown(self) -> None:
-        """Close all registered cache instances and remove them from aiocache's registry."""
-        for name, w in list(self._wrappers.items()):
-            await w.close()
+    async def shutdown(self, name: str | None = None) -> None:
+        """
+        Close cache resources and remove them from aiocache's registry.
+
+        Args:
+            name: Optional cache name. When provided, only that cache is closed
+                  and deregistered. When omitted, all registered caches are closed.
+        """
+        if name is not None:
+            wrapper = self._wrappers.pop(name, None)
+            if wrapper is not None:
+                await wrapper.close()
             getattr(aiocaches, "_caches", {}).pop(name, None)
             getattr(aiocaches, "_config", {}).pop(name, None)
-            del self._wrappers[name]
             self._setup_configs.pop(name, None)
+            return
+
+        for cache_name, wrapper in list(self._wrappers.items()):
+            await wrapper.close()
+            getattr(aiocaches, "_caches", {}).pop(cache_name, None)
+            getattr(aiocaches, "_config", {}).pop(cache_name, None)
+            del self._wrappers[cache_name]
+            self._setup_configs.pop(cache_name, None)
 
 
 cache = CacheManager()
