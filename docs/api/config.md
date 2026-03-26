@@ -23,6 +23,7 @@ A typical production-ready configuration folder structure:
 config/
 ├── app.ini             # Default settings (all environments)
 ├── app.develop.ini     # Local development overrides
+├── app.testing.ini     # Test overrides
 └── app.production.ini  # Production secrets/tuning
 ```
 
@@ -31,17 +32,66 @@ You can use `ConfigManagement` to find the correct files and then load them usin
 
 ```python
 from pathlib import Path
-from zodiac_core import ConfigManagement
+from zodiac_core.config import ConfigManagement
 
 # 1. Get the list of files in correct loading order
 config_dir = Path(__file__).parent / "config"
 config_files = ConfigManagement.get_config_files(
     search_paths=[config_dir],
     env_var="APPLICATION_ENVIRONMENT",  # Default: APPLICATION_ENVIRONMENT
-    default_env="develop"                # Fallback if env_var is missing
+    default_env="production"            # Default fallback if env_var is missing
 )
 
-# Returns: ['.../config/app.ini', '.../config/app.develop.ini']
+# For local app templates, you can override the fallback explicitly:
+# ConfigManagement.get_config_files(search_paths=[config_dir], default_env="develop")
+```
+
+### Integrating with dependency-injector
+
+This is the default integration pattern used by the generated project template.
+
+```python
+from pathlib import Path
+
+from dependency_injector import containers, providers
+from zodiac_core.config import ConfigManagement
+
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Configuration()
+
+    @staticmethod
+    def initialize():
+        config_dir = Path(__file__).resolve().parent.parent / "config"
+        config_files = ConfigManagement.get_config_files(
+            search_paths=[config_dir],
+            default_env="develop",
+        )
+
+        container = Container()
+        for path in config_files:
+            container.config.from_ini(path)
+
+        return container
+
+
+container = Container.initialize()
+db_url = container.config.db.url()
+db_echo = container.config.db.get("echo", as_=bool)
+```
+
+### Testing Environment
+
+`testing` is a first-class environment. A common pattern is:
+
+- Keep test overrides in `config/app.testing.ini`
+- Set `APPLICATION_ENVIRONMENT=testing` in your test bootstrap
+- Let `ConfigManagement.get_config_files()` load `app.ini` first, then `app.testing.ini`
+
+```python
+import os
+
+os.environ.setdefault("APPLICATION_ENVIRONMENT", "testing")
 ```
 
 ---
@@ -49,6 +99,8 @@ config_files = ConfigManagement.get_config_files(
 ## 3. Configuration Objects
 
 ZodiacCore provides two ways to access your configuration data using `ConfigManagement.provide_config`:
+
+If you are using the generated template or `dependency-injector`, prefer `providers.Configuration()` plus `from_ini(...)` as your main path. `provide_config()` is mainly for projects that want ZodiacCore's config helpers without using DI.
 
 ### Mode A: SimpleNamespace (Quick Access)
 This mode is useful for rapid prototyping. It converts the dictionary into a `SimpleNamespace`, allowing for dot-notation access but without type hints or validation.
@@ -69,7 +121,7 @@ For production applications, it is highly recommended to use a Pydantic model. T
 
 ```python
 from pydantic import BaseModel
-from zodiac_core import ConfigManagement
+from zodiac_core.config import ConfigManagement
 
 class DbConfig(BaseModel):
     host: str

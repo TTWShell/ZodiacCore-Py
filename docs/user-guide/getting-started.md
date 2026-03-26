@@ -150,9 +150,10 @@ The project uses file-based configuration. Configuration files are in the `confi
 
 - `config/app.ini` - Base configuration
 - `config/app.develop.ini` - Development overrides
-- `config/app.production.ini` - Production overrides
+- `config/app.testing.ini` - Test overrides you can add for pytest or local integration tests
+- `config/app.production.ini` - Production overrides you can add when needed
 
-The configuration is loaded based on the `ENV` environment variable:
+The generated template loads configuration from the `APPLICATION_ENVIRONMENT` environment variable and defaults to `develop` when it is unset:
 
 ```python
 from pathlib import Path
@@ -161,10 +162,18 @@ from zodiac_core.config import ConfigManagement
 config_dir = Path(__file__).resolve().parent.parent / "config"
 config_files = ConfigManagement.get_config_files(
     search_paths=[config_dir],
-    env_var="ENV",
+    env_var="APPLICATION_ENVIRONMENT",
     default_env="develop",
 )
 container.config.from_ini(*config_files)
+```
+
+For tests, it is recommended to add `config/app.testing.ini` and set:
+
+```python
+import os
+
+os.environ.setdefault("APPLICATION_ENVIRONMENT", "testing")
 ```
 
 ## 5. Standard Response Wrapper

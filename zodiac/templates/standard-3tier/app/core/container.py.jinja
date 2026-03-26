@@ -44,7 +44,10 @@ class Container(containers.DeclarativeContainer):
     @staticmethod
     def initialize(search_paths: list[Union[str, Path]]):
         """Load config from .ini and wire router modules (*_router). Returns the container."""
-        config_files = ConfigManagement.get_config_files(search_paths=search_paths)
+        config_files = ConfigManagement.get_config_files(
+            search_paths=search_paths,
+            default_env="develop",
+        )
         container = Container()
         for path in config_files:
             container.config.from_ini(path)

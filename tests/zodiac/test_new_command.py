@@ -177,6 +177,12 @@ class TestNewCommand:
         assert readme.exists()
         content = readme.read_text()
         assert project_name in content
+        assert "APPLICATION_ENVIRONMENT" in content
+
+        container_py = target_path / "app" / "core" / "container.py"
+        assert container_py.exists()
+        content = container_py.read_text()
+        assert 'default_env="develop"' in content
 
     def test_new_command_file_and_directory_count(self, cli_runner):
         """Test that generated project has same file and directory count as template."""
