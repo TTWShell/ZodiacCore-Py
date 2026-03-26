@@ -300,6 +300,8 @@ async def init_db_resource(
     """
     A helper for dependency_injector's Resource provider.
     Handles the setup and shutdown lifecycle of the global `db` instance.
+    Cleanup is scoped to the provided database `name`, so other registered
+    databases remain available.
     """
     db.setup(database_url=database_url, name=name, echo=echo, connect_args=connect_args, **kwargs)
     try:

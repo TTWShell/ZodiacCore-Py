@@ -201,6 +201,25 @@ class TestDependencyIntegration:
             # Explicit check after cleanup
             assert "default" not in db._engines
 
+    @pytest.mark.asyncio
+    async def test_init_db_resource_only_cleans_up_its_own_name(self):
+        """Verify init_db_resource cleanup does not dispose other named databases."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:", name="other")
+        gen = init_db_resource("sqlite+aiosqlite:///:memory:", name="default")
+        try:
+            yielded_db = await anext(gen)
+            assert yielded_db is db
+            assert "default" in db._engines
+            assert "other" in db._engines
+        finally:
+            await gen.aclose()
+            assert "default" not in db._engines
+            assert "other" in db._engines
+            await db.shutdown()
+
     @pytest.mark.parametrize("name, url, connect_args", DB_URLS)
     @pytest.mark.asyncio
     async def test_get_session_fastapi_dependency(self, name, url, connect_args):
