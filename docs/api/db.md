@@ -5,7 +5,7 @@ ZodiacCore provides a high-performance, async-first database abstraction layer b
 ## 1. Core Concepts
 
 ### The Database Manager
-The `DatabaseManager` (exposed as the global `db` instance) is a strict singleton that manages the SQLAlchemy `AsyncEngine` and `async_sessionmaker`. It ensures that your application maintains a single connection pool, which is critical for performance and resource management.
+The `DatabaseManager` (exposed as the global `db` instance) is a strict singleton that manages the SQLAlchemy `AsyncEngine` and `async_sessionmaker`. It ensures that your process can reuse connection pools for the same named database instead of letting each app/container create its own pool, which is critical for performance and resource management.
 
 ### The Repository Pattern
 We encourage the use of the **Repository Pattern** via `BaseSQLRepository`. This decouples your business logic from database-specific code, making your application more maintainable and easier to unit test with mocks.
@@ -46,6 +46,12 @@ Both `IntIDModel` and `UUIDModel` include `SQLDateTimeMixin`, which provides:
 
 You should initialize the database during your application's startup and ensure it shuts down cleanly.
 Calling `db.setup(...)` again with the same `name` is allowed only when the effective configuration is identical; different settings for an existing name raise `RuntimeError`.
+Lifecycle control is now **name-aware**:
+
+- `await db.shutdown(name="...")` disposes only the selected named database.
+- `await db.shutdown()` disposes all registered databases.
+
+This lets multiple apps, containers, or resources share the global manager while still releasing only the resource they own.
 
 ### FastAPI Integration
 We recommend using the **lifespan** context manager (FastAPI 0.93+). The legacy `on_event("startup")` / `on_event("shutdown")` are deprecated.
@@ -69,6 +75,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 ```
+
+For a single-app service, `await db.shutdown()` is still the simplest shutdown path.
+If you register multiple named databases or share the global `db` across multiple app lifecycles, prefer `await db.shutdown(name="...")` for scoped cleanup.
 
 ---
 
@@ -115,6 +124,19 @@ db.setup("postgresql+asyncpg://master_db_url", name="default")
 # Read-only Replica
 db.setup("postgresql+asyncpg://replica_db_url", name="read_only")
 ```
+
+### Releasing Named Databases
+Named shutdown is the companion to named setup:
+
+```python
+# Dispose only the replica pool
+await db.shutdown(name="read_only")
+
+# Dispose everything registered in the manager
+await db.shutdown()
+```
+
+Use named shutdown when the process keeps other databases alive, such as multi-app hosting, plugin-based services, or multiple DI resources sharing the same global manager.
 
 ### Binding Repositories to a Database
 When creating a repository, specify which database it should use via `db_name`.

@@ -7,6 +7,7 @@ Unified cache on **aiocache**: one-time `cache.setup`, global default cache, sta
 - **cache** (CacheManager): singleton; `cache.setup(prefix=...)` once, then `cache.cache` (or `cache.get_cache(name)`) and `@cached` use it.
 - **ZodiacCache**: thin wrapper over aiocache `BaseCache` — `get` / `set` / `delete` / `exists` and **get_or_set** (RedLock stampede protection).
 - **Namespace**: `cache.setup(prefix="...")` → keys under `zodiac_cache:{prefix}`.
+- **Lifecycle**: `await cache.shutdown(name="...")` releases one named cache; `await cache.shutdown()` releases all registered caches.
 
 ---
 
@@ -24,6 +25,12 @@ Requires `aiocache>=0.12.0`. For Redis etc., see [aiocache docs](https://aiocach
 
 Call `cache.setup` at startup; optionally `await cache.shutdown()` on shutdown.
 Calling `cache.setup(...)` again with the same `name` is allowed only when the effective configuration is identical; different settings for an existing name raise `RuntimeError`.
+Lifecycle control is **name-aware**:
+
+- `await cache.shutdown(name="...")` closes only the selected named cache.
+- `await cache.shutdown()` closes all registered caches.
+
+This preserves the singleton manager design for shared cache backends while letting each app or resource release only the cache it owns.
 
 ### In-memory (default)
 
@@ -69,6 +76,16 @@ You can register multiple caches under different names (e.g. default in-memory +
 
 Typical use: one default cache (e.g. in-memory or Redis) plus an optional second cache (e.g. Redis for sessions) with a different backend or TTL; call `cache.get_cache("sessions")` or `@cached(name="sessions")` for the second one.
 
+When cleaning up, pair named setup with named shutdown:
+
+```python
+cache.setup(prefix="myapp", default_ttl=300)
+cache.setup(prefix="sessions", name="sessions", cache="aiocache.RedisCache", endpoint="127.0.0.1")
+
+await cache.shutdown(name="sessions")  # only the sessions cache
+await cache.shutdown()  # full cleanup
+```
+
 ### FastAPI lifespan
 
 ```python
@@ -84,6 +101,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 ```
+
+For a single-app service, `await cache.shutdown()` remains the simplest option.
+If your process registers multiple named caches or shares the global manager across multiple app lifecycles, prefer `await cache.shutdown(name="...")` for scoped cleanup.
 
 ---
 
