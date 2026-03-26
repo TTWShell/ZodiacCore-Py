@@ -109,7 +109,7 @@ class TestNewCommand:
 
         assert result.exit_code != 0
         assert "already exists" in result.output
-        assert "Use --force to overwrite" in result.output
+        assert "Use --force to generate into the existing directory" in result.output
 
     def test_new_command_directory_exists_with_force(self, cli_runner):
         """Test that new command overwrites directory with --force."""

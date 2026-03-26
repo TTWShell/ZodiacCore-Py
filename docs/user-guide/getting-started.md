@@ -17,7 +17,7 @@ uv init --python 3.12
 # Install the CLI and SQL support (required by the standard-3tier template)
 uv add "zodiac-core[zodiac,sql]"
 
-# Generate the project (output to parent dir, overwrite current dir with --force)
+# Generate the project (output to parent dir, allow generation into the existing directory with --force)
 zodiac new my_app --tpl standard-3tier -o .. --force
 
 # Add FastAPI CLI for running the app

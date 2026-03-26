@@ -39,7 +39,7 @@ def get_template_path(template_id: str) -> Path:
     "--force",
     is_flag=True,
     default=False,
-    help="Overwrite files in the target directory if it exists.",
+    help="Allow generating into an existing target directory without removing unrelated files.",
 )
 def new_cmd(project_name: str, template: str, output_dir: str, force: bool) -> None:
     """Generate a new project from a template.
@@ -50,7 +50,9 @@ def new_cmd(project_name: str, template: str, output_dir: str, force: bool) -> N
     template_path = get_template_path(template)
 
     if target_path.exists() and not force:
-        raise click.ClickException(f"Directory already exists: {target_path}. Use --force to overwrite.")
+        raise click.ClickException(
+            f"Directory already exists: {target_path}. Use --force to generate into the existing directory."
+        )
 
     click.echo(f"🚀 Generating project {project_name} using {template}...")
 

@@ -22,7 +22,7 @@ uv add "zodiac-core[zodiac]"
 | `PROJECT_NAME`    | Yes      | Name of the project. |
 | `--tpl` / `template` | Yes  | Template id. Currently supported: `standard-3tier`. |
 | `-o` / `--output` | Yes      | Directory where the project will be generated. |
-| `-f` / `--force` | No       | Overwrite files in the target directory if it exists. |
+| `-f` / `--force` | No       | Allow generation into an existing target directory without removing unrelated files. |
 
 ## Example
 
