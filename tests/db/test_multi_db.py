@@ -121,3 +121,22 @@ class TestMultiDatabaseIntegration:
 
         with pytest.raises(RuntimeError, match="not initialized"):
             db.get_engine("pg")
+
+    @pytest.mark.asyncio
+    async def test_named_shutdown_only_disposes_target_pool(self):
+        """Verify that db.shutdown(name=...) only disposes the selected engine."""
+        assert "pg" in db._engines
+        assert "mysql" in db._engines
+
+        await db.shutdown(name="pg")
+
+        assert "pg" not in db._engines
+        assert "mysql" in db._engines
+        assert "mysql" in db._session_factories
+
+        with pytest.raises(RuntimeError, match="not initialized"):
+            db.get_engine("pg")
+
+        async with db.session("mysql") as session:
+            result = await session.execute(text("SELECT 1"))
+            assert result.scalar() == 1

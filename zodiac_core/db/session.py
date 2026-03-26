@@ -178,8 +178,22 @@ class DatabaseManager:
         self._setup_configs[name] = current
         logger.info(f"Database '{name}' initialized successfully.")
 
-    async def shutdown(self) -> None:
-        """Dispose of all registered engines and clear factories."""
+    async def shutdown(self, name: str | None = None) -> None:
+        """
+        Dispose database resources.
+
+        Args:
+            name: Optional database name. When provided, only that engine/factory
+                  is disposed. When omitted, all registered databases are disposed.
+        """
+        if name is not None:
+            engine = self._engines.pop(name, None)
+            self._session_factories.pop(name, None)
+            self._setup_configs.pop(name, None)
+            if engine is not None:
+                await engine.dispose()
+            return
+
         for engine in self._engines.values():
             await engine.dispose()
         self._engines.clear()
@@ -286,9 +300,11 @@ async def init_db_resource(
     """
     A helper for dependency_injector's Resource provider.
     Handles the setup and shutdown lifecycle of the global `db` instance.
+    Cleanup is scoped to the provided database `name`, so other registered
+    databases remain available.
     """
     db.setup(database_url=database_url, name=name, echo=echo, connect_args=connect_args, **kwargs)
     try:
         yield db
     finally:
-        await db.shutdown()
+        await db.shutdown(name=name)
