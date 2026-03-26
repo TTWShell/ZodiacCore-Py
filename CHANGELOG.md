@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-03-26
+
+### Added
+
+- **HTTP**: Add `init_http_client()` as a lifecycle helper for creating and closing a shared `ZodiacClient` within an application or DI resource.
+- **Database**: Add scoped shutdown support via `db.shutdown(name="...")` so a single named database can be released without disposing all registered engines.
+- **Cache**: Add scoped shutdown support via `cache.shutdown(name="...")` so a single named cache can be released without clearing all registered caches.
+- **Tests**: Add coverage for named database/cache shutdown and for `init_db_resource()` cleaning up only its own database name.
+
+### Changed
+
+- **Database**: Make `DatabaseManager.setup()` deterministic by allowing repeated setup only for the same effective configuration and raising `RuntimeError` for conflicting configuration on an existing name.
+- **Database**: Make `init_db_resource()` release only the database registered under its own `name`, preserving other shared database resources in the same process.
+- **Template**: Manage the shared HTTP client as an application resource in the standard 3-tier template and initialize app resources through `AsyncExitStack`.
+- **Template**: Align generated project configuration loading with `APPLICATION_ENVIRONMENT` and default the template fallback environment to `develop`.
+- **CLI**: Clarify that `zodiac new --force` allows generation into an existing directory without removing unrelated files.
+- **Docs**: Update database, cache, config, context, architecture, CLI, and getting-started documentation to reflect the scoped resource lifecycle and template conventions.
+
+### Fixed
+
+- **Template**: Ensure generated projects use resource lifecycle management for shared HTTP clients instead of relying on unmanaged singleton client instances.
+
 ## [0.5.4] - 2026-03-23
 
 ### Changed
