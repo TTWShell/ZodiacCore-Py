@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-03-27
+
+### Added
+
+- **Cache**: Optional `include_cls` and `include_self` on `@cached` so the default key builder can fold receiver **class** identity into the key for `classmethod`s (`cls`) and instance methods (`self`), gated by conventional first-parameter names; document that `include_self` is class-scoped (not per-instance) and that inheritance changes cache partitioning when enabled.
+- **Tests**: Expand `@cached` coverage for custom `key_builder`, `include_cls` with base/derived classes, `include_self` sharing across instances of the same class, parent/child class separation, and instance methods that still require an explicit `key_builder` when receiver-aware keys are omitted.
+
+### Changed
+
+- **Docs**: Add a “Receiver-aware default keys” section to the cache API guide (constraints, warnings, and examples for class vs instance methods).
+
 ## [0.6.0] - 2026-03-26
 
 ### Added
