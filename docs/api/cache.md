@@ -147,7 +147,18 @@ If your function takes complex parameters such as `dict`, `list`, ORM objects, r
 This feature relies on the conventional first parameter names `cls` and `self`.
 If you use non-standard receiver names, provide a custom `key_builder`.
 
-`include_self=True` is **class-scoped**, not instance-scoped. It is intended for singleton services or functionally equivalent instances of the same class. If instance-specific configuration affects the result, use a custom `key_builder` instead.
+Place `@cached(...)` closest to the function definition. For class methods, use `@classmethod` above `@cached(...)`.
+
+> **Important**
+>
+> `include_cls=True` is appropriate only when the cache should vary by the bound class.
+> In inheritance-heavy code, enabling it means parent and child classes will use different cache keys even when they call the same method implementation.
+
+> **Warning**
+>
+> `include_self=True` is **class-scoped**, not instance-scoped.
+> It is intended for singleton services or functionally equivalent instances of the same class.
+> If instance-specific configuration affects the result, do **not** rely on `include_self=True`; provide a custom `key_builder` instead.
 
 ```python
 class UserService:
