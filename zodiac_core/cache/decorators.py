@@ -32,11 +32,29 @@ def _default_key_builder(
     fn: Callable[..., Awaitable[Any]],
     args: tuple,
     kwargs: dict,
+    *,
+    include_cls: bool = False,
+    include_self: bool = False,
 ) -> str:
     """Build cache key from function identity and supported immutable arguments."""
     base = f"{fn.__module__}:{fn.__qualname__}"
+    signature = inspect.signature(fn)
+    parameter_names = tuple(signature.parameters)
+    normalized_args_input = args
+
+    if args and parameter_names:
+        first_param = parameter_names[0]
+        first_arg = args[0]
+
+        if first_param == "cls" and include_cls:
+            cls_identity = f"{first_arg.__module__}:{first_arg.__qualname__}"
+            normalized_args_input = (cls_identity, *args[1:])
+        elif first_param == "self" and include_self:
+            self_identity = f"{first_arg.__class__.__module__}:{first_arg.__class__.__qualname__}"
+            normalized_args_input = (self_identity, *args[1:])
+
     try:
-        normalized_args = tuple(_normalize_key_part(arg) for arg in args)
+        normalized_args = tuple(_normalize_key_part(arg) for arg in normalized_args_input)
         normalized_kwargs = tuple((key, _normalize_key_part(value)) for key, value in sorted(kwargs.items()))
     except TypeError as e:
         raise TypeError(
@@ -52,6 +70,8 @@ def cached(
     key_builder: Optional[Callable[[Callable[..., Awaitable[T]], tuple, dict], str]] = None,
     name: Optional[str] = None,
     skip_cache_func: Optional[Callable[[T], bool]] = None,
+    include_cls: bool = False,
+    include_self: bool = False,
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
     Decorate an async or sync function to cache its return value with the configured cache.
@@ -80,10 +100,27 @@ def cached(
         name: Name of the cache (from cache.setup(..., name=...)). If None, uses default.
         skip_cache_func: Callable(result) -> bool; if True, result is not stored.
             Default is to skip when result is None.
+        include_cls: When True, class methods include the receiver class identity
+            (`cls.__module__` + `cls.__qualname__`) in the default cache key.
+        include_self: When True, instance methods include the receiver class identity
+            (`self.__class__.__module__` + `self.__class__.__qualname__`) in the
+            default cache key. This is suitable only when instances of the same
+            class are functionally equivalent for the cached method.
     """
 
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
-        builder = key_builder or _default_key_builder
+        if key_builder is None:
+
+            def builder(inner_fn: Callable[..., Awaitable[Any]], args: tuple, kwargs: dict) -> str:
+                return _default_key_builder(
+                    inner_fn,
+                    args,
+                    kwargs,
+                    include_cls=include_cls,
+                    include_self=include_self,
+                )
+        else:
+            builder = key_builder
         skip = skip_cache_func if skip_cache_func is not None else _skip_none
 
         @wraps(fn)

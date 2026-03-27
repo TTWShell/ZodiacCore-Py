@@ -177,3 +177,115 @@ class TestCachedDecorator:
 
         with pytest.raises(TypeError, match="provide key_builder explicitly"):
             await fn({"user_id": 1})
+
+    @pytest.mark.asyncio
+    async def test_cached_uses_custom_key_builder_when_provided(self):
+        """Custom key_builder should override the default key-building path."""
+        cache.setup(prefix="deco_custom_builder", default_ttl=300)
+        calls = 0
+
+        @cached(ttl=60, key_builder=lambda fn, args, kwargs: f"{fn.__qualname__}:{args[0]['user_id']}")
+        async def fn(payload):
+            nonlocal calls
+            calls += 1
+            return payload["user_id"]
+
+        assert await fn({"user_id": 1}) == 1
+        assert await fn({"user_id": 1}) == 1
+        assert calls == 1
+
+
+class TestCachedDecoratorClsReceiver:
+    """Receiver-aware caching behavior for class methods."""
+
+    @pytest.mark.asyncio
+    async def test_cached_classmethod_supports_cls_receiver_when_enabled(self):
+        """include_cls=True should cache class methods using class identity in the default key."""
+        cache.setup(prefix="deco_cls", default_ttl=300)
+
+        class BaseService:
+            calls = 0
+
+            @classmethod
+            @cached(ttl=60, include_cls=True)
+            async def fetch(cls, x: int):
+                cls.calls += 1
+                return f"{cls.__name__}:{x}"
+
+        class DerivedService(BaseService):
+            calls = 0
+
+        assert await BaseService.fetch(1) == "BaseService:1"
+        assert await BaseService.fetch(1) == "BaseService:1"
+        assert BaseService.calls == 1
+
+        assert await DerivedService.fetch(1) == "DerivedService:1"
+        assert await DerivedService.fetch(1) == "DerivedService:1"
+        assert DerivedService.calls == 1
+
+
+class TestCachedDecoratorSelfReceiver:
+    """Receiver-aware caching behavior for instance methods."""
+
+    @pytest.mark.asyncio
+    async def test_cached_instance_method_supports_self_receiver_when_enabled(self):
+        """include_self=True should cache instance methods using receiver class identity in the default key."""
+        cache.setup(prefix="deco_self", default_ttl=300)
+
+        class Service:
+            def __init__(self):
+                self.calls = 0
+
+            @cached(ttl=60, include_self=True)
+            async def fetch(self, x: int):
+                self.calls += 1
+                return x * 10
+
+        first = Service()
+        second = Service()
+
+        assert await first.fetch(1) == 10
+        assert first.calls == 1
+
+        assert await second.fetch(1) == 10
+        assert second.calls == 0
+
+        assert await second.fetch(2) == 20
+        assert second.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_cached_instance_method_separates_parent_and_child_classes(self):
+        """include_self=True should separate caches by receiver class, not share between parent and child classes."""
+        cache.setup(prefix="deco_self_inherit", default_ttl=300)
+
+        class BaseService:
+            calls = 0
+
+            @cached(ttl=60, include_self=True)
+            async def fetch(self, x: int):
+                type(self).calls += 1
+                return f"{type(self).__name__}:{x}"
+
+        class DerivedService(BaseService):
+            calls = 0
+
+        assert await BaseService().fetch(1) == "BaseService:1"
+        assert await BaseService().fetch(1) == "BaseService:1"
+        assert BaseService.calls == 1
+
+        assert await DerivedService().fetch(1) == "DerivedService:1"
+        assert await DerivedService().fetch(1) == "DerivedService:1"
+        assert DerivedService.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_cached_instance_method_without_include_self_requires_custom_key_builder(self):
+        """Instance methods still require explicit opt-in for receiver-aware default keys."""
+        cache.setup(prefix="deco_self_disabled", default_ttl=300)
+
+        class Service:
+            @cached(ttl=60)
+            async def fetch(self, x: int):
+                return x
+
+        with pytest.raises(TypeError, match="provide key_builder explicitly"):
+            await Service().fetch(1)
