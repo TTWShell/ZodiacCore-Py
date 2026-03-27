@@ -178,6 +178,22 @@ class TestCachedDecorator:
         with pytest.raises(TypeError, match="provide key_builder explicitly"):
             await fn({"user_id": 1})
 
+    @pytest.mark.asyncio
+    async def test_cached_uses_custom_key_builder_when_provided(self):
+        """Custom key_builder should override the default key-building path."""
+        cache.setup(prefix="deco_custom_builder", default_ttl=300)
+        calls = 0
+
+        @cached(ttl=60, key_builder=lambda fn, args, kwargs: f"{fn.__qualname__}:{args[0]['user_id']}")
+        async def fn(payload):
+            nonlocal calls
+            calls += 1
+            return payload["user_id"]
+
+        assert await fn({"user_id": 1}) == 1
+        assert await fn({"user_id": 1}) == 1
+        assert calls == 1
+
 
 class TestCachedDecoratorClsReceiver:
     """Receiver-aware caching behavior for class methods."""

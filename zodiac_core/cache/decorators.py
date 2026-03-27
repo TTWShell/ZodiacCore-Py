@@ -110,6 +110,7 @@ def cached(
 
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         if key_builder is None:
+
             def builder(inner_fn: Callable[..., Awaitable[Any]], args: tuple, kwargs: dict) -> str:
                 return _default_key_builder(
                     inner_fn,

@@ -137,6 +137,32 @@ def get_config(key: str):
 
 If your function takes complex parameters such as `dict`, `list`, ORM objects, request/session objects, or custom class instances, pass `key_builder=...` explicitly. The default key builder raises `TypeError` for unsupported argument types instead of guessing an unstable cache key.
 
+### Receiver-aware default keys
+
+`@cached` also supports receiver-aware default keys for methods:
+
+- `include_cls=True`: For class methods, add the bound class identity (`cls.__module__` + `cls.__qualname__`) to the default cache key.
+- `include_self=True`: For instance methods, add the receiver class identity (`self.__class__.__module__` + `self.__class__.__qualname__`) to the default cache key.
+
+This feature relies on the conventional first parameter names `cls` and `self`.
+If you use non-standard receiver names, provide a custom `key_builder`.
+
+`include_self=True` is **class-scoped**, not instance-scoped. It is intended for singleton services or functionally equivalent instances of the same class. If instance-specific configuration affects the result, use a custom `key_builder` instead.
+
+```python
+class UserService:
+    @cached(ttl=60, include_self=True)
+    async def get_user(self, user_id: int):
+        return await self.repo.get(user_id)
+
+
+class UserSchema:
+    @classmethod
+    @cached(ttl=60, include_cls=True)
+    async def resolve(cls, key: str):
+        return f"{cls.__name__}:{key}"
+```
+
 ---
 
 ## 5. Exceptions and None
