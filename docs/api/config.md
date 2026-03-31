@@ -180,13 +180,14 @@ All values from `.ini` files are strings. Use the built-in helpers or Pydantic m
 | Custom | `config.pi.as_(Decimal)` |
 | Whole section | `ConfigManagement.provide_config(container.config.db(), DbConfig)` — Pydantic handles all conversions |
 
-The **Pydantic model approach** is recommended for sections with multiple fields — it handles type coercion, validation, and defaults in one place, and you don't need to worry about `strtobool` or `as_int()`:
+The **Pydantic model approach** is recommended for sections with multiple fields — it handles type coercion, validation, and defaults in one place, and you don't need to worry about `strtobool` or `as_int()`.
+
+Use `StrictConfig` as the base class instead of `BaseModel`. It adds `extra='forbid'` (rejects typo keys like `ech0`) and `frozen=True` (immutable after creation):
 
 ```python
-from pydantic import BaseModel
-from zodiac_core.config import ConfigManagement
+from zodiac_core.config import ConfigManagement, StrictConfig
 
-class DbConfig(BaseModel):
+class DbConfig(StrictConfig):
     url: str
     echo: bool = False      # Pydantic correctly parses "false" → False
 
@@ -213,6 +214,12 @@ container.config.from_ini(path, required=True, envs_required=True)
 ---
 
 ## 5. API Reference
+
+### StrictConfig
+::: zodiac_core.config.StrictConfig
+    options:
+      heading_level: 4
+      show_root_heading: true
 
 ### Environment Enum
 ::: zodiac_core.config.Environment
