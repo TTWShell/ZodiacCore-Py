@@ -1,6 +1,6 @@
 import importlib.metadata
 
-from .config import ConfigManagement, Environment
+from .config import ConfigManagement, Environment, StrictConfig
 from .context import get_request_id
 from .exception_handlers import register_exception_handlers
 from .exceptions import (
@@ -92,6 +92,7 @@ __all__ = [
     # config
     "ConfigManagement",
     "Environment",
+    "StrictConfig",
     # utils
     "strtobool",
     # schemas

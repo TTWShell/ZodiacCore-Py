@@ -2,11 +2,11 @@ import os
 from types import SimpleNamespace
 
 import pytest
-from dependency_injector import containers, providers
+from dependency_injector import containers, errors, providers
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from zodiac_core import ConfigManagement, Environment
+from zodiac_core import ConfigManagement, Environment, StrictConfig
 from zodiac_core.utils import strtobool
 
 
@@ -165,18 +165,16 @@ class TestConfigIntegration:
             c.config.from_ini(path, required=True)
         return c
 
-    def test_strtobool_as_callback(self, tmp_path):
+    @pytest.mark.parametrize("echo_val,expected", [("false", False), ("true", True)])
+    def test_strtobool_as_callback(self, tmp_path, echo_val, expected):
         """as_(strtobool) correctly converts 'false'/'true' from ini."""
-        c = self._make_container(tmp_path, "[db]\necho = false\n")
-        assert c.config.db.echo.as_(strtobool)() is False
-
-        c2 = self._make_container(tmp_path, "[db]\necho = true\n")
-        assert c2.config.db.echo.as_(strtobool)() is True
+        c = self._make_container(tmp_path, f"[db]\necho = {echo_val}\n")
+        assert c.config.db.echo.as_(strtobool)() is expected
 
     def test_strict_rejects_undefined_key(self, tmp_path):
         """strict=True raises on accessing a key not in any loaded file."""
         c = self._make_container(tmp_path, "[db]\nurl = sqlite://\n")
-        with pytest.raises(Exception, match="Undefined"):
+        with pytest.raises(errors.Error, match="Undefined"):
             c.config.db.nonexistent()
 
     def test_required_rejects_missing_file(self):
@@ -199,3 +197,24 @@ class TestConfigIntegration:
         assert c.config.db.url() == "sqlite://"
         assert c.config.db.echo.as_(strtobool)() is True
         assert c.config.cache.prefix() == "myapp"
+
+
+class TestStrictConfig:
+    """StrictConfig enforces extra='forbid' and frozen=True."""
+
+    def test_typo_field_rejected(self):
+        class DbConfig(StrictConfig):
+            url: str
+            echo: bool = False
+
+        with pytest.raises(Exception, match="ech0"):
+            DbConfig(url="sqlite://", ech0="true")
+
+    def test_immutable_after_creation(self):
+        class DbConfig(StrictConfig):
+            url: str
+            echo: bool = False
+
+        cfg = DbConfig(url="sqlite://")
+        with pytest.raises(ValidationError):
+            cfg.echo = True
