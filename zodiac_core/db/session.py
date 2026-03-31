@@ -268,9 +268,9 @@ class DatabaseManager:
 db = DatabaseManager()
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_session(name: str = DEFAULT_DB_NAME) -> AsyncGenerator[AsyncSession, None]:
     """
-    FastAPI Dependency for obtaining a default database session.
+    FastAPI Dependency for obtaining a database session.
 
     Note:
         This dependency does NOT auto-commit. You must explicitly call
@@ -278,15 +278,24 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
     Example:
         ```python
+        # Default database — use directly as a dependency
         @app.post("/users")
         async def create_user(session: AsyncSession = Depends(get_session)):
-            user = User(name="test")
-            session.add(user)
-            await session.commit()  # Required to persist changes
+            session.add(User(name="test"))
+            await session.commit()
             return user
+
+        # Named database — wrap in a thin dependency
+        async def analytics_session():
+            async for s in get_session("analytics"):
+                yield s
+
+        @app.get("/reports")
+        async def get_reports(session: AsyncSession = Depends(analytics_session)):
+            ...
         ```
     """
-    async with db.session() as session:
+    async with db.session(name) as session:
         yield session
 
 

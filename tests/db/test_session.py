@@ -232,9 +232,41 @@ class TestDependencyIntegration:
         try:
             session = await anext(gen)
             assert isinstance(session, AsyncSession)
-            from sqlalchemy import text
-
             await session.execute(text("SELECT 1"))
         finally:
             await gen.aclose()
             await db.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_get_session_named(self):
+        """Verify get_session(name) returns sessions from the correct named engine."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:", name="primary")
+        db.setup("sqlite+aiosqlite:///:memory:", name="analytics")
+
+        gen_p = get_session("primary")
+        gen_a = get_session("analytics")
+        try:
+            session_p = await anext(gen_p)
+            session_a = await anext(gen_a)
+            assert isinstance(session_p, AsyncSession)
+            assert isinstance(session_a, AsyncSession)
+            assert session_p.bind is db.get_engine("primary")
+            assert session_a.bind is db.get_engine("analytics")
+        finally:
+            await gen_p.aclose()
+            await gen_a.aclose()
+            await db.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_get_session_unknown_name_raises(self):
+        """Verify get_session with an unconfigured name raises RuntimeError."""
+        if db._engines:
+            await db.shutdown()
+
+        gen = get_session("nonexistent")
+        with pytest.raises(RuntimeError, match="not initialized"):
+            await anext(gen)
+        await gen.aclose()
