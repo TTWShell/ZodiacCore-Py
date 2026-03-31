@@ -51,11 +51,11 @@ config_files = ConfigManagement.get_config_files(
 This is the default integration pattern used by the generated project template.
 
 ```python
-from distutils.util import strtobool
 from pathlib import Path
 
 from dependency_injector import containers, providers
 from zodiac_core.config import ConfigManagement
+from zodiac_core.utils import strtobool
 
 
 class Container(containers.DeclarativeContainer):

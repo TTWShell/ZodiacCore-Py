@@ -83,8 +83,8 @@ class DatabaseManager:
 
         ```python
         # containers.py
-        from distutils.util import strtobool
         from dependency_injector import containers, providers
+        from zodiac_core.utils import strtobool
         from zodiac_core.db.session import init_db_resource
 
         class Container(containers.DeclarativeContainer):

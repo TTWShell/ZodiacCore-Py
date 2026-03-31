@@ -39,6 +39,7 @@ from .schemas import (
     UUIDSchema,
     UUIDSchemaMixin,
 )
+from .utils import strtobool
 
 try:
     __version__ = importlib.metadata.version("zodiac-core")
@@ -91,6 +92,8 @@ __all__ = [
     # config
     "ConfigManagement",
     "Environment",
+    # utils
+    "strtobool",
     # schemas
     "CoreModel",
     "IntIDSchema",
