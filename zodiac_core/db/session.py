@@ -88,7 +88,7 @@ class DatabaseManager:
         from zodiac_core.db.session import init_db_resource
 
         class Container(containers.DeclarativeContainer):
-            config = providers.Configuration()
+            config = providers.Configuration(strict=True)
 
             # Use the pre-built resource helper
             db_manager = providers.Resource(

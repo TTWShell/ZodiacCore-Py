@@ -46,7 +46,7 @@ from zodiac_core.http import init_http_client
 
 
 class Container(containers.DeclarativeContainer):
-    config = providers.Configuration()
+    config = providers.Configuration(strict=True)
 
     external_http_client = providers.Resource(
         init_http_client,

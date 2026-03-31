@@ -22,7 +22,7 @@ def get_router_modules(package_name: str = "app.api.routers") -> list[str]:
     return [name for _, name, _ in pkgutil.walk_packages(pkg.__path__, prefix) if name.endswith("_router")]
 
 class Container(containers.DeclarativeContainer):
-    config = providers.Configuration()
+    config = providers.Configuration(strict=True)
     http_client = providers.Resource(init_http_client)
 
     item_repository = providers.Factory(ItemRepository)
@@ -50,7 +50,7 @@ class Container(containers.DeclarativeContainer):
         )
         container = Container()
         for path in config_files:
-            container.config.from_ini(path)
+            container.config.from_ini(path, required=True)
 
         container.wire(modules=get_router_modules("app.api.routers"))
 
