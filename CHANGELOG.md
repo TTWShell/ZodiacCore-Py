@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-03-31
+
+### Added
+
+- **Database**: `get_session()` accepts an optional `name` parameter for multi-database support; defaults to the default database for backward compatibility.
+- **Config**: `StrictConfig` base model (`extra='forbid'`, `frozen=True`) for configuration section Pydantic models — rejects typo keys and prevents mutation after creation.
+- **Utils**: `strtobool()` as a Python 3.13+ compatible drop-in replacement for the removed `distutils.util.strtobool`, returning `bool` instead of `int`.
+- **Docs**: Best practices guide for `dependency-injector` Configuration (strict mode, required files, type conversion pitfalls, environment variable interpolation).
+- **Docs**: API reference page for the `zodiac_core.utils` module.
+- **Tests**: Integration tests for `dependency-injector` `strict=True` + `required=True` + `as_(strtobool)` and `StrictConfig` constraints; `dependency-injector` added as dev dependency.
+
+### Changed
+
+- **Template**: Generated projects use `providers.Configuration(strict=True)` and `from_ini(path, required=True)` for fail-fast configuration loading.
+- **Template**: Config models (`DbConfig`, `CacheConfig`) inherit `StrictConfig` instead of `BaseModel`; type conversion uses Pydantic models via `ConfigManagement.provide_config()` instead of manual `as_()` calls.
+- **Docs**: All code examples across config, context, architecture, and getting-started guides updated to use `strict=True`, `required=True`, and `strtobool` imports from `zodiac_core.utils`.
+
+### Fixed
+
+- **Config**: Replace `as_(bool)` / `as_=bool` with `as_(strtobool)` for boolean config values — `bool("false")` evaluates to `True`, causing silent misconfiguration.
+- **Tests**: Force reinstall `zodiac-core` in generated project quality test to prevent stale `uv` cache from masking template breakage.
+
 ## [0.6.1] - 2026-03-27
 
 ### Added
