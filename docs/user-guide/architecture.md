@@ -361,6 +361,8 @@ The generated template container loads configuration from `APPLICATION_ENVIRONME
 
 ```python
 from pathlib import Path
+from distutils.util import strtobool
+
 from zodiac_core.config import ConfigManagement
 
 config_dir = Path(__file__).resolve().parent.parent / "config"
@@ -379,7 +381,7 @@ Access configuration in the container:
 ```python
 # In main.py lifespan
 db_url = container.config.db.url()
-db_echo = container.config.db.echo.as_(bool)
+db_echo = container.config.db.echo.as_(strtobool)
 ```
 
 ---

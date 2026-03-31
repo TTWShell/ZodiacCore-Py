@@ -51,6 +51,7 @@ config_files = ConfigManagement.get_config_files(
 This is the default integration pattern used by the generated project template.
 
 ```python
+from distutils.util import strtobool
 from pathlib import Path
 
 from dependency_injector import containers, providers
@@ -77,7 +78,7 @@ class Container(containers.DeclarativeContainer):
 
 container = Container.initialize()
 db_url = container.config.db.url()
-db_echo = container.config.db.get("echo", as_=bool)
+db_echo = container.config.db.get("echo", as_=strtobool)
 ```
 
 ### Testing Environment

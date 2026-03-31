@@ -83,6 +83,7 @@ class DatabaseManager:
 
         ```python
         # containers.py
+        from distutils.util import strtobool
         from dependency_injector import containers, providers
         from zodiac_core.db.session import init_db_resource
 
@@ -93,7 +94,7 @@ class DatabaseManager:
             db_manager = providers.Resource(
                 init_db_resource,
                 database_url=config.db.url,
-                echo=config.db.echo.as_bool(),
+                echo=config.db.echo.as_(strtobool),
             )
         ```
     """
