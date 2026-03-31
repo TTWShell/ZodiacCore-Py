@@ -1,0 +1,11 @@
+from pydantic import BaseModel
+
+
+class DbConfig(BaseModel):
+    url: str
+    echo: bool = False
+
+
+class CacheConfig(BaseModel):
+    prefix: str
+    default_ttl: int = 300

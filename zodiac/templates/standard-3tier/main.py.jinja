@@ -1,14 +1,15 @@
 from contextlib import AsyncExitStack, asynccontextmanager
-from distutils.util import strtobool
 from pathlib import Path
 
 from fastapi import FastAPI
 from zodiac_core.cache import cache
+from zodiac_core.config import ConfigManagement
 from zodiac_core.db import db
 from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.logging import setup_loguru
 from zodiac_core.middleware import register_middleware
 
+from app.core.config import CacheConfig, DbConfig
 from app.core.container import Container
 
 
@@ -19,16 +20,12 @@ async def lifespan(app: FastAPI):
         await container.init_resources()
         stack.push_async_callback(container.shutdown_resources)
 
-        db.setup(
-            database_url=container.config.db.url(),
-            echo=container.config.db.get("echo", as_=strtobool),
-        )
+        db_cfg = ConfigManagement.provide_config(container.config.db(), DbConfig)
+        db.setup(database_url=db_cfg.url, echo=db_cfg.echo)
         stack.push_async_callback(db.shutdown)
 
-        cache.setup(
-            prefix=container.config.cache.prefix(),
-            default_ttl=container.config.cache.get("default_ttl", as_=int),
-        )
+        cache_cfg = ConfigManagement.provide_config(container.config.cache(), CacheConfig)
+        cache.setup(prefix=cache_cfg.prefix, default_ttl=cache_cfg.default_ttl)
         stack.push_async_callback(cache.shutdown)
 
         await db.create_all()
