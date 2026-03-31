@@ -251,7 +251,7 @@ from dependency_injector import containers, providers
 from zodiac_core.http import init_http_client
 
 class Container(containers.DeclarativeContainer):
-    config = providers.Configuration()
+    config = providers.Configuration(strict=True)
     http_client = providers.Resource(
         init_http_client,
         base_url=config.github.base_url,
@@ -362,6 +362,7 @@ The generated template container loads configuration from `APPLICATION_ENVIRONME
 ```python
 from pathlib import Path
 from zodiac_core.config import ConfigManagement
+from zodiac_core.utils import strtobool
 
 config_dir = Path(__file__).resolve().parent.parent / "config"
 config_files = ConfigManagement.get_config_files(
@@ -369,7 +370,8 @@ config_files = ConfigManagement.get_config_files(
     env_var="APPLICATION_ENVIRONMENT",
     default_env="develop",
 )
-container.config.from_ini(*config_files)
+for path in config_files:
+    container.config.from_ini(path, required=True)
 ```
 
 In tests, a common pattern is to set `APPLICATION_ENVIRONMENT=testing` and keep test-only values in `config/app.testing.ini`.
@@ -379,7 +381,7 @@ Access configuration in the container:
 ```python
 # In main.py lifespan
 db_url = container.config.db.url()
-db_echo = container.config.db.echo.as_(bool)
+db_echo = container.config.db.echo.as_(strtobool)
 ```
 
 ---

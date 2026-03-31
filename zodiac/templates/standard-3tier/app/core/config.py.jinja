@@ -1,0 +1,11 @@
+from zodiac_core.config import StrictConfig
+
+
+class DbConfig(StrictConfig):
+    url: str
+    echo: bool = False
+
+
+class CacheConfig(StrictConfig):
+    prefix: str
+    default_ttl: int = 300

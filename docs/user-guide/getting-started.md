@@ -68,7 +68,7 @@ The project uses `dependency-injector` to manage dependencies. The container is 
 from dependency_injector import containers, providers
 
 class Container(containers.DeclarativeContainer):
-    config = providers.Configuration()
+    config = providers.Configuration(strict=True)
 
     # Infrastructure layer
     item_repository = providers.Factory(ItemRepository)
@@ -165,7 +165,8 @@ config_files = ConfigManagement.get_config_files(
     env_var="APPLICATION_ENVIRONMENT",
     default_env="develop",
 )
-container.config.from_ini(*config_files)
+for path in config_files:
+    container.config.from_ini(path, required=True)
 ```
 
 For tests, it is recommended to add `config/app.testing.ini` and set:

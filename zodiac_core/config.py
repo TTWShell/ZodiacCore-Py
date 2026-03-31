@@ -6,8 +6,21 @@ from types import SimpleNamespace
 from typing import List, Type, TypeVar, Union, overload
 
 from loguru import logger
+from pydantic import BaseModel, ConfigDict
 
 T = TypeVar("T")
+
+
+class StrictConfig(BaseModel):
+    """Base model for configuration sections.
+
+    Enforces two constraints:
+    - ``extra='forbid'``: unknown keys (e.g. typos in .ini) raise ``ValidationError``
+      instead of being silently ignored.
+    - ``frozen=True``: config objects are immutable after creation.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
 
 class Environment(str, Enum):

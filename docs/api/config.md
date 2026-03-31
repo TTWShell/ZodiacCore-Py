@@ -55,10 +55,11 @@ from pathlib import Path
 
 from dependency_injector import containers, providers
 from zodiac_core.config import ConfigManagement
+from zodiac_core.utils import strtobool
 
 
 class Container(containers.DeclarativeContainer):
-    config = providers.Configuration()
+    config = providers.Configuration(strict=True)
 
     @staticmethod
     def initialize():
@@ -70,14 +71,14 @@ class Container(containers.DeclarativeContainer):
 
         container = Container()
         for path in config_files:
-            container.config.from_ini(path)
+            container.config.from_ini(path, required=True)
 
         return container
 
 
 container = Container.initialize()
 db_url = container.config.db.url()
-db_echo = container.config.db.get("echo", as_=bool)
+db_echo = container.config.db.get("echo", as_=strtobool)
 ```
 
 ### Testing Environment
@@ -140,7 +141,85 @@ print(config.db.port)  # 5432 (default value applied)
 
 ---
 
-## 4. API Reference
+## 4. Best Practices with dependency-injector
+
+> For the full `providers.Configuration` API, see the [official documentation](https://python-dependency-injector.ets-labs.org/providers/configuration.html).
+
+When using `providers.Configuration` from dependency-injector, follow these practices to catch configuration errors early and keep your code type-safe.
+
+### Strict Mode
+
+Always enable `strict=True` on the Configuration provider. Without it, accessing an undefined config key silently returns `None` instead of raising an error — bugs surface at runtime instead of startup.
+
+```python
+# Good — typo or missing key raises immediately
+config = providers.Configuration(strict=True)
+
+# Bad — config.db.hoost() silently returns None
+config = providers.Configuration()
+```
+
+### Required Config Files
+
+Pass `required=True` to `from_ini()` for files that must exist. By default, missing files are silently ignored.
+
+```python
+for path in config_files:
+    container.config.from_ini(path, required=True)
+```
+
+### Type Conversion
+
+All values from `.ini` files are strings. Use the built-in helpers or Pydantic models for conversion:
+
+| Need | Approach |
+|------|----------|
+| Integer | `config.api.timeout.as_int()` |
+| Float | `config.api.ratio.as_float()` |
+| Bool | `config.db.echo.as_(strtobool)` — **not** `as_(bool)`, since `bool("false")` is `True` |
+| Custom | `config.pi.as_(Decimal)` |
+| Whole section | `ConfigManagement.provide_config(container.config.db(), DbConfig)` — Pydantic handles all conversions |
+
+The **Pydantic model approach** is recommended for sections with multiple fields — it handles type coercion, validation, and defaults in one place, and you don't need to worry about `strtobool` or `as_int()`.
+
+Use `StrictConfig` as the base class instead of `BaseModel`. It adds `extra='forbid'` (rejects typo keys like `ech0`) and `frozen=True` (immutable after creation):
+
+```python
+from zodiac_core.config import ConfigManagement, StrictConfig
+
+class DbConfig(StrictConfig):
+    url: str
+    echo: bool = False      # Pydantic correctly parses "false" → False
+
+db_cfg = ConfigManagement.provide_config(container.config.db(), DbConfig)
+db.setup(database_url=db_cfg.url, echo=db_cfg.echo)
+```
+
+### Environment Variable Interpolation
+
+`.ini` files support `${ENV_VAR}` and `${ENV_VAR:default}` syntax for injecting secrets without hardcoding:
+
+```ini
+[db]
+url = ${DATABASE_URL:sqlite+aiosqlite:///:memory:}
+echo = false
+```
+
+To require that all referenced environment variables are defined (no silent empty substitution), pass `envs_required=True`:
+
+```python
+container.config.from_ini(path, required=True, envs_required=True)
+```
+
+---
+
+## 5. API Reference
+
+### StrictConfig
+::: zodiac_core.config.StrictConfig
+    options:
+      heading_level: 4
+      show_root_heading: true
 
 ### Environment Enum
 ::: zodiac_core.config.Environment

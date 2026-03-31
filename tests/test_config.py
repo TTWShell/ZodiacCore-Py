@@ -1,10 +1,13 @@
 import os
 from types import SimpleNamespace
 
+import pytest
+from dependency_injector import containers, errors, providers
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from zodiac_core import ConfigManagement, Environment
+from zodiac_core import ConfigManagement, Environment, StrictConfig
+from zodiac_core.utils import strtobool
 
 
 def test_get_config_files_base_only(tmp_path):
@@ -144,3 +147,74 @@ def test_provide_config_empty_with_model():
     config = ConfigManagement.provide_config({}, AllDefaultConfig)
     assert config.name == "app"
     assert config.version == "1.0.0"
+
+
+class TestConfigIntegration:
+    """Integration: dependency-injector Configuration with strict+required + strtobool."""
+
+    def _make_container(self, tmp_path, base_ini, override_ini=None):
+        (tmp_path / "app.ini").write_text(base_ini)
+        if override_ini:
+            (tmp_path / "app.develop.ini").write_text(override_ini)
+
+        class C(containers.DeclarativeContainer):
+            config = providers.Configuration(strict=True)
+
+        c = C()
+        for path in ConfigManagement.get_config_files([tmp_path], default_env="develop"):
+            c.config.from_ini(path, required=True)
+        return c
+
+    @pytest.mark.parametrize("echo_val,expected", [("false", False), ("true", True)])
+    def test_strtobool_as_callback(self, tmp_path, echo_val, expected):
+        """as_(strtobool) correctly converts 'false'/'true' from ini."""
+        c = self._make_container(tmp_path, f"[db]\necho = {echo_val}\n")
+        assert c.config.db.echo.as_(strtobool)() is expected
+
+    def test_strict_rejects_undefined_key(self, tmp_path):
+        """strict=True raises on accessing a key not in any loaded file."""
+        c = self._make_container(tmp_path, "[db]\nurl = sqlite://\n")
+        with pytest.raises(errors.Error, match="Undefined"):
+            c.config.db.nonexistent()
+
+    def test_required_rejects_missing_file(self):
+        """from_ini(required=True) raises when the file does not exist."""
+
+        class C(containers.DeclarativeContainer):
+            config = providers.Configuration(strict=True)
+
+        c = C()
+        with pytest.raises(FileNotFoundError):
+            c.config.from_ini("/tmp/nonexistent.ini", required=True)
+
+    def test_override_merges_with_strict(self, tmp_path):
+        """Base + override merge works under strict mode; override key wins."""
+        c = self._make_container(
+            tmp_path,
+            "[db]\nurl = sqlite://\necho = false\n\n[cache]\nprefix = myapp\n",
+            "[db]\necho = true\n",
+        )
+        assert c.config.db.url() == "sqlite://"
+        assert c.config.db.echo.as_(strtobool)() is True
+        assert c.config.cache.prefix() == "myapp"
+
+
+class TestStrictConfig:
+    """StrictConfig enforces extra='forbid' and frozen=True."""
+
+    def test_typo_field_rejected(self):
+        class DbConfig(StrictConfig):
+            url: str
+            echo: bool = False
+
+        with pytest.raises(Exception, match="ech0"):
+            DbConfig(url="sqlite://", ech0="true")
+
+    def test_immutable_after_creation(self):
+        class DbConfig(StrictConfig):
+            url: str
+            echo: bool = False
+
+        cfg = DbConfig(url="sqlite://")
+        with pytest.raises(ValidationError):
+            cfg.echo = True

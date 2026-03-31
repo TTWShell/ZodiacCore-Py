@@ -114,6 +114,7 @@ dev = [
     "asyncpg>=0.31.0",
     "aiosqlite>=0.22.1",
     "uvicorn>=0.40.0",
+    "dependency-injector>=4.46.0",
 ]
 
 docs = [

@@ -284,7 +284,7 @@ class TestGeneratedProjectQuality:
         """Test that generated project installs and passes pytest."""
         # Install the generated project's deps (including dev test deps) into its own .venv.
         sync = subprocess.run(
-            ["uv", "sync", "--extra", "dev"],
+            ["uv", "sync", "--extra", "dev", "--reinstall-package", "zodiac-core"],
             cwd=generated_project_path,
             capture_output=True,
             text=True,

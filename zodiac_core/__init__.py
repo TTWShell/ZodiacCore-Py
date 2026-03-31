@@ -1,6 +1,6 @@
 import importlib.metadata
 
-from .config import ConfigManagement, Environment
+from .config import ConfigManagement, Environment, StrictConfig
 from .context import get_request_id
 from .exception_handlers import register_exception_handlers
 from .exceptions import (
@@ -39,6 +39,7 @@ from .schemas import (
     UUIDSchema,
     UUIDSchemaMixin,
 )
+from .utils import strtobool
 
 try:
     __version__ = importlib.metadata.version("zodiac-core")
@@ -91,6 +92,9 @@ __all__ = [
     # config
     "ConfigManagement",
     "Environment",
+    "StrictConfig",
+    # utils
+    "strtobool",
     # schemas
     "CoreModel",
     "IntIDSchema",
