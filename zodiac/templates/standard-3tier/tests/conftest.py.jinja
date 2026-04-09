@@ -7,9 +7,10 @@ from main import create_app
 @pytest.fixture
 async def client():
     """Create an async test client."""
-    async with AsyncClient(
-        transport=ASGITransport(app=create_app()),
-        base_url="http://test",
-    ) as ac:
-        yield ac
-
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as ac:
+            yield ac
