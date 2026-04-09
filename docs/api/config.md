@@ -32,6 +32,7 @@ You can use `ConfigManagement` to find the correct files and then load them usin
 
 ```python
 from pathlib import Path
+
 from zodiac_core.config import ConfigManagement
 
 # 1. Get the list of files in correct loading order
@@ -54,8 +55,13 @@ This is the default integration pattern used by the generated project template.
 from pathlib import Path
 
 from dependency_injector import containers, providers
-from zodiac_core.config import ConfigManagement
-from zodiac_core.utils import strtobool
+from zodiac_core.config import ConfigManagement, StrictConfig
+from zodiac_core.db import db
+
+
+class DbConfig(StrictConfig):
+    url: str
+    echo: bool = False
 
 
 class Container(containers.DeclarativeContainer):
@@ -77,8 +83,8 @@ class Container(containers.DeclarativeContainer):
 
 
 container = Container.initialize()
-db_url = container.config.db.url()
-db_echo = container.config.db.get("echo", as_=strtobool)
+db_cfg = ConfigManagement.provide_config(container.config.db(), DbConfig)
+db.setup(database_url=db_cfg.url, echo=db_cfg.echo)
 ```
 
 ### Testing Environment
@@ -107,6 +113,8 @@ If you are using the generated template or `dependency-injector`, prefer `provid
 This mode is useful for rapid prototyping. It converts the dictionary into a `SimpleNamespace`, allowing for dot-notation access but without type hints or validation.
 
 ```python
+from zodiac_core.config import ConfigManagement
+
 raw_data = {"db": {"host": "localhost", "port": 5432}}
 config = ConfigManagement.provide_config(raw_data)
 
@@ -121,18 +129,18 @@ For production applications, it is highly recommended to use a Pydantic model. T
 3. **Defaults**: Automatically fill in missing values defined in your schema.
 
 ```python
-from pydantic import BaseModel
-from zodiac_core.config import ConfigManagement
+from zodiac_core.config import ConfigManagement, StrictConfig
 
-class DbConfig(BaseModel):
+
+class DbConfig(StrictConfig):
     host: str
     port: int = 5432
 
-class AppConfig(BaseModel):
+
+class AppConfig(StrictConfig):
     db: DbConfig
 
 raw_data = {"db": {"host": "localhost"}}
-# Pass the model class as the second argument
 config = ConfigManagement.provide_config(raw_data, AppConfig)
 
 print(config.db.host)  # 'localhost' (with IDE autocomplete!)
@@ -152,6 +160,8 @@ When using `providers.Configuration` from dependency-injector, follow these prac
 Always enable `strict=True` on the Configuration provider. Without it, accessing an undefined config key silently returns `None` instead of raising an error — bugs surface at runtime instead of startup.
 
 ```python
+from dependency_injector import providers
+
 # Good — typo or missing key raises immediately
 config = providers.Configuration(strict=True)
 
@@ -164,6 +174,16 @@ config = providers.Configuration()
 Pass `required=True` to `from_ini()` for files that must exist. By default, missing files are silently ignored.
 
 ```python
+from dependency_injector import containers, providers
+
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Configuration(strict=True)
+
+
+container = Container()
+config_files = ["/path/to/app.ini", "/path/to/app.production.ini"]
+
 for path in config_files:
     container.config.from_ini(path, required=True)
 ```
@@ -186,10 +206,11 @@ Use `StrictConfig` as the base class instead of `BaseModel`. It adds `extra='for
 
 ```python
 from zodiac_core.config import ConfigManagement, StrictConfig
+from zodiac_core.db import db
 
 class DbConfig(StrictConfig):
     url: str
-    echo: bool = False      # Pydantic correctly parses "false" → False
+    echo: bool = False  # Pydantic correctly parses "false" -> False
 
 db_cfg = ConfigManagement.provide_config(container.config.db(), DbConfig)
 db.setup(database_url=db_cfg.url, echo=db_cfg.echo)
@@ -208,7 +229,17 @@ echo = false
 To require that all referenced environment variables are defined (no silent empty substitution), pass `envs_required=True`:
 
 ```python
-container.config.from_ini(path, required=True, envs_required=True)
+from dependency_injector import containers, providers
+
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Configuration(strict=True)
+
+
+container = Container()
+
+for path in ["/path/to/app.ini", "/path/to/app.production.ini"]:
+    container.config.from_ini(path, required=True, envs_required=True)
 ```
 
 ---

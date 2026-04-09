@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
-from fastapi import Depends
+from fastapi import Depends, Query
 from loguru import logger
 from zodiac_core.pagination import PagedResponse, PageParams
 from zodiac_core.routing import APIRouter
@@ -16,7 +16,7 @@ router = APIRouter()
 @router.get("", response_model=PagedResponse[ItemSchema])
 @inject
 async def list_items(
-    page_params: Annotated[PageParams, Depends()],
+    page_params: Annotated[PageParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
     """List items with pagination."""
@@ -33,4 +33,3 @@ async def get_item(
 ):
     """Get a single item by id."""
     return await service.get_by_id(item_id)
-

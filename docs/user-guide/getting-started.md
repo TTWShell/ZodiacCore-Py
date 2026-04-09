@@ -67,6 +67,7 @@ The project uses `dependency-injector` to manage dependencies. The container is 
 ```python
 from dependency_injector import containers, providers
 
+
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration(strict=True)
 
@@ -83,15 +84,19 @@ class Container(containers.DeclarativeContainer):
 Dependencies are injected into routers using FastAPI's `Depends`. In `main.py`, the generated project uses `Container.initialize([config_dir])`, which loads config from `.ini` and wires all router modules (files named `*_router.py`) under `app.api.routers`; when you add a new router file, it is picked up automatically.
 
 ```python
+from typing import Annotated
+
 from dependency_injector.wiring import Provide, inject
-from fastapi import Depends
+from fastapi import Depends, Query
+
 
 @router.get("")
 @inject
 async def list_items(
+    page_params: Annotated[PageParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
-    return await service.list_items(params)
+    return await service.list_items(page_params)
 ```
 
 ### Professional Pagination with `paginate_query`
@@ -110,6 +115,7 @@ from sqlalchemy import select
 from zodiac_core.db.repository import BaseSQLRepository
 from zodiac_core.pagination import PagedResponse, PageParams
 
+
 class ItemRepository(BaseSQLRepository):
     async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
         """List items with pagination using BaseSQLRepository.paginate_query."""
@@ -120,6 +126,9 @@ class ItemRepository(BaseSQLRepository):
 **Service Example:**
 
 ```python
+from zodiac_core.pagination import PagedResponse, PageParams
+
+
 class ItemService:
     def __init__(self, item_repo: ItemRepository) -> None:
         self.item_repo = item_repo
@@ -132,10 +141,17 @@ class ItemService:
 **Router Example:**
 
 ```python
+from typing import Annotated
+
+from dependency_injector.wiring import Provide, inject
+from fastapi import Depends, Query
+from zodiac_core.pagination import PagedResponse, PageParams
+
+
 @router.get("", response_model=PagedResponse[ItemSchema])
 @inject
 async def list_items(
-    page_params: Annotated[PageParams, Depends()],
+    page_params: Annotated[PageParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
     """List items with pagination."""
@@ -157,8 +173,16 @@ The generated template loads configuration from the `APPLICATION_ENVIRONMENT` en
 
 ```python
 from pathlib import Path
+
+from dependency_injector import containers, providers
 from zodiac_core.config import ConfigManagement
 
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Configuration(strict=True)
+
+
+container = Container()
 config_dir = Path(__file__).resolve().parent.parent / "config"
 config_files = ConfigManagement.get_config_files(
     search_paths=[config_dir],
@@ -204,7 +228,7 @@ The resulting JSON will be:
 Raise `ZodiacException` subclasses for automatic error handling:
 
 ```python
-from zodiac_core.exceptions import NotFoundException, BadRequestException
+from zodiac_core.exceptions import BadRequestException, NotFoundException
 
 @router.get("/items/{item_id}")
 async def get_item(item_id: int):

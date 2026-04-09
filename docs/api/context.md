@@ -19,6 +19,7 @@ When calling other services, use `ZodiacClient` (Async) or `ZodiacSyncClient` (S
 ```python
 from zodiac_core.http import ZodiacClient
 
+
 async def call_downstream():
     async with ZodiacClient(base_url="https://api.internal.service") as client:
         # X-Request-ID is automatically added to headers
@@ -29,6 +30,7 @@ async def call_downstream():
 ### Sync Usage
 ```python
 from zodiac_core.http import ZodiacSyncClient
+
 
 def sync_call():
     with ZodiacSyncClient() as client:
@@ -51,7 +53,7 @@ class Container(containers.DeclarativeContainer):
     external_http_client = providers.Resource(
         init_http_client,
         base_url=config.external.base_url,
-        timeout=10.0,
+        timeout=config.external.timeout.as_float(),
     )
 ```
 

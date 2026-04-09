@@ -101,7 +101,7 @@ uv sync --all-extras --all-groups
 
 You can verify the installed version and importability:
 
-```python
+```bash
 python -c "import zodiac_core; print(zodiac_core.__version__)"
 ```
 

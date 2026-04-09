@@ -47,6 +47,9 @@ cache.setup(prefix="myapp", default_ttl=300)
 Use aiocache's same parameters as `caches.add()`. We only inject/override `namespace` and minimal defaults.
 
 ```python
+from zodiac_core.cache import cache
+
+
 cache.setup(
     prefix="myapp",
     cache="aiocache.RedisCache",
@@ -79,25 +82,37 @@ Typical use: one default cache (e.g. in-memory or Redis) plus an optional second
 When cleaning up, pair named setup with named shutdown:
 
 ```python
-cache.setup(prefix="myapp", default_ttl=300)
-cache.setup(prefix="sessions", name="sessions", cache="aiocache.RedisCache", endpoint="127.0.0.1")
+from zodiac_core.cache import cache
 
-await cache.shutdown(name="sessions")  # only the sessions cache
-await cache.shutdown()  # full cleanup
+
+async def shutdown_named_caches() -> None:
+    cache.setup(prefix="myapp", default_ttl=300)
+    cache.setup(
+        prefix="sessions",
+        name="sessions",
+        cache="aiocache.RedisCache",
+        endpoint="127.0.0.1",
+    )
+
+    await cache.shutdown(name="sessions")  # only the sessions cache
+    await cache.shutdown()  # full cleanup
 ```
 
 ### FastAPI lifespan
 
 ```python
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from zodiac_core.cache import cache
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     cache.setup(prefix="myapp", default_ttl=300)
     yield
     await cache.shutdown()
+
 
 app = FastAPI(lifespan=lifespan)
 ```
@@ -123,7 +138,7 @@ cache.setup(prefix="myapp", default_ttl=300)
 # Async function (standard usage)
 @cached(ttl=60)
 async def get_user(user_id: int):
-    return await db.fetch_user(user_id)
+    return {"user_id": user_id}
 
 # Sync function (now supported, but caller MUST await)
 @cached(ttl=120)
@@ -161,6 +176,9 @@ Place `@cached(...)` closest to the function definition. For class methods, use 
 > If instance-specific configuration affects the result, do **not** rely on `include_self=True`; provide a custom `key_builder` instead.
 
 ```python
+from zodiac_core.cache import cached
+
+
 class UserService:
     @cached(ttl=60, include_self=True)
     async def get_user(self, user_id: int):

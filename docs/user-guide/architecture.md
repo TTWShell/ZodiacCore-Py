@@ -41,8 +41,9 @@ The recommended structure consists of three layers:
 **Example**:
 ```python
 from typing import Annotated
+
 from dependency_injector.wiring import Provide, inject
-from fastapi import Depends
+from fastapi import Depends, Query
 from zodiac_core.pagination import PagedResponse, PageParams
 from zodiac_core.routing import APIRouter
 
@@ -52,10 +53,11 @@ from app.core.container import Container
 
 router = APIRouter()
 
+
 @router.get("", response_model=PagedResponse[ItemSchema])
 @inject
 async def list_items(
-    page_params: Annotated[PageParams, Depends()],
+    page_params: Annotated[PageParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
     """List items with pagination."""
@@ -94,6 +96,7 @@ from zodiac_core.pagination import PagedResponse, PageParams
 from app.infrastructure.database.models.item_model import ItemModel
 from app.infrastructure.database.repositories.item_repository import ItemRepository
 
+
 class ItemService:
     def __init__(self, item_repo: ItemRepository) -> None:
         self.item_repo = item_repo
@@ -111,7 +114,7 @@ class ItemService:
         logger.bind(
             page=page_params.page,
             size=page_params.size,
-            total=result.total
+            total=result.total,
         ).debug("list_items")
         return result
 ```
@@ -167,6 +170,7 @@ class ItemRepository(BaseSQLRepository):
 ```python
 from loguru import logger
 from zodiac_core.http import ZodiacClient
+
 
 class GitHubClient:
     def __init__(self, client: ZodiacClient) -> None:
@@ -248,13 +252,16 @@ The container is typically defined in `app/core/container.py`: it declares provi
 
 ```python
 from dependency_injector import containers, providers
+
 from zodiac_core.http import init_http_client
+
 
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration(strict=True)
     http_client = providers.Resource(
         init_http_client,
         base_url=config.github.base_url,
+        timeout=config.github.timeout.as_float(),
     )
     item_repository = providers.Factory(ItemRepository)
     item_service = providers.Factory(ItemService, item_repo=item_repository)
@@ -361,9 +368,16 @@ The generated template container loads configuration from `APPLICATION_ENVIRONME
 
 ```python
 from pathlib import Path
-from zodiac_core.config import ConfigManagement
-from zodiac_core.utils import strtobool
 
+from dependency_injector import containers, providers
+from zodiac_core.config import ConfigManagement
+
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Configuration(strict=True)
+
+
+container = Container()
 config_dir = Path(__file__).resolve().parent.parent / "config"
 config_files = ConfigManagement.get_config_files(
     search_paths=[config_dir],
@@ -379,9 +393,16 @@ In tests, a common pattern is to set `APPLICATION_ENVIRONMENT=testing` and keep 
 Access configuration in the container:
 
 ```python
-# In main.py lifespan
-db_url = container.config.db.url()
-db_echo = container.config.db.echo.as_(strtobool)
+from zodiac_core.config import ConfigManagement, StrictConfig
+
+
+class DbConfig(StrictConfig):
+    url: str
+    echo: bool = False
+
+
+db_cfg = ConfigManagement.provide_config(container.config.db(), DbConfig)
+db.setup(database_url=db_cfg.url, echo=db_cfg.echo)
 ```
 
 ---

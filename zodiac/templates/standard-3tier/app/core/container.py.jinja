@@ -23,7 +23,11 @@ def get_router_modules(package_name: str = "app.api.routers") -> list[str]:
 
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration(strict=True)
-    http_client = providers.Resource(init_http_client)
+    http_client = providers.Resource(
+        init_http_client,
+        base_url=config.github.base_url,
+        timeout=config.github.timeout.as_float(),
+    )
 
     item_repository = providers.Factory(ItemRepository)
 
