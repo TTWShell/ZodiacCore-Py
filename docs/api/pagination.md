@@ -8,12 +8,17 @@ The `PageParams` model handles typical pagination query strings (`?page=1&size=2
 
 ```python
 from typing import Annotated
-from fastapi import Depends
+
+from fastapi import Query
 from zodiac_core.pagination import PageParams
+from zodiac_core.routing import APIRouter
+
+router = APIRouter()
+
 
 @router.get("/items")
 async def list_items(
-    params: Annotated[PageParams, Depends()]
+    params: Annotated[PageParams, Query()],
 ):
     # Automatically validated:
     # params.page defaults to 1 (min 1)
@@ -21,8 +26,8 @@ async def list_items(
     ...
 ```
 
-!!! tip "Using Depends() vs Query()"
-    For Pydantic models like `PageParams`, use `Depends()` instead of `Query()`. FastAPI will automatically extract query parameters and validate them against the model.
+!!! tip "Query Parameter Models"
+    FastAPI officially documents Pydantic query parameter models with `Query()`. `PageParams` follows that pattern: FastAPI extracts `page` and `size` from the query string and validates them against the model.
 
 ---
 
@@ -71,6 +76,7 @@ This is the **convenience method** that automatically manages the database sessi
 from sqlalchemy import select
 from zodiac_core.db.repository import BaseSQLRepository
 from zodiac_core.pagination import PagedResponse, PageParams
+
 
 class ItemRepository(BaseSQLRepository):
     async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
@@ -148,6 +154,9 @@ Here's a complete example showing the full flow:
 
 **Repository:**
 ```python
+from zodiac_core.pagination import PagedResponse, PageParams
+
+
 class ItemRepository(BaseSQLRepository):
     async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
         stmt = select(ItemModel).order_by(ItemModel.id)
@@ -156,6 +165,9 @@ class ItemRepository(BaseSQLRepository):
 
 **Service:**
 ```python
+from zodiac_core.pagination import PagedResponse, PageParams
+
+
 class ItemService:
     def __init__(self, item_repo: ItemRepository) -> None:
         self.item_repo = item_repo
@@ -166,10 +178,17 @@ class ItemService:
 
 **Router:**
 ```python
+from typing import Annotated
+
+from dependency_injector.wiring import Provide, inject
+from fastapi import Depends, Query
+from zodiac_core.pagination import PagedResponse, PageParams
+
+
 @router.get("", response_model=PagedResponse[ItemSchema])
 @inject
 async def list_items(
-    page_params: Annotated[PageParams, Depends()],
+    page_params: Annotated[PageParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
     return await service.list_items(page_params)

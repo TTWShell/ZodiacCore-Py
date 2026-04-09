@@ -43,10 +43,10 @@ class ProductRead(IntIDSchema):
 Handling timezones correctly is notoriously difficult. ZodiacCore includes a `UtcDatetime` type that automatically converts incoming datetime objects to UTC and ensures they are timezone-aware.
 
 ```python
-from zodiac_core import UtcDatetime
-from pydantic import BaseModel
+from zodiac_core import CoreModel, UtcDatetime
 
-class Event(BaseModel):
+
+class Event(CoreModel):
     # Any incoming datetime will be converted to aware-UTC
     happened_at: UtcDatetime
 ```

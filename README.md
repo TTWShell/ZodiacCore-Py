@@ -68,12 +68,12 @@ Add **zodiac-core** to an existing FastAPI project and wire up logging, middlewa
 
 ```python
 from fastapi import FastAPI
-from zodiac_core.routing import APIRouter
-from zodiac_core.logging import setup_loguru
-from zodiac_core.middleware import register_middleware
+from loguru import logger
 from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.exceptions import NotFoundException
-from loguru import logger
+from zodiac_core.logging import setup_loguru
+from zodiac_core.middleware import register_middleware
+from zodiac_core.routing import APIRouter
 
 setup_loguru(level="INFO", json_format=True)
 app = FastAPI()
@@ -81,12 +81,16 @@ register_middleware(app)
 register_exception_handlers(app)
 
 router = APIRouter()
+
+
 @router.get("/items/{item_id}")
 async def read_item(item_id: int):
     logger.info(f"request: item_id={item_id}")
     if item_id == 0:
         raise NotFoundException(message="Item not found")
     return {"item_id": item_id}
+
+
 app.include_router(router)
 ```
 

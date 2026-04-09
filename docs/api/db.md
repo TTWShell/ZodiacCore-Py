@@ -58,8 +58,10 @@ We recommend using the **lifespan** context manager (FastAPI 0.93+). The legacy 
 
 ```python
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from zodiac_core.db.session import db
+from zodiac_core.db import db
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -67,11 +69,12 @@ async def lifespan(app: FastAPI):
         "postgresql+asyncpg://user:pass@localhost/dbname",
         pool_size=20,
         max_overflow=10,
-        echo=False
+        echo=False,
     )
     await db.create_all()  # Optional: create tables if they don't exist
     yield
     await db.shutdown()
+
 
 app = FastAPI(lifespan=lifespan)
 ```
@@ -86,9 +89,11 @@ If you register multiple named databases or share the global `db` across multipl
 Inherit from `BaseSQLRepository` to create your data access layer.
 
 ```python
-from zodiac_core.db.repository import BaseSQLRepository
 from sqlalchemy import select
+from zodiac_core.db.repository import BaseSQLRepository
+
 from .models import User
+
 
 class UserRepository(BaseSQLRepository):
     async def find_by_username(self, username: str) -> User | None:
@@ -129,11 +134,15 @@ db.setup("postgresql+asyncpg://replica_db_url", name="read_only")
 Named shutdown is the companion to named setup:
 
 ```python
-# Dispose only the replica pool
-await db.shutdown(name="read_only")
+from zodiac_core.db import db
 
-# Dispose everything registered in the manager
-await db.shutdown()
+
+async def shutdown_named_databases() -> None:
+    # Dispose only the replica pool
+    await db.shutdown(name="read_only")
+
+    # Dispose everything registered in the manager
+    await db.shutdown()
 ```
 
 Use named shutdown when the process keeps other databases alive, such as multi-app hosting, plugin-based services, or multiple DI resources sharing the same global manager.
@@ -142,8 +151,11 @@ Use named shutdown when the process keeps other databases alive, such as multi-a
 When creating a repository, specify which database it should use via `db_name`.
 
 ```python
+from zodiac_core.db.repository import BaseSQLRepository
+
+
 class ReadOnlyUserRepository(BaseSQLRepository):
-    def __init__(self):
+    def __init__(self) -> None:
         # This repo will always use the 'read_only' engine
         super().__init__(db_name="read_only")
 

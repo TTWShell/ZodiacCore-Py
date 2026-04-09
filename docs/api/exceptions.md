@@ -68,8 +68,8 @@ ZodiacCore includes several common exceptions ready to use:
 Creating your own business exception is simple:
 
 ```python
-from zodiac_core.exceptions import ZodiacException
 from fastapi import status
+from zodiac_core.exceptions import ZodiacException
 
 class InsufficientBalanceException(ZodiacException):
     # Set default HTTP code

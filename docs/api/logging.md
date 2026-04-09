@@ -34,7 +34,7 @@ setup_loguru(
 You can log to both the console and a file simultaneously.
 
 ```python
-from zodiac_core.logging import setup_loguru, LogFileOptions
+from zodiac_core.logging import LogFileOptions, setup_loguru
 
 setup_loguru(
     level="DEBUG",
@@ -43,8 +43,8 @@ setup_loguru(
     file_options=LogFileOptions(
         rotation="500 MB",
         retention="10 days",
-        compression="zip"
-    )
+        compression="zip",
+    ),
 )
 ```
 
@@ -66,8 +66,9 @@ Since ZodiacCore configures the standard `loguru.logger`, you can simply import 
 ```python
 from loguru import logger
 
-def process_data(data):
-    logger.info("Processing data", extra={"data_id": data.id})
+
+def process_data(data) -> None:
+    logger.bind(data_id=data.id).info("Processing data")
     # If this runs during a request, 'request_id' is automatically added!
 ```
 
