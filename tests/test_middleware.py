@@ -5,7 +5,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from zodiac_core import TraceIDMiddleware, get_request_id, setup_loguru
+from zodiac_core import ServiceNameMiddleware, TraceIDMiddleware, get_request_id, get_service_name, setup_loguru
 from zodiac_core.middleware import AccessLogMiddleware, register_middleware
 
 
@@ -184,6 +184,33 @@ class TestMiddlewareStack:
         assert "GET /log-test" in last_log
         assert "200" in last_log
 
+    async def test_stack_json_logging_uses_middleware_service_name(self):
+        """Test service name can be scoped per app without reconfiguring loguru."""
+        app = FastAPI()
+        register_middleware(app, service_name="mounted-service")
+
+        @app.get("/log-test")
+        async def log_endpoint():
+            return {"msg": "ok"}
+
+        log_capture = []
+        setup_loguru(
+            level="INFO",
+            json_format=True,
+            service_name="default-service",
+            console_options={"sink": log_capture.append, "enqueue": False},
+        )
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/log-test")
+            trace_id = resp.headers["X-Request-ID"]
+
+        assert len(log_capture) > 0
+        log_entry = json.loads(log_capture[-1])
+        assert log_entry["record"]["extra"]["service"] == "mounted-service"
+        assert log_entry["record"]["extra"]["request_id"] == trace_id
+        assert get_service_name() is None
+
 
 @pytest.mark.asyncio
 class TestAccessLogMiddleware:
@@ -229,3 +256,43 @@ class TestAccessLogMiddleware:
         scope = {"type": "lifespan"}
         await middleware(scope, noop_receive, noop_send)
         assert call_count == 1
+
+
+@pytest.mark.asyncio
+class TestServiceNameMiddleware:
+    async def test_http_sets_service_name(self):
+        seen_service_name = []
+
+        async def fake_app(scope, receive, send):
+            seen_service_name.append(get_service_name())
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b""})
+
+        async def noop_receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def noop_send(_message):
+            pass
+
+        middleware = ServiceNameMiddleware(fake_app, service_name="mounted-service")
+        await middleware({"type": "http", "path": "/", "headers": []}, noop_receive, noop_send)
+
+        assert seen_service_name == ["mounted-service"]
+        assert get_service_name() is None
+
+    async def test_lifespan_passthrough(self):
+        seen_service_name = []
+
+        async def fake_app(scope, receive, send):
+            seen_service_name.append(get_service_name())
+
+        async def noop_receive():
+            return {}
+
+        async def noop_send(_message):
+            pass
+
+        middleware = ServiceNameMiddleware(fake_app, service_name="mounted-service")
+        await middleware({"type": "lifespan"}, noop_receive, noop_send)
+
+        assert seen_service_name == [None]

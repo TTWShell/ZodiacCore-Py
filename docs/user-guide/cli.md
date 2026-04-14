@@ -23,6 +23,7 @@ uv add "zodiac-core[zodiac]"
 | `--tpl` / `template` | Yes  | Template id. Currently supported: `standard-3tier`. |
 | `-o` / `--output` | Yes      | Directory where the project will be generated. |
 | `-f` / `--force` | No       | Allow generation into an existing target directory without removing unrelated files. |
+| `--package-name` | No       | Python package name generated inside the project. Defaults to `app`. |
 
 ## Example
 
@@ -31,6 +32,12 @@ zodiac new my_app --tpl standard-3tier -o ./projects
 ```
 
 This creates `./projects/my_app/`. For the full scaffold-from-scratch flow (init → add → generate → run), see [Getting Started](getting-started.md).
+
+To customize the generated Python package name:
+
+```bash
+zodiac new my_app --tpl standard-3tier -o ./projects --package-name my_service
+```
 
 ## Generated Project Architecture
 

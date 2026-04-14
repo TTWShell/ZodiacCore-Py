@@ -1,7 +1,7 @@
 import importlib.metadata
 
 from .config import ConfigManagement, Environment, StrictConfig
-from .context import get_request_id
+from .context import get_request_id, get_service_name, service_name_scope
 from .exception_handlers import register_exception_handlers
 from .exceptions import (
     BadRequestException,
@@ -14,7 +14,7 @@ from .exceptions import (
 )
 from .http import ZodiacClient, ZodiacSyncClient, init_http_client
 from .logging import LogFileOptions, setup_loguru
-from .middleware import AccessLogMiddleware, TraceIDMiddleware, register_middleware
+from .middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware, register_middleware
 from .pagination import PagedResponse, PageParams
 from .response import (
     Response,
@@ -67,6 +67,7 @@ __all__ = [
     # middleware
     "register_middleware",
     "TraceIDMiddleware",
+    "ServiceNameMiddleware",
     "AccessLogMiddleware",
     # http client
     "ZodiacClient",
@@ -89,6 +90,8 @@ __all__ = [
     "LogFileOptions",
     # context
     "get_request_id",
+    "get_service_name",
+    "service_name_scope",
     # config
     "ConfigManagement",
     "Environment",

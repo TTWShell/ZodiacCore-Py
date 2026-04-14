@@ -5,6 +5,7 @@ from typing import Optional
 # Define the global ContextVar to hold the Request ID
 # default=None is safer than empty string for logic checks
 _request_id_ctx_var: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+_service_name_ctx_var: ContextVar[Optional[str]] = ContextVar("service_name", default=None)
 
 
 def get_request_id() -> Optional[str]:
@@ -20,6 +21,11 @@ def get_request_id() -> Optional[str]:
     return _request_id_ctx_var.get()
 
 
+def get_service_name() -> Optional[str]:
+    """Retrieve the current service name from the context."""
+    return _service_name_ctx_var.get()
+
+
 def set_request_id(request_id: str):
     """
     Internal use: Set the request ID for the current context.
@@ -28,11 +34,21 @@ def set_request_id(request_id: str):
     return _request_id_ctx_var.set(request_id)
 
 
+def set_service_name(service_name: str):
+    """Internal use: Set the service name for the current context."""
+    return _service_name_ctx_var.set(service_name)
+
+
 def reset_request_id(token):
     """
     Internal use: Reset the context to its previous state.
     """
     _request_id_ctx_var.reset(token)
+
+
+def reset_service_name(token):
+    """Internal use: Reset the service name to its previous state."""
+    _service_name_ctx_var.reset(token)
 
 
 @contextmanager
@@ -46,3 +62,13 @@ def request_id_scope(request_id: str):
         yield
     finally:
         reset_request_id(token)
+
+
+@contextmanager
+def service_name_scope(service_name: str):
+    """Set service_name for the current context and reset on exit."""
+    token = set_service_name(service_name)
+    try:
+        yield
+    finally:
+        reset_service_name(token)

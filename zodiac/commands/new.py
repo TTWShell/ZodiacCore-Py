@@ -1,5 +1,6 @@
 """zodiac new: generate a new project from a template."""
 
+import keyword
 import os
 from pathlib import Path
 
@@ -10,11 +11,26 @@ VALID_TEMPLATES = [
     "standard-3tier",
     # "ddd-4tier",
 ]
+RESERVED_PACKAGE_NAMES = frozenset({"config", "main", "tests"})
 
 
 def get_template_path(template_id: str) -> Path:
     """Get the absolute path to the template directory."""
     return Path(__file__).parent.parent / "templates" / template_id
+
+
+def validate_package_name(_ctx: click.Context, _param: click.Parameter, value: str) -> str:
+    """Validate that the package name can be used as a Python import package."""
+    if not value.isidentifier() or keyword.iskeyword(value):
+        raise click.BadParameter("must be a valid Python identifier, for example: app, svc_a, user_service")
+    if value in RESERVED_PACKAGE_NAMES:
+        raise click.BadParameter("must not conflict with generated top-level modules: config, main, tests")
+    return value
+
+
+def render_template_path(rel_path: Path, package_name: str) -> Path:
+    """Map the template's default app package directory to the requested package name."""
+    return Path(*(package_name if part == "app" else part for part in rel_path.parts))
 
 
 @click.command("new")
@@ -41,7 +57,14 @@ def get_template_path(template_id: str) -> Path:
     default=False,
     help="Allow generating into an existing target directory without removing unrelated files.",
 )
-def new_cmd(project_name: str, template: str, output_dir: str, force: bool) -> None:
+@click.option(
+    "--package-name",
+    default="app",
+    show_default=True,
+    callback=validate_package_name,
+    help="Python package name generated inside the project.",
+)
+def new_cmd(project_name: str, template: str, output_dir: str, force: bool, package_name: str) -> None:
     """Generate a new project from a template.
 
     PROJECT_NAME  Name of the project (required).
@@ -59,13 +82,15 @@ def new_cmd(project_name: str, template: str, output_dir: str, force: bool) -> N
     env = Environment(loader=FileSystemLoader(str(template_path)))
     context = {
         "project_name": project_name,
+        "package_name": package_name,
         "template_id": template,
     }
 
     # Walk through template directory
     for root, _dirs, files in os.walk(template_path):
         rel_path = Path(root).relative_to(template_path)
-        dest_dir = target_path / rel_path
+        dest_rel_path = render_template_path(rel_path, package_name)
+        dest_dir = target_path / dest_rel_path
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         for file in files:

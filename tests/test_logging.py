@@ -1,10 +1,11 @@
+import json
 import os
 import tempfile
 
 import pytest
 from loguru import logger
 
-from zodiac_core.context import set_request_id
+from zodiac_core.context import service_name_scope, set_request_id
 from zodiac_core.logging import LogFileOptions, setup_loguru
 
 
@@ -99,3 +100,27 @@ async def test_setup_loguru_with_pydantic_options():
         logger.remove()
 
         assert os.path.exists(log_file)
+
+
+@pytest.mark.asyncio
+async def test_setup_loguru_prefers_context_service_name():
+    log_capture = []
+    setup_loguru(
+        level="INFO",
+        json_format=True,
+        service_name="default-service",
+        console_options={"sink": log_capture.append, "enqueue": False},
+    )
+
+    try:
+        with service_name_scope("scoped-service"):
+            logger.info("scoped log")
+        logger.info("fallback log")
+
+        scoped_log = json.loads(log_capture[-2])["record"]
+        fallback_log = json.loads(log_capture[-1])["record"]
+
+        assert scoped_log["extra"]["service"] == "scoped-service"
+        assert fallback_log["extra"]["service"] == "default-service"
+    finally:
+        logger.remove()

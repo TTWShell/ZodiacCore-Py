@@ -16,7 +16,7 @@ from loguru import logger
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from zodiac_core.context import request_id_scope
+from zodiac_core.context import request_id_scope, service_name_scope
 
 
 def default_id_generator() -> str:
@@ -123,12 +123,34 @@ class AccessLogMiddleware:
         await self.app(scope, receive, send)
 
 
-def register_middleware(app: ASGIApp) -> None:
+class ServiceNameMiddleware:
+    """
+    Service name middleware (Pure ASGI).
+
+    Sets a per-request service name in context so mounted apps can keep
+    app-local log attribution while sharing the process-wide logger sinks.
+    """
+
+    def __init__(self, app: ASGIApp, service_name: str) -> None:
+        self.app = app
+        self.service_name = service_name
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] in {"http", "websocket"}:
+            with service_name_scope(self.service_name):
+                await self.app(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+def register_middleware(app: ASGIApp, service_name: str | None = None) -> None:
     """
     Register TraceID and AccessLog middlewares in the correct order.
 
-    Order: TraceID (outer) then AccessLog (inner), so the access log
-    can include the request_id from context.
+    Order: TraceID (outer) then ServiceName (optional) then AccessLog (inner),
+    so the access log can include request_id and service from context.
     """
     app.add_middleware(AccessLogMiddleware)
+    if service_name is not None:
+        app.add_middleware(ServiceNameMiddleware, service_name=service_name)
     app.add_middleware(TraceIDMiddleware)

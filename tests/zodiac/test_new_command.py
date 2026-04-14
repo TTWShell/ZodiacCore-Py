@@ -1,5 +1,6 @@
 """Tests for the `zodiac new` command."""
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -184,6 +185,65 @@ class TestNewCommand:
         content = container_py.read_text()
         assert 'default_env="develop"' in content
 
+    def test_new_command_custom_package_name(self, cli_runner):
+        """Test that new command can generate a custom import package name."""
+        project_name = "custom-package-project"
+        package_name = "svc_a"
+        target_path = self.test_output_dir / project_name
+
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                project_name,
+                "--tpl",
+                "standard-3tier",
+                "-o",
+                str(self.test_output_dir),
+                "--package-name",
+                package_name,
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert (target_path / package_name).exists()
+        assert not (target_path / "app").exists()
+
+        main_py = (target_path / "main.py").read_text()
+        assert f"from {package_name}.core.config import CacheConfig, DbConfig" in main_py
+        assert f"from {package_name}.api.router import api_router" in main_py
+
+        pyproject = (target_path / "pyproject.toml").read_text()
+        assert f'include = ["{package_name}*"]' in pyproject
+
+    @pytest.mark.parametrize(
+        ("package_name", "error_message"),
+        [
+            ("bad-name", "must be a valid Python identifier"),
+            ("main", "must not conflict with generated top-level modules"),
+            ("config", "must not conflict with generated top-level modules"),
+            ("tests", "must not conflict with generated top-level modules"),
+        ],
+    )
+    def test_new_command_rejects_invalid_package_name(self, cli_runner, package_name, error_message):
+        """Test that new command rejects package names that cannot be imported."""
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                "invalid-package-project",
+                "--tpl",
+                "standard-3tier",
+                "-o",
+                str(self.test_output_dir),
+                "--package-name",
+                package_name,
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert error_message in result.output
+
     def test_new_command_file_and_directory_count(self, cli_runner):
         """Test that generated project has same file and directory count as template."""
         project_name = "test-count"
@@ -291,10 +351,16 @@ class TestGeneratedProjectQuality:
         )
         assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
 
+        test_env = os.environ.copy()
+        for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"):
+            test_env.pop(key, None)
+            test_env.pop(key.lower(), None)
+
         test = subprocess.run(
             ["uv", "run", "pytest", "-q"],
             cwd=generated_project_path,
             capture_output=True,
             text=True,
+            env=test_env,
         )
         assert test.returncode == 0, f"generated project pytest failed:\n{test.stdout}\n{test.stderr}"

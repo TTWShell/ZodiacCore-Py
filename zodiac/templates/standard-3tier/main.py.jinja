@@ -9,8 +9,8 @@ from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.logging import setup_loguru
 from zodiac_core.middleware import register_middleware
 
-from app.core.config import CacheConfig, DbConfig
-from app.core.container import Container
+from {{ package_name }}.core.config import CacheConfig, DbConfig
+from {{ package_name }}.core.container import Container
 
 
 @asynccontextmanager
@@ -45,10 +45,10 @@ def create_app() -> FastAPI:
     app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
     app.state.container = container
 
-    register_middleware(app)
+    register_middleware(app, service_name="{{ project_name }}")
     register_exception_handlers(app)
 
-    from app.api.router import api_router
+    from {{ package_name }}.api.router import api_router
 
     app.include_router(api_router)
 

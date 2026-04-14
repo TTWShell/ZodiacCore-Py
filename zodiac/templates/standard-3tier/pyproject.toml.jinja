@@ -21,7 +21,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*"]
+include = ["{{ package_name }}*"]
 
 [tool.ruff]
 line-length = 120
@@ -46,4 +46,3 @@ addopts = """
 markers = [
     "serial: marks tests that must run serially (e.g., database tests)",
 ]
-
