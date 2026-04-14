@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
     app.state.container = container
 
-    register_middleware(app)
+    register_middleware(app, service_name="{{ project_name }}")
     register_exception_handlers(app)
 
     from {{ package_name }}.api.router import api_router

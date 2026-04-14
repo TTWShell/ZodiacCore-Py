@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
 
-from zodiac_core.context import get_request_id
+from zodiac_core.context import get_request_id, get_service_name
 
 
 class LogFileOptions(BaseModel):
@@ -48,14 +48,14 @@ def setup_loguru(
     # 1. Remove default handlers
     logger.remove()
 
-    service = service_name
+    default_service = service_name
 
     # 2. Configure Patcher (Trace ID injection)
     def patcher(record):
         request_id = get_request_id()
         if request_id:
             record["extra"]["request_id"] = request_id
-        record["extra"]["service"] = service
+        record["extra"]["service"] = get_service_name() or default_service
 
     logger.configure(patcher=patcher)
 
