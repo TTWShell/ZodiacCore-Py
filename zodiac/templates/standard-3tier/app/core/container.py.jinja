@@ -9,13 +9,13 @@ from dependency_injector import containers, providers
 from zodiac_core.config import ConfigManagement
 from zodiac_core.http import init_http_client
 
-from app.application.services.github_service import GitHubService
-from app.application.services.item_service import ItemService
-from app.infrastructure.database.repositories.item_repository import ItemRepository
-from app.infrastructure.external.github_client import GitHubClient
+from {{ package_name }}.application.services.github_service import GitHubService
+from {{ package_name }}.application.services.item_service import ItemService
+from {{ package_name }}.infrastructure.database.repositories.item_repository import ItemRepository
+from {{ package_name }}.infrastructure.external.github_client import GitHubClient
 
 
-def get_router_modules(package_name: str = "app.api.routers") -> list[str]:
+def get_router_modules(package_name: str = "{{ package_name }}.api.routers") -> list[str]:
     """Discover router submodules (name ending with _router) under the package for container.wire()."""
     pkg = importlib.import_module(package_name)
     prefix = f"{pkg.__name__}."
@@ -56,6 +56,6 @@ class Container(containers.DeclarativeContainer):
         for path in config_files:
             container.config.from_ini(path, required=True)
 
-        container.wire(modules=get_router_modules("app.api.routers"))
+        container.wire(modules=get_router_modules("{{ package_name }}.api.routers"))
 
         return container

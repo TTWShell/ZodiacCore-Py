@@ -1,7 +1,7 @@
 from loguru import logger
 from zodiac_core.cache import cached
 
-from app.infrastructure.external.github_client import GitHubClient
+from {{ package_name }}.infrastructure.external.github_client import GitHubClient
 
 
 class GitHubService:
@@ -21,4 +21,3 @@ class GitHubService:
         """Example of caching a sync function. Result must be awaited by caller."""
         logger.debug(f"Sync demo for {name}")
         return f"Hello, {name}!"
-

@@ -2,7 +2,7 @@ from sqlalchemy import select
 from zodiac_core.db.repository import BaseSQLRepository
 from zodiac_core.pagination import PagedResponse, PageParams
 
-from app.infrastructure.database.models.item_model import ItemModel
+from {{ package_name }}.infrastructure.database.models.item_model import ItemModel
 
 
 class ItemRepository(BaseSQLRepository):
@@ -16,4 +16,3 @@ class ItemRepository(BaseSQLRepository):
         """List items with pagination using BaseSQLRepository.paginate_query."""
         stmt = select(ItemModel).order_by(ItemModel.id)
         return await self.paginate_query(stmt, params)
-

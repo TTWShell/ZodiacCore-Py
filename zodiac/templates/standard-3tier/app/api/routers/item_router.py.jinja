@@ -6,9 +6,9 @@ from loguru import logger
 from zodiac_core.pagination import PagedResponse, PageParams
 from zodiac_core.routing import APIRouter
 
-from app.api.schemas.item_schema import ItemSchema
-from app.application.services.item_service import ItemService
-from app.core.container import Container
+from {{ package_name }}.api.schemas.item_schema import ItemSchema
+from {{ package_name }}.application.services.item_service import ItemService
+from {{ package_name }}.core.container import Container
 
 router = APIRouter()
 
