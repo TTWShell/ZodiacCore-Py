@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-04-14
+
+### Added
+
+- **CLI**: `--package-name` option for `zodiac new` command to customize the generated Python package name (defaults to `app`).
+- **Middleware**: `ServiceNameMiddleware` for scoping service names in request context, allowing per-app log attribution in multi-app deployments.
+- **Context**: `service_name_scope` and `get_service_name` for managing service-level context in `zodiac_core.context`.
+- **Logging**: Loguru patcher now prefers `service_name` from context if available, enabling accurate service tagging in shared logging sinks.
+- **Templates**: `standard-3tier` template now fully supports dynamic package names and includes `ServiceNameMiddleware` registration by default.
+- **Tests**: Comprehensive multi-app integration tests (`tests/multi_app/dual_full_apps/`) using real Uvicorn servers to validate isolation and shared resources.
+
+### Changed
+
+- **CLI**: `zodiac new` now validates package names against Python identifiers and reserved names (`main`, `config`, `tests`).
+- **Middleware**: `register_middleware` now accepts an optional `service_name` to automatically enable `ServiceNameMiddleware`.
+- **Docs**: Documentation updated with `--package-name` usage and architectural details for multi-app setups.
+
 ## [0.7.0] - 2026-03-31
 
 ### Added
