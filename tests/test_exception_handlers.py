@@ -143,6 +143,80 @@ class TestExceptionHandlers:
         assert data["data"] == {"current_balance": 50.5}
 
     @pytest.mark.asyncio
+    async def test_direct_zodiac_subclass_uses_declared_http_code(self, mock_request):
+        """A direct ZodiacException subclass should use its declared HTTP status."""
+
+        class InsufficientBalanceException(ZodiacException):
+            http_code = 400
+
+            def __init__(self, current_balance: float):
+                super().__init__(
+                    code=1001,
+                    message="Your account balance is too low.",
+                    data={"current_balance": current_balance},
+                )
+
+        exc = InsufficientBalanceException(current_balance=50.5)
+        resp = await handler_zodiac_exception(mock_request, exc)
+
+        assert resp.status_code == 400
+        data = json.loads(resp.body)
+        assert data["code"] == 1001
+        assert data["message"] == "Your account balance is too low."
+        assert data["data"] == {"current_balance": 50.5}
+
+    @pytest.mark.asyncio
+    async def test_builtin_exception_subclass_keeps_builtin_http_status(self, mock_request):
+        """Subclasses of built-in exception families keep the family's HTTP status."""
+
+        class MisclassifiedBadRequest(BadRequestException):
+            http_code = 429
+
+        exc = MisclassifiedBadRequest(
+            code=2001,
+            message="Still a bad request family error",
+        )
+        resp = await handler_zodiac_exception(mock_request, exc)
+
+        assert resp.status_code == 400
+        data = json.loads(resp.body)
+        assert data["code"] == 2001
+        assert data["message"] == "Still a bad request family error"
+        assert data["data"] is None
+
+    @pytest.mark.asyncio
+    async def test_registered_handler_respects_direct_zodiac_subclass_http_code(self):
+        """The registered FastAPI handler should preserve custom HTTP status codes."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from zodiac_core.exception_handlers import register_exception_handlers
+
+        class RateLimitedException(ZodiacException):
+            http_code = 429
+
+        app = FastAPI()
+        register_exception_handlers(app)
+
+        @app.get("/limited")
+        def limited():
+            raise RateLimitedException(
+                code=2001,
+                message="Too many requests",
+                data={"retry_after": 60},
+            )
+
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/limited")
+
+        assert resp.status_code == 429
+        assert resp.json() == {
+            "code": 2001,
+            "message": "Too many requests",
+            "data": {"retry_after": 60},
+        }
+
+    @pytest.mark.asyncio
     async def test_register_exception_handlers(self):
         """Test that register_exception_handlers registers all handlers."""
         from fastapi import FastAPI

@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Union
 
 from fastapi import FastAPI
@@ -17,6 +18,7 @@ from .exceptions import (
     ZodiacException,
 )
 from .response import (
+    create_response,
     response_bad_request,
     response_conflict,
     response_forbidden,
@@ -53,7 +55,12 @@ async def handler_zodiac_exception(
         case UnprocessableEntityException():
             return response_unprocessable_entity(**kwargs)
         case _:
-            return response_server_error(**kwargs)
+            return create_response(
+                http_code=exc.http_code,
+                code=exc.code,
+                data=exc.data,
+                message=getattr(exc, "message", HTTPStatus(exc.http_code).phrase),
+            )
 
 
 async def handler_validation_exception(
