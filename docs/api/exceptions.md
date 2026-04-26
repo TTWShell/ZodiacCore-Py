@@ -5,12 +5,14 @@ ZodiacCore provides a centralized exception handling system that automatically c
 ## 1. Core Concepts
 
 ### The ZodiacException Base
-All business logic errors should inherit from `ZodiacException`. This base class allows you to define:
+Business logic errors should inherit from `ZodiacException` directly or from one of the built-in exception families. This base class allows you to define:
 
 - **`http_code`**: The HTTP status code (e.g., 404, 400).
 - **`code`**: A custom business error code.
 - **`message`**: A human-readable error description.
 - **`data`**: Optional payload for additional error details (e.g., validation errors).
+
+`http_code` controls the HTTP response status. `code` is the business error code in the response body; it can differ from the HTTP status.
 
 ### Automatic Transformation
 When a `ZodiacException` is raised, the `handler_zodiac_exception` exception handler catches it and transforms it into a standard JSON response:
@@ -61,25 +63,40 @@ ZodiacCore includes several common exceptions ready to use:
 | `ConflictException` | 409 | Resource state conflict (e.g., duplicate entry). |
 | `UnprocessableEntityException` | 422 | Business/semantic validation failed (entity well-formed but not processable). |
 
+Built-in exception families have fixed HTTP statuses. If you subclass `BadRequestException`, the response status remains HTTP 400; overriding `http_code` on that subclass does not change the family status. Use `code` for business-specific error codes inside the response body.
+
 ---
 
 ## 4. Custom Exceptions
 
-Creating your own business exception is simple:
+For a business error that belongs to a built-in HTTP status family, subclass the built-in exception and set a business `code`, `message`, and optional `data`:
+
+```python
+from zodiac_core.exceptions import BadRequestException
+
+class InsufficientBalanceException(BadRequestException):
+    def __init__(self, current_balance: float):
+        super().__init__(
+            code=1001,  # Business error code; HTTP status stays 400
+            message="Your account balance is too low.",
+            data={"current_balance": current_balance},
+        )
+```
+
+For a custom HTTP status that is not covered by the built-in exception families, inherit directly from `ZodiacException` and define `http_code`:
 
 ```python
 from fastapi import status
 from zodiac_core.exceptions import ZodiacException
 
-class InsufficientBalanceException(ZodiacException):
-    # Set default HTTP code
-    http_code = status.HTTP_400_BAD_REQUEST
+class RateLimitedException(ZodiacException):
+    http_code = status.HTTP_429_TOO_MANY_REQUESTS
 
-    def __init__(self, current_balance: float):
+    def __init__(self, retry_after: int):
         super().__init__(
-            code=1001, # Custom business code
-            message="Your account balance is too low.",
-            data={"current_balance": current_balance}
+            code=2001,
+            message="Too many requests.",
+            data={"retry_after": retry_after},
         )
 ```
 
@@ -91,6 +108,8 @@ async def transfer_money(amount: float):
         raise InsufficientBalanceException(user.balance)
     ...
 ```
+
+If a direct `ZodiacException` subclass does not define `http_code`, it inherits the default HTTP 500 status.
 
 ---
 
