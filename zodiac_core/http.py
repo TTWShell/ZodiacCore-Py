@@ -99,9 +99,7 @@ def translate_upstream_errors(service: str) -> Callable[[Callable[P, R]], Callab
             async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
                 try:
                     return await func(*args, **kwargs)
-                except httpx.HTTPStatusError as exc:
-                    _raise_upstream_error(service, exc)
-                except httpx.RequestError as exc:
+                except (httpx.HTTPStatusError, httpx.RequestError) as exc:
                     _raise_upstream_error(service, exc)
 
             return async_wrapper
@@ -110,9 +108,7 @@ def translate_upstream_errors(service: str) -> Callable[[Callable[P, R]], Callab
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
             try:
                 return func(*args, **kwargs)
-            except httpx.HTTPStatusError as exc:
-                _raise_upstream_error(service, exc)
-            except httpx.RequestError as exc:
+            except (httpx.HTTPStatusError, httpx.RequestError) as exc:
                 _raise_upstream_error(service, exc)
 
         return sync_wrapper
