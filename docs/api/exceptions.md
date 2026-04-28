@@ -57,13 +57,13 @@ ZodiacCore includes several common exceptions ready to use:
 | Exception | HTTP Status | Use Case |
 | :--- | :--- | :--- |
 | `BadRequestException` | 400 | Invalid input or parameters. |
+| `UpstreamServiceError` | 400 | A third-party/upstream service failed, timed out, or returned an unexpected status. |
+| `UpstreamRequestError` | 400 | The upstream service rejected this service's request, usually HTTP 400 or 422. |
 | `UnauthorizedException` | 401 | Missing or invalid authentication. |
 | `ForbiddenException` | 403 | Insufficient permissions. |
 | `NotFoundException` | 404 | Resource does not exist. |
 | `ConflictException` | 409 | Resource state conflict (e.g., duplicate entry). |
 | `UnprocessableEntityException` | 422 | Business/semantic validation failed (entity well-formed but not processable). |
-| `UpstreamServiceError` | 400 | A third-party/upstream service failed, timed out, or returned an unexpected status. |
-| `UpstreamRequestError` | 400 | The upstream service rejected this service's request, usually HTTP 400 or 422. |
 
 Built-in exception families have fixed HTTP statuses. If you subclass `BadRequestException`, the response status remains HTTP 400; overriding `http_code` on that subclass does not change the family status. Use `code` for business-specific error codes inside the response body.
 
