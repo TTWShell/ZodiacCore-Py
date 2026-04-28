@@ -1,10 +1,25 @@
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict, Optional
+from functools import wraps
+from inspect import iscoroutinefunction
+from typing import (
+    Any,
+    AsyncGenerator,
+    Callable,
+    Dict,
+    NoReturn,
+    Optional,
+    ParamSpec,
+    TypeVar,
+)
 
 import httpx
 from loguru import logger
 
 from zodiac_core.context import get_request_id
+from zodiac_core.exceptions import UpstreamRequestError, UpstreamServiceError
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 def _inject_header(request: httpx.Request) -> None:
@@ -38,6 +53,71 @@ def _merge_hooks(user_hooks: Optional[Dict[str, Any]], trace_hook: Any) -> Dict[
     request_hooks.append(trace_hook)
     hooks["request"] = request_hooks
     return hooks
+
+
+def _raise_upstream_error(
+    service: str,
+    exc: httpx.HTTPStatusError | httpx.RequestError,
+) -> NoReturn:
+    if isinstance(exc, httpx.HTTPStatusError):
+        status_code = exc.response.status_code
+        logger.warning(
+            "Upstream HTTP error service={} status_code={}",
+            service,
+            status_code,
+        )
+        if status_code in (400, 422):
+            raise UpstreamRequestError(
+                service=service,
+                upstream_status=status_code,
+            ) from exc
+        raise UpstreamServiceError(
+            service=service,
+            upstream_status=status_code,
+        ) from exc
+
+    logger.warning(
+        "Upstream request error service={} error_type={}",
+        service,
+        exc.__class__.__name__,
+    )
+    raise UpstreamServiceError(service=service) from exc
+
+
+def translate_upstream_errors(service: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """
+    Convert httpx upstream failures into standardized ZodiacCore exceptions.
+
+    Decorated functions should call ``response.raise_for_status()`` after
+    receiving an ``httpx.Response`` so HTTP status failures can be classified.
+    """
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        if iscoroutinefunction(func):
+
+            @wraps(func)
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+                try:
+                    return await func(*args, **kwargs)
+                except httpx.HTTPStatusError as exc:
+                    _raise_upstream_error(service, exc)
+                except httpx.RequestError as exc:
+                    _raise_upstream_error(service, exc)
+
+            return async_wrapper
+
+        @wraps(func)
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except httpx.HTTPStatusError as exc:
+                _raise_upstream_error(service, exc)
+            except httpx.RequestError as exc:
+                _raise_upstream_error(service, exc)
+
+        return sync_wrapper
+
+    return decorator
 
 
 class ZodiacClient(httpx.AsyncClient):

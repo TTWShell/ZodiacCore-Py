@@ -1,11 +1,18 @@
 import uuid
 
+import httpx
 import pytest
 import respx
 from httpx import Response
 
 from zodiac_core.context import set_request_id
-from zodiac_core.http import ZodiacClient, ZodiacSyncClient, init_http_client
+from zodiac_core.exceptions import UpstreamRequestError, UpstreamServiceError
+from zodiac_core.http import (
+    ZodiacClient,
+    ZodiacSyncClient,
+    init_http_client,
+    translate_upstream_errors,
+)
 
 
 class TestZodiacHttpClients:
@@ -128,3 +135,130 @@ class TestZodiacHttpClients:
             headers = mock.calls.last.request.headers
             assert headers["X-Request-ID"] == trace_id
             assert headers["X-Resource"] == "yes"
+
+    @pytest.mark.asyncio
+    async def test_translate_upstream_errors_maps_async_422_to_request_error(self):
+        """HTTP 400/422 status errors are treated as upstream request failures."""
+
+        async with respx.mock(base_url="http://test") as mock:
+            mock.get("/invalid").mock(return_value=Response(422, json={"code": 422}))
+
+            async with ZodiacClient(base_url="http://test") as client:
+
+                @translate_upstream_errors(service="identity_and_access")
+                async def fetch_invalid():
+                    response = await client.get("/invalid")
+                    response.raise_for_status()
+
+                with pytest.raises(UpstreamRequestError) as exc_info:
+                    await fetch_invalid()
+
+        exc = exc_info.value
+        assert exc.service == "identity_and_access"
+        assert exc.error_code == "UPSTREAM_REQUEST_ERROR"
+        assert exc.upstream_status == 422
+
+    @pytest.mark.asyncio
+    async def test_translate_upstream_errors_maps_async_5xx_to_service_error(self):
+        """Non-contract HTTP status errors are treated as upstream service failures."""
+
+        async with respx.mock(base_url="http://test") as mock:
+            mock.get("/unavailable").mock(return_value=Response(503, json={"code": 503}))
+
+            async with ZodiacClient(base_url="http://test") as client:
+
+                @translate_upstream_errors(service="production")
+                async def fetch_unavailable():
+                    response = await client.get("/unavailable")
+                    response.raise_for_status()
+
+                with pytest.raises(UpstreamServiceError) as exc_info:
+                    await fetch_unavailable()
+
+        exc = exc_info.value
+        assert not isinstance(exc, UpstreamRequestError)
+        assert exc.service == "production"
+        assert exc.error_code == "UPSTREAM_SERVICE_ERROR"
+        assert exc.upstream_status == 503
+
+    def test_translate_upstream_errors_maps_sync_transport_error(self):
+        """Transport failures are treated as upstream service failures."""
+
+        @translate_upstream_errors(service="deliverable_hub")
+        def fetch_with_transport_failure():
+            request = httpx.Request("GET", "http://deliverable-hub.test")
+            raise httpx.ConnectError("connect failed", request=request)
+
+        with pytest.raises(UpstreamServiceError) as exc_info:
+            fetch_with_transport_failure()
+
+        exc = exc_info.value
+        assert exc.service == "deliverable_hub"
+        assert exc.error_code == "UPSTREAM_SERVICE_ERROR"
+        assert exc.upstream_status is None
+
+    def test_translate_upstream_errors_maps_sync_request_error(self):
+        """Non-transport request failures are also treated as upstream service failures."""
+
+        @translate_upstream_errors(service="redirecting_service")
+        def fetch_with_request_failure():
+            request = httpx.Request("GET", "http://redirecting-service.test")
+            raise httpx.TooManyRedirects("too many redirects", request=request)
+
+        with pytest.raises(UpstreamServiceError) as exc_info:
+            fetch_with_request_failure()
+
+        exc = exc_info.value
+        assert exc.service == "redirecting_service"
+        assert exc.error_code == "UPSTREAM_SERVICE_ERROR"
+        assert exc.upstream_status is None
+
+    def test_translate_upstream_errors_preserves_local_exception_handling(self):
+        """If user code catches the httpx error itself, the decorator does not interfere."""
+
+        @translate_upstream_errors(service="billing")
+        def fetch_with_local_handling():
+            request = httpx.Request("GET", "http://billing.test")
+            try:
+                raise httpx.ConnectError("connect failed", request=request)
+            except httpx.ConnectError:
+                return {"handled": True}
+
+        assert fetch_with_local_handling() == {"handled": True}
+
+    @pytest.mark.asyncio
+    async def test_translated_upstream_error_is_handled_by_registered_fastapi_app(self):
+        """Decorator + register_exception_handlers is the complete integration path."""
+        from fastapi import FastAPI
+
+        from zodiac_core.exception_handlers import register_exception_handlers
+
+        app = FastAPI()
+        register_exception_handlers(app)
+
+        @translate_upstream_errors(service="identity_and_access")
+        async def call_upstream():
+            async with ZodiacClient(base_url="http://upstream") as client:
+                response = await client.get("/invalid")
+                response.raise_for_status()
+
+        @app.get("/proxy")
+        async def proxy():
+            await call_upstream()
+            return {"ok": True}
+
+        async with respx.mock(base_url="http://upstream") as mock:
+            mock.get("/invalid").mock(return_value=Response(422, json={"code": 422}))
+            transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.get("/proxy")
+
+        assert response.status_code == 400
+        assert response.json() == {
+            "code": 400,
+            "message": "Upstream request failed",
+            "data": {
+                "service": "identity_and_access",
+                "error_code": "UPSTREAM_REQUEST_ERROR",
+            },
+        }

@@ -15,6 +15,7 @@ from .exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
+    UpstreamServiceError,
     ZodiacException,
 )
 from .response import (
@@ -77,16 +78,44 @@ async def handler_global_exception(request: Request, exc: Exception) -> JSONResp
     return response_server_error()
 
 
+async def handler_upstream_service_error(
+    request: Request,
+    exc: UpstreamServiceError,
+) -> JSONResponse:
+    """
+    Handle upstream service errors as explicit third-party call failures.
+
+    The upstream-call decorators are the opt-in boundary. Once an upstream
+    error is translated into this exception family, it participates in the
+    standard application exception registration.
+    """
+    logger.warning(
+        "Returning upstream error to client service={} error_code={} upstream_status={}",
+        exc.service,
+        exc.error_code,
+        exc.upstream_status,
+    )
+    return response_bad_request(
+        message=exc.message,
+        data={
+            "service": exc.service,
+            "error_code": exc.error_code,
+        },
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """
     Register all exception handlers to the FastAPI app.
 
     Order matters:
     1. Specific Validation Errors
-    2. Custom Business Logic Errors (ZodiacException)
-    3. Global Catch-All (Exception)
+    2. Specific Upstream Service Errors
+    3. Custom Business Logic Errors (ZodiacException)
+    4. Global Catch-All (Exception)
     """
     app.add_exception_handler(RequestValidationError, handler_validation_exception)
     app.add_exception_handler(ValidationError, handler_validation_exception)
+    app.add_exception_handler(UpstreamServiceError, handler_upstream_service_error)
     app.add_exception_handler(ZodiacException, handler_zodiac_exception)
     app.add_exception_handler(Exception, handler_global_exception)

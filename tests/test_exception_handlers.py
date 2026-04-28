@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 
 from zodiac_core.exception_handlers import (
     handler_global_exception,
+    handler_upstream_service_error,
     handler_validation_exception,
     handler_zodiac_exception,
 )
@@ -15,6 +16,7 @@ from zodiac_core.exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
+    UpstreamRequestError,
     ZodiacException,
 )
 
@@ -141,6 +143,52 @@ class TestExceptionHandlers:
         assert data["code"] == 1001
         assert data["message"] == "Your account balance is too low."
         assert data["data"] == {"current_balance": 50.5}
+
+    @pytest.mark.asyncio
+    async def test_upstream_service_error_handler(self, mock_request):
+        """Upstream errors are handled by the standard upstream handler."""
+
+        exc = UpstreamRequestError(service="production", upstream_status=422)
+        resp = await handler_upstream_service_error(mock_request, exc)
+
+        assert resp.status_code == 400
+        data = json.loads(resp.body)
+        assert data == {
+            "code": 400,
+            "message": "Upstream request failed",
+            "data": {
+                "service": "production",
+                "error_code": "UPSTREAM_REQUEST_ERROR",
+            },
+        }
+
+    @pytest.mark.asyncio
+    async def test_register_exception_handlers_handles_upstream_errors(self):
+        """Default exception registration handles translated upstream errors."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from zodiac_core.exception_handlers import register_exception_handlers
+
+        app = FastAPI()
+        register_exception_handlers(app)
+
+        @app.get("/upstream")
+        def raise_upstream():
+            raise UpstreamRequestError(service="production", upstream_status=422)
+
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/upstream")
+
+        assert resp.status_code == 400
+        assert resp.json() == {
+            "code": 400,
+            "message": "Upstream request failed",
+            "data": {
+                "service": "production",
+                "error_code": "UPSTREAM_REQUEST_ERROR",
+            },
+        }
 
     @pytest.mark.asyncio
     async def test_direct_zodiac_subclass_uses_declared_http_code(self, mock_request):

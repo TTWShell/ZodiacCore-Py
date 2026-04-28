@@ -7,6 +7,8 @@ from zodiac_core.exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
+    UpstreamRequestError,
+    UpstreamServiceError,
     ZodiacException,
 )
 
@@ -55,3 +57,36 @@ class TestZodiacExceptions:
         assert exc.message == msg
         assert exc.code == code
         assert exc.data == data
+
+
+class TestUpstreamExceptions:
+    def test_upstream_service_error_defaults_to_bad_request_shape(self):
+        exc = UpstreamServiceError(service="production", upstream_status=503)
+
+        assert isinstance(exc, BadRequestException)
+        assert isinstance(exc, ZodiacException)
+        assert exc.code == 400
+        assert exc.message == "Upstream service unavailable"
+        assert exc.service == "production"
+        assert exc.error_code == "UPSTREAM_SERVICE_ERROR"
+        assert exc.upstream_status == 503
+        assert exc.data == {
+            "service": "production",
+            "error_code": "UPSTREAM_SERVICE_ERROR",
+        }
+
+    def test_upstream_request_error_uses_request_failure_code(self):
+        exc = UpstreamRequestError(service="identity_and_access", upstream_status=422)
+
+        assert isinstance(exc, UpstreamServiceError)
+        assert isinstance(exc, BadRequestException)
+        assert isinstance(exc, ZodiacException)
+        assert exc.code == 400
+        assert exc.message == "Upstream request failed"
+        assert exc.service == "identity_and_access"
+        assert exc.error_code == "UPSTREAM_REQUEST_ERROR"
+        assert exc.upstream_status == 422
+        assert exc.data == {
+            "service": "identity_and_access",
+            "error_code": "UPSTREAM_REQUEST_ERROR",
+        }

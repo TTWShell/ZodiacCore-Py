@@ -62,12 +62,49 @@ ZodiacCore includes several common exceptions ready to use:
 | `NotFoundException` | 404 | Resource does not exist. |
 | `ConflictException` | 409 | Resource state conflict (e.g., duplicate entry). |
 | `UnprocessableEntityException` | 422 | Business/semantic validation failed (entity well-formed but not processable). |
+| `UpstreamServiceError` | 400 | A third-party/upstream service failed, timed out, or returned an unexpected status. |
+| `UpstreamRequestError` | 400 | The upstream service rejected this service's request, usually HTTP 400 or 422. |
 
 Built-in exception families have fixed HTTP statuses. If you subclass `BadRequestException`, the response status remains HTTP 400; overriding `http_code` on that subclass does not change the family status. Use `code` for business-specific error codes inside the response body.
 
 ---
 
-## 4. Custom Exceptions
+## 4. Upstream Service Errors
+
+Use `translate_upstream_errors` around third-party `httpx` calls to convert known upstream failures into standardized ZodiacCore exceptions. The decorated function should call `response.raise_for_status()` so non-2xx responses can be classified.
+
+```python
+from zodiac_core.http import ZodiacClient, translate_upstream_errors
+
+
+@translate_upstream_errors(service="identity_and_access")
+async def get_permissions(client: ZodiacClient):
+    response = await client.post("/api/auth/by_user_id", json={"user_id": "..."})
+    response.raise_for_status()
+    return response.json()
+```
+
+Classification:
+
+- Upstream HTTP 400 or 422 becomes `UpstreamRequestError`.
+- Other upstream HTTP status failures become `UpstreamServiceError`.
+- Other `httpx.RequestError` failures become `UpstreamServiceError`.
+
+These upstream exceptions are part of ZodiacCore's built-in exception hierarchy and standard exception registration:
+
+```python
+from fastapi import FastAPI
+from zodiac_core.exception_handlers import register_exception_handlers
+
+app = FastAPI()
+register_exception_handlers(app)
+```
+
+With the standard handlers registered, unhandled upstream exceptions return HTTP 400 and are not treated as uncaught HTTP 500 errors from the current service. If your service catches `UpstreamServiceError` or `UpstreamRequestError` itself, that local handling wins and the global handler is not involved.
+
+---
+
+## 5. Custom Exceptions
 
 For a business error that belongs to a built-in HTTP status family, subclass the built-in exception and set a business `code`, `message`, and optional `data`:
 
@@ -113,13 +150,14 @@ If a direct `ZodiacException` subclass does not define `http_code`, it inherits 
 
 ---
 
-## 5. Integration
+## 6. Integration
 
 To enable global exception handling in your FastAPI app, use `register_exception_handlers`. This will catch:
 
 1. All `ZodiacException` subclasses.
 2. Pydantic `ValidationError` and FastAPI `RequestValidationError` (mapped to 422).
-3. Any uncaught `Exception` (mapped to 500 with secure logging).
+3. Upstream errors produced by `translate_upstream_errors` (mapped to 400).
+4. Any uncaught `Exception` (mapped to 500 with secure logging).
 
 ```python
 from fastapi import FastAPI
@@ -131,7 +169,7 @@ register_exception_handlers(app)
 
 ---
 
-## 6. API Reference
+## 7. API Reference
 
 ### Exception Base & Subclasses
 ::: zodiac_core.exceptions
@@ -146,6 +184,8 @@ register_exception_handlers(app)
         - NotFoundException
         - ConflictException
         - UnprocessableEntityException
+        - UpstreamServiceError
+        - UpstreamRequestError
 
 ### Global Handler Registration
 ::: zodiac_core.exception_handlers
@@ -154,3 +194,11 @@ register_exception_handlers(app)
       show_root_heading: false
       members:
         - register_exception_handlers
+
+### Upstream HTTP Decorators
+::: zodiac_core.http
+    options:
+      heading_level: 3
+      show_root_heading: false
+      members:
+        - translate_upstream_errors
