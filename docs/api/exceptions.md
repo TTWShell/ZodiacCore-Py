@@ -90,6 +90,38 @@ Classification:
 - Other upstream HTTP status failures become `UpstreamServiceError`.
 - Other `httpx.RequestError` failures become `UpstreamServiceError`.
 
+Some upstream services always return HTTP 200 and put business failures in their response body. In that case, parse the upstream payload and raise the ZodiacCore upstream exception yourself:
+
+```python
+from zodiac_core.exceptions import UpstreamRequestError, UpstreamServiceError
+from zodiac_core.http import ZodiacClient, translate_upstream_errors
+
+
+@translate_upstream_errors(service="payment_gateway")
+async def create_payment(client: ZodiacClient):
+    response = await client.post("/payments", json={"amount": 100})
+    response.raise_for_status()
+
+    payload = response.json()
+    if payload["code"] == "INVALID_CARD":
+        raise UpstreamRequestError(
+            service="payment_gateway",
+            upstream_status=response.status_code,
+        )
+
+    if payload["code"] != "SUCCESS":
+        raise UpstreamServiceError(
+            service="payment_gateway",
+            error_code="UPSTREAM_BUSINESS_ERROR",
+            message="Upstream business error",
+            upstream_status=response.status_code,
+        )
+
+    return payload["data"]
+```
+
+This keeps both integration styles on the same error path: standard RESTful `httpx` failures are translated by the decorator, while protocol-specific business codes can be converted explicitly by your application code.
+
 These upstream exceptions are part of ZodiacCore's built-in exception hierarchy and standard exception registration:
 
 ```python
