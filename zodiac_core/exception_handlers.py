@@ -15,7 +15,7 @@ from .exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
-    UpstreamServiceError,
+    UpstreamServiceException,
     ZodiacException,
 )
 from .response import (
@@ -78,9 +78,9 @@ async def handler_global_exception(request: Request, exc: Exception) -> JSONResp
     return response_server_error()
 
 
-async def handler_upstream_service_error(
+async def handler_upstream_service_exception(
     request: Request,
-    exc: UpstreamServiceError,
+    exc: UpstreamServiceException,
 ) -> JSONResponse:
     """
     Handle upstream service errors as explicit third-party call failures.
@@ -116,6 +116,6 @@ def register_exception_handlers(app: FastAPI) -> None:
     """
     app.add_exception_handler(RequestValidationError, handler_validation_exception)
     app.add_exception_handler(ValidationError, handler_validation_exception)
-    app.add_exception_handler(UpstreamServiceError, handler_upstream_service_error)
+    app.add_exception_handler(UpstreamServiceException, handler_upstream_service_exception)
     app.add_exception_handler(ZodiacException, handler_zodiac_exception)
     app.add_exception_handler(Exception, handler_global_exception)

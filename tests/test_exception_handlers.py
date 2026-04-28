@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 
 from zodiac_core.exception_handlers import (
     handler_global_exception,
-    handler_upstream_service_error,
+    handler_upstream_service_exception,
     handler_validation_exception,
     handler_zodiac_exception,
 )
@@ -16,7 +16,7 @@ from zodiac_core.exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
-    UpstreamRequestError,
+    UpstreamRequestException,
     ZodiacException,
 )
 
@@ -148,8 +148,8 @@ class TestExceptionHandlers:
     async def test_upstream_service_error_handler(self, mock_request):
         """Upstream errors are handled by the standard upstream handler."""
 
-        exc = UpstreamRequestError(service="production", upstream_status=422)
-        resp = await handler_upstream_service_error(mock_request, exc)
+        exc = UpstreamRequestException(service="production", upstream_status=422)
+        resp = await handler_upstream_service_exception(mock_request, exc)
 
         assert resp.status_code == 400
         data = json.loads(resp.body)
@@ -175,7 +175,7 @@ class TestExceptionHandlers:
 
         @app.get("/upstream")
         def raise_upstream():
-            raise UpstreamRequestError(service="production", upstream_status=422)
+            raise UpstreamRequestException(service="production", upstream_status=422)
 
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.get("/upstream")

@@ -7,8 +7,8 @@ from zodiac_core.exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
-    UpstreamRequestError,
-    UpstreamServiceError,
+    UpstreamRequestException,
+    UpstreamServiceException,
     ZodiacException,
 )
 
@@ -61,7 +61,7 @@ class TestZodiacExceptions:
 
 class TestUpstreamExceptions:
     def test_upstream_service_error_defaults_to_bad_request_shape(self):
-        exc = UpstreamServiceError(service="production", upstream_status=503)
+        exc = UpstreamServiceException(service="production", upstream_status=503)
 
         assert isinstance(exc, BadRequestException)
         assert isinstance(exc, ZodiacException)
@@ -76,9 +76,9 @@ class TestUpstreamExceptions:
         }
 
     def test_upstream_request_error_uses_request_failure_code(self):
-        exc = UpstreamRequestError(service="identity_and_access", upstream_status=422)
+        exc = UpstreamRequestException(service="identity_and_access", upstream_status=422)
 
-        assert isinstance(exc, UpstreamServiceError)
+        assert isinstance(exc, UpstreamServiceException)
         assert isinstance(exc, BadRequestException)
         assert isinstance(exc, ZodiacException)
         assert exc.code == 400

@@ -6,7 +6,7 @@ import respx
 from httpx import Response
 
 from zodiac_core.context import set_request_id
-from zodiac_core.exceptions import UpstreamRequestError, UpstreamServiceError
+from zodiac_core.exceptions import UpstreamRequestException, UpstreamServiceException
 from zodiac_core.http import (
     ZodiacClient,
     ZodiacSyncClient,
@@ -150,7 +150,7 @@ class TestZodiacHttpClients:
                     response = await client.get("/invalid")
                     response.raise_for_status()
 
-                with pytest.raises(UpstreamRequestError) as exc_info:
+                with pytest.raises(UpstreamRequestException) as exc_info:
                     await fetch_invalid()
 
         exc = exc_info.value
@@ -172,11 +172,11 @@ class TestZodiacHttpClients:
                     response = await client.get("/unavailable")
                     response.raise_for_status()
 
-                with pytest.raises(UpstreamServiceError) as exc_info:
+                with pytest.raises(UpstreamServiceException) as exc_info:
                     await fetch_unavailable()
 
         exc = exc_info.value
-        assert not isinstance(exc, UpstreamRequestError)
+        assert not isinstance(exc, UpstreamRequestException)
         assert exc.service == "production"
         assert exc.error_code == "UPSTREAM_SERVICE_ERROR"
         assert exc.upstream_status == 503
@@ -189,7 +189,7 @@ class TestZodiacHttpClients:
             request = httpx.Request("GET", "http://deliverable-hub.test")
             raise httpx.ConnectError("connect failed", request=request)
 
-        with pytest.raises(UpstreamServiceError) as exc_info:
+        with pytest.raises(UpstreamServiceException) as exc_info:
             fetch_with_transport_failure()
 
         exc = exc_info.value
@@ -205,7 +205,7 @@ class TestZodiacHttpClients:
             request = httpx.Request("GET", "http://redirecting-service.test")
             raise httpx.TooManyRedirects("too many redirects", request=request)
 
-        with pytest.raises(UpstreamServiceError) as exc_info:
+        with pytest.raises(UpstreamServiceException) as exc_info:
             fetch_with_request_failure()
 
         exc = exc_info.value

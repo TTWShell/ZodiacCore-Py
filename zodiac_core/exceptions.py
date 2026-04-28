@@ -27,7 +27,7 @@ class BadRequestException(ZodiacException):
     http_code = status.HTTP_400_BAD_REQUEST
 
 
-class UpstreamServiceError(BadRequestException):
+class UpstreamServiceException(BadRequestException):
     """Exception raised when an upstream service is unavailable or fails unexpectedly."""
 
     def __init__(
@@ -50,7 +50,7 @@ class UpstreamServiceError(BadRequestException):
         )
 
 
-class UpstreamRequestError(UpstreamServiceError):
+class UpstreamRequestException(UpstreamServiceException):
     """Exception raised when an upstream service rejects this service's request."""
 
     def __init__(

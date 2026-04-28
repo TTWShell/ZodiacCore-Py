@@ -57,8 +57,8 @@ ZodiacCore includes several common exceptions ready to use:
 | Exception | HTTP Status | Use Case |
 | :--- | :--- | :--- |
 | `BadRequestException` | 400 | Invalid input or parameters. |
-| `UpstreamServiceError` | 400 | A third-party/upstream service failed, timed out, or returned an unexpected status. |
-| `UpstreamRequestError` | 400 | The upstream service rejected this service's request, usually HTTP 400 or 422. |
+| `UpstreamServiceException` | 400 | A third-party/upstream service failed, timed out, or returned an unexpected status. |
+| `UpstreamRequestException` | 400 | The upstream service rejected this service's request, usually HTTP 400 or 422. |
 | `UnauthorizedException` | 401 | Missing or invalid authentication. |
 | `ForbiddenException` | 403 | Insufficient permissions. |
 | `NotFoundException` | 404 | Resource does not exist. |
@@ -71,7 +71,7 @@ Built-in exception families have fixed HTTP statuses. If you subclass `BadReques
 
 ## 4. Upstream Service Errors
 
-Use `translate_upstream_errors` around third-party `httpx` calls to convert known upstream failures into standardized ZodiacCore exceptions. The decorated function should call `response.raise_for_status()` so non-2xx responses can be classified.
+Use `translate_upstream_errors` around upstream `httpx` calls to convert known upstream failures into standardized ZodiacCore exceptions. The decorated function should call `response.raise_for_status()` so non-2xx responses can be classified.
 
 ```python
 from zodiac_core.http import ZodiacClient, translate_upstream_errors
@@ -86,14 +86,14 @@ async def get_permissions(client: ZodiacClient):
 
 Classification:
 
-- Upstream HTTP 400 or 422 becomes `UpstreamRequestError`.
-- Other upstream HTTP status failures become `UpstreamServiceError`.
-- Other `httpx.RequestError` failures become `UpstreamServiceError`.
+- Upstream HTTP 400 or 422 becomes `UpstreamRequestException`.
+- Other upstream HTTP status failures become `UpstreamServiceException`.
+- Other `httpx.RequestError` failures become `UpstreamServiceException`.
 
 Some upstream services always return HTTP 200 and put business failures in their response body. In that case, parse the upstream payload and raise the ZodiacCore upstream exception yourself:
 
 ```python
-from zodiac_core.exceptions import UpstreamRequestError, UpstreamServiceError
+from zodiac_core.exceptions import UpstreamRequestException, UpstreamServiceException
 from zodiac_core.http import ZodiacClient, translate_upstream_errors
 
 
@@ -104,13 +104,13 @@ async def create_payment(client: ZodiacClient):
 
     payload = response.json()
     if payload["code"] == "INVALID_CARD":
-        raise UpstreamRequestError(
+        raise UpstreamRequestException(
             service="payment_gateway",
             upstream_status=response.status_code,
         )
 
     if payload["code"] != "SUCCESS":
-        raise UpstreamServiceError(
+        raise UpstreamServiceException(
             service="payment_gateway",
             error_code="UPSTREAM_BUSINESS_ERROR",
             message="Upstream business error",
@@ -132,7 +132,7 @@ app = FastAPI()
 register_exception_handlers(app)
 ```
 
-With the standard handlers registered, unhandled upstream exceptions return HTTP 400 and are not treated as uncaught HTTP 500 errors from the current service. If your service catches `UpstreamServiceError` or `UpstreamRequestError` itself, that local handling wins and the global handler is not involved.
+With the standard handlers registered, unhandled upstream exceptions return HTTP 400 and are not treated as uncaught HTTP 500 errors from the current service. If your service catches `UpstreamServiceException` or `UpstreamRequestException` itself, that local handling wins and the global handler is not involved.
 
 ---
 
@@ -216,8 +216,8 @@ register_exception_handlers(app)
         - NotFoundException
         - ConflictException
         - UnprocessableEntityException
-        - UpstreamServiceError
-        - UpstreamRequestError
+        - UpstreamServiceException
+        - UpstreamRequestException
 
 ### Global Handler Registration
 ::: zodiac_core.exception_handlers

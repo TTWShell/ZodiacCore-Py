@@ -16,7 +16,7 @@ import httpx
 from loguru import logger
 
 from zodiac_core.context import get_request_id
-from zodiac_core.exceptions import UpstreamRequestError, UpstreamServiceError
+from zodiac_core.exceptions import UpstreamRequestException, UpstreamServiceException
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -67,11 +67,11 @@ def _raise_upstream_error(
             status_code,
         )
         if status_code in (400, 422):
-            raise UpstreamRequestError(
+            raise UpstreamRequestException(
                 service=service,
                 upstream_status=status_code,
             ) from exc
-        raise UpstreamServiceError(
+        raise UpstreamServiceException(
             service=service,
             upstream_status=status_code,
         ) from exc
@@ -81,7 +81,7 @@ def _raise_upstream_error(
         service,
         exc.__class__.__name__,
     )
-    raise UpstreamServiceError(service=service) from exc
+    raise UpstreamServiceException(service=service) from exc
 
 
 def translate_upstream_errors(service: str) -> Callable[[Callable[P, R]], Callable[P, R]]:

@@ -10,8 +10,8 @@ from .exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
-    UpstreamRequestError,
-    UpstreamServiceError,
+    UpstreamRequestException,
+    UpstreamServiceException,
     ZodiacException,
 )
 from .http import (
@@ -91,8 +91,8 @@ __all__ = [
     "NotFoundException",
     "ConflictException",
     "UnprocessableEntityException",
-    "UpstreamServiceError",
-    "UpstreamRequestError",
+    "UpstreamServiceException",
+    "UpstreamRequestException",
     "ZodiacException",
     "register_exception_handlers",
     # logging
