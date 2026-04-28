@@ -19,6 +19,11 @@ Database and other settings are loaded from **config files** under `config/`:
 
 The generated project reads only `APPLICATION_ENVIRONMENT`. If it is unset, the template defaults to `develop`. Config is merged in order: base first, then environment-specific overrides.
 
+## External Services
+
+External clients should use `ZodiacClient` for trace propagation and `translate_upstream_errors` for standard upstream HTTP failures.
+If an upstream API returns HTTP 200 with a business error code, raise `UpstreamRequestError` or `UpstreamServiceError` explicitly so the standard exception handlers keep the response contract consistent.
+
 ## Getting Started
 
 ### 1. Install Dependencies
