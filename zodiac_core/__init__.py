@@ -10,9 +10,16 @@ from .exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
+    UpstreamRequestException,
+    UpstreamServiceException,
     ZodiacException,
 )
-from .http import ZodiacClient, ZodiacSyncClient, init_http_client
+from .http import (
+    ZodiacClient,
+    ZodiacSyncClient,
+    init_http_client,
+    translate_upstream_errors,
+)
 from .logging import LogFileOptions, setup_loguru
 from .middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware, register_middleware
 from .pagination import PagedResponse, PageParams
@@ -73,6 +80,7 @@ __all__ = [
     "ZodiacClient",
     "ZodiacSyncClient",
     "init_http_client",
+    "translate_upstream_errors",
     # pagination
     "PageParams",
     "PagedResponse",
@@ -83,6 +91,8 @@ __all__ = [
     "NotFoundException",
     "ConflictException",
     "UnprocessableEntityException",
+    "UpstreamServiceException",
+    "UpstreamRequestException",
     "ZodiacException",
     "register_exception_handlers",
     # logging

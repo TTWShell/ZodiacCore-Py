@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-04-29
+
+### Added
+
+- **HTTP**: Add `translate_upstream_errors(service)` to convert `httpx` upstream status and request failures into standardized ZodiacCore exceptions for both async and sync functions.
+- **Exceptions**: Add `UpstreamServiceException` and `UpstreamRequestException` for explicit upstream service failures, including service name and upstream error classification.
+- **Exception Handlers**: Register a dedicated upstream exception handler that returns standardized HTTP 400 responses for translated upstream failures.
+- **Templates**: Update the `standard-3tier` external client example to use `ZodiacClient` with `translate_upstream_errors`.
+- **Docs**: Document upstream error translation, manual upstream business-error mapping, and the new upstream exception types in the exceptions API guide.
+- **Tests**: Add coverage for upstream exception behavior, handler registration, async/sync HTTP translation, and template usage.
+
 ## [0.8.1] - 2026-04-26
 
 ### Fixed
