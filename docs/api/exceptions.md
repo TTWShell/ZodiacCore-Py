@@ -90,6 +90,35 @@ Classification:
 - Other upstream HTTP status failures become `UpstreamServiceException`.
 - Other `httpx.RequestError` failures become `UpstreamServiceException`.
 
+When an upstream HTTP status error is translated, ZodiacCore logs a warning with structured upstream context:
+
+- `upstream_service`
+- `upstream_error_type`
+- `upstream_method` and `upstream_url` when request metadata is available
+- `upstream_status`
+- `upstream_response_body`
+- `upstream_response_body_truncated`
+
+The response body logged in `upstream_response_body` is capped at 4096 characters. If the upstream response body has not been read, ZodiacCore logs `"<response body not read>"` instead of consuming the stream. `httpx.RequestError` instances without request metadata are still translated and logged without method or URL fields.
+
+For upstream HTTP 400/422 failures, the standard response also includes the upstream status and response body details so callers can diagnose rejected upstream requests:
+
+```json
+{
+  "code": 400,
+  "message": "Upstream request failed",
+  "data": {
+    "service": "identity_and_access",
+    "error_code": "UPSTREAM_REQUEST_ERROR",
+    "upstream_status": 422,
+    "upstream_response_body": "{\"code\":422}",
+    "upstream_response_body_truncated": false
+  }
+}
+```
+
+For other upstream HTTP status failures, the upstream response body is logged but not returned in the client response.
+
 Some upstream services always return HTTP 200 and put business failures in their response body. In that case, parse the upstream payload and raise the ZodiacCore upstream exception yourself:
 
 ```python
@@ -107,6 +136,7 @@ async def create_payment(client: ZodiacClient):
         raise UpstreamRequestException(
             service="payment_gateway",
             upstream_status=response.status_code,
+            upstream_response_body=response.text,
         )
 
     if payload["code"] != "SUCCESS":

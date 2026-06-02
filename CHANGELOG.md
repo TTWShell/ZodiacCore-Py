@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-06-02
+
+### Added
+
+- **HTTP**: Log translated upstream HTTP errors with structured context, including service, error type, request method, upstream URL, status code, and capped upstream response body details.
+- **Exceptions**: Include upstream status and response body details in `UpstreamRequestException` responses for upstream HTTP 400/422 failures.
+
+### Fixed
+
+- **HTTP**: Handle `httpx.RequestError` instances without request metadata without raising a secondary exception during upstream error translation.
+- **Exception Handlers**: Log inbound request context when returning standardized upstream error responses.
+- **Docs**: Document upstream error logging fields and 400/422 response details.
+
 ## [0.9.0] - 2026-04-29
 
 ### Added
