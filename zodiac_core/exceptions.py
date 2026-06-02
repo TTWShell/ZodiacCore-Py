@@ -58,7 +58,11 @@ class UpstreamRequestException(UpstreamServiceException):
         *,
         service: str,
         upstream_status: Optional[int] = None,
+        upstream_response_body: Optional[str] = None,
+        upstream_response_body_truncated: bool = False,
     ):
+        self.upstream_response_body = upstream_response_body
+        self.upstream_response_body_truncated = upstream_response_body_truncated
         super().__init__(
             service=service,
             error_code="UPSTREAM_REQUEST_ERROR",

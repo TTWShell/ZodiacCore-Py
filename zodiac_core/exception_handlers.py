@@ -15,6 +15,7 @@ from .exceptions import (
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
+    UpstreamRequestException,
     UpstreamServiceException,
     ZodiacException,
 )
@@ -89,19 +90,25 @@ async def handler_upstream_service_exception(
     error is translated into this exception family, it participates in the
     standard application exception registration.
     """
-    logger.warning(
-        "Returning upstream error to client service={} error_code={} upstream_status={}",
-        exc.service,
-        exc.error_code,
-        exc.upstream_status,
-    )
-    return response_bad_request(
-        message=exc.message,
-        data={
-            "service": exc.service,
-            "error_code": exc.error_code,
-        },
-    )
+    logger.bind(
+        upstream_service=exc.service,
+        upstream_error_code=exc.error_code,
+        upstream_status=exc.upstream_status,
+        request_method=request.method,
+        request_path=request.url.path,
+    ).warning("Returning upstream error to client")
+    data = {
+        "service": exc.service,
+        "error_code": exc.error_code,
+    }
+    if isinstance(exc, UpstreamRequestException):
+        if exc.upstream_status is not None:
+            data["upstream_status"] = exc.upstream_status
+        if exc.upstream_response_body is not None:
+            data["upstream_response_body"] = exc.upstream_response_body
+            data["upstream_response_body_truncated"] = exc.upstream_response_body_truncated
+
+    return response_bad_request(message=exc.message, data=data)
 
 
 def register_exception_handlers(app: FastAPI) -> None:

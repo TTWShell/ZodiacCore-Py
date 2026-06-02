@@ -1,18 +1,27 @@
+import json
 import uuid
 
 import httpx
 import pytest
 import respx
 from httpx import Response
+from loguru import logger
 
 from zodiac_core.context import set_request_id
 from zodiac_core.exceptions import UpstreamRequestException, UpstreamServiceException
 from zodiac_core.http import (
+    MAX_UPSTREAM_RESPONSE_LOG_CHARS,
     ZodiacClient,
     ZodiacSyncClient,
     init_http_client,
     translate_upstream_errors,
 )
+
+
+def _capture_warning_logs():
+    logs = []
+    sink_id = logger.add(logs.append, level="WARNING", serialize=True, enqueue=False)
+    return logs, sink_id
 
 
 class TestZodiacHttpClients:
@@ -157,6 +166,93 @@ class TestZodiacHttpClients:
         assert exc.service == "identity_and_access"
         assert exc.error_code == "UPSTREAM_REQUEST_ERROR"
         assert exc.upstream_status == 422
+        assert exc.upstream_response_body == '{"code":422}'
+        assert exc.upstream_response_body_truncated is False
+
+    @pytest.mark.asyncio
+    async def test_translate_upstream_errors_logs_http_context(self):
+        """Translated HTTP status errors log enough context to diagnose the upstream failure."""
+        logs, sink_id = _capture_warning_logs()
+
+        try:
+            async with respx.mock(base_url="http://test") as mock:
+                mock.get("/invalid").mock(
+                    return_value=Response(
+                        422,
+                        headers={"content-type": "application/json"},
+                        json={"code": 422, "message": "missing required field"},
+                    )
+                )
+
+                async with ZodiacClient(base_url="http://test") as client:
+
+                    @translate_upstream_errors(service="identity_and_access")
+                    async def fetch_invalid():
+                        response = await client.get("/invalid")
+                        response.raise_for_status()
+
+                    with pytest.raises(UpstreamRequestException):
+                        await fetch_invalid()
+        finally:
+            logger.remove(sink_id)
+
+        record = json.loads(logs[-1])["record"]
+        assert record["message"] == "Upstream HTTP error"
+        assert record["extra"]["upstream_service"] == "identity_and_access"
+        assert record["extra"]["upstream_error_type"] == "HTTPStatusError"
+        assert record["extra"]["upstream_method"] == "GET"
+        assert record["extra"]["upstream_url"] == "http://test/invalid"
+        assert record["extra"]["upstream_status"] == 422
+        assert record["extra"]["upstream_response_body"] == '{"code":422,"message":"missing required field"}'
+        assert record["extra"]["upstream_response_body_truncated"] is False
+
+    @pytest.mark.asyncio
+    async def test_translate_upstream_errors_truncates_http_response_body_log(self):
+        """Large upstream error responses are capped in logs."""
+        logs, sink_id = _capture_warning_logs()
+        response_body = "x" * (MAX_UPSTREAM_RESPONSE_LOG_CHARS + 1)
+
+        try:
+            async with respx.mock(base_url="http://test") as mock:
+                mock.get("/large-error").mock(return_value=Response(503, text=response_body))
+
+                async with ZodiacClient(base_url="http://test") as client:
+
+                    @translate_upstream_errors(service="production")
+                    async def fetch_large_error():
+                        response = await client.get("/large-error")
+                        response.raise_for_status()
+
+                    with pytest.raises(UpstreamServiceException):
+                        await fetch_large_error()
+        finally:
+            logger.remove(sink_id)
+
+        record = json.loads(logs[-1])["record"]
+        assert record["message"] == "Upstream HTTP error"
+        assert record["extra"]["upstream_response_body"] == "x" * MAX_UPSTREAM_RESPONSE_LOG_CHARS
+        assert record["extra"]["upstream_response_body_truncated"] is True
+
+    def test_translate_upstream_errors_handles_unread_response_body_log(self):
+        """Unread streaming responses should not break upstream error translation."""
+        logs, sink_id = _capture_warning_logs()
+
+        @translate_upstream_errors(service="production")
+        def fetch_stream_error():
+            request = httpx.Request("GET", "http://test/stream-error")
+            response = httpx.Response(503, stream=httpx.ByteStream(b"unread"), request=request)
+            raise httpx.HTTPStatusError("server error", request=request, response=response)
+
+        try:
+            with pytest.raises(UpstreamServiceException):
+                fetch_stream_error()
+        finally:
+            logger.remove(sink_id)
+
+        record = json.loads(logs[-1])["record"]
+        assert record["message"] == "Upstream HTTP error"
+        assert record["extra"]["upstream_response_body"] == "<response body not read>"
+        assert record["extra"]["upstream_response_body_truncated"] is False
 
     @pytest.mark.asyncio
     async def test_translate_upstream_errors_maps_async_5xx_to_service_error(self):
@@ -196,6 +292,51 @@ class TestZodiacHttpClients:
         assert exc.service == "deliverable_hub"
         assert exc.error_code == "UPSTREAM_SERVICE_ERROR"
         assert exc.upstream_status is None
+
+    def test_translate_upstream_errors_logs_request_error_context(self):
+        """Transport/request failures log request metadata and the original httpx error text."""
+        logs, sink_id = _capture_warning_logs()
+
+        @translate_upstream_errors(service="deliverable_hub")
+        def fetch_with_transport_failure():
+            request = httpx.Request("GET", "http://deliverable-hub.test/items")
+            raise httpx.ConnectError("connect failed", request=request)
+
+        try:
+            with pytest.raises(UpstreamServiceException):
+                fetch_with_transport_failure()
+        finally:
+            logger.remove(sink_id)
+
+        record = json.loads(logs[-1])["record"]
+        assert record["message"] == "Upstream request error"
+        assert record["extra"]["upstream_service"] == "deliverable_hub"
+        assert record["extra"]["upstream_error_type"] == "ConnectError"
+        assert record["extra"]["upstream_method"] == "GET"
+        assert record["extra"]["upstream_url"] == "http://deliverable-hub.test/items"
+        assert record["extra"]["upstream_error"] == "connect failed"
+
+    def test_translate_upstream_errors_handles_request_error_without_request(self):
+        """RequestError.request is optional, so logging should not require it."""
+        logs, sink_id = _capture_warning_logs()
+
+        @translate_upstream_errors(service="deliverable_hub")
+        def fetch_with_requestless_failure():
+            raise httpx.RequestError("request setup failed")
+
+        try:
+            with pytest.raises(UpstreamServiceException):
+                fetch_with_requestless_failure()
+        finally:
+            logger.remove(sink_id)
+
+        record = json.loads(logs[-1])["record"]
+        assert record["message"] == "Upstream request error"
+        assert record["extra"]["upstream_service"] == "deliverable_hub"
+        assert record["extra"]["upstream_error_type"] == "RequestError"
+        assert "upstream_method" not in record["extra"]
+        assert "upstream_url" not in record["extra"]
+        assert record["extra"]["upstream_error"] == "request setup failed"
 
     def test_translate_upstream_errors_maps_sync_request_error(self):
         """Non-transport request failures are also treated as upstream service failures."""
@@ -260,5 +401,8 @@ class TestZodiacHttpClients:
             "data": {
                 "service": "identity_and_access",
                 "error_code": "UPSTREAM_REQUEST_ERROR",
+                "upstream_status": 422,
+                "upstream_response_body": '{"code":422}',
+                "upstream_response_body_truncated": False,
             },
         }

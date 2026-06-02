@@ -2,6 +2,7 @@ import json
 
 import pytest
 from fastapi.exceptions import RequestValidationError
+from loguru import logger
 
 from zodiac_core.exception_handlers import (
     handler_global_exception,
@@ -159,8 +160,55 @@ class TestExceptionHandlers:
             "data": {
                 "service": "production",
                 "error_code": "UPSTREAM_REQUEST_ERROR",
+                "upstream_status": 422,
             },
         }
+
+    @pytest.mark.asyncio
+    async def test_upstream_request_error_handler_includes_upstream_response_body(self, mock_request):
+        """Upstream request failures expose upstream response details to callers."""
+
+        exc = UpstreamRequestException(
+            service="production",
+            upstream_status=422,
+            upstream_response_body='{"detail":"invalid production"}',
+            upstream_response_body_truncated=False,
+        )
+        resp = await handler_upstream_service_exception(mock_request, exc)
+
+        assert resp.status_code == 400
+        data = json.loads(resp.body)
+        assert data == {
+            "code": 400,
+            "message": "Upstream request failed",
+            "data": {
+                "service": "production",
+                "error_code": "UPSTREAM_REQUEST_ERROR",
+                "upstream_status": 422,
+                "upstream_response_body": '{"detail":"invalid production"}',
+                "upstream_response_body_truncated": False,
+            },
+        }
+
+    @pytest.mark.asyncio
+    async def test_upstream_service_error_handler_logs_request_context(self, mock_request):
+        """The final upstream handler logs both upstream and inbound request context."""
+        logs = []
+        sink_id = logger.add(logs.append, level="WARNING", serialize=True, enqueue=False)
+        exc = UpstreamRequestException(service="production", upstream_status=422)
+
+        try:
+            await handler_upstream_service_exception(mock_request, exc)
+        finally:
+            logger.remove(sink_id)
+
+        record = json.loads(logs[-1])["record"]
+        assert record["message"] == "Returning upstream error to client"
+        assert record["extra"]["upstream_service"] == "production"
+        assert record["extra"]["upstream_error_code"] == "UPSTREAM_REQUEST_ERROR"
+        assert record["extra"]["upstream_status"] == 422
+        assert record["extra"]["request_method"] == "GET"
+        assert record["extra"]["request_path"] == "/api/test"
 
     @pytest.mark.asyncio
     async def test_register_exception_handlers_handles_upstream_errors(self):
@@ -187,6 +235,7 @@ class TestExceptionHandlers:
             "data": {
                 "service": "production",
                 "error_code": "UPSTREAM_REQUEST_ERROR",
+                "upstream_status": 422,
             },
         }
 

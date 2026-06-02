@@ -86,7 +86,20 @@ class TestUpstreamExceptions:
         assert exc.service == "identity_and_access"
         assert exc.error_code == "UPSTREAM_REQUEST_ERROR"
         assert exc.upstream_status == 422
+        assert exc.upstream_response_body is None
+        assert exc.upstream_response_body_truncated is False
         assert exc.data == {
             "service": "identity_and_access",
             "error_code": "UPSTREAM_REQUEST_ERROR",
         }
+
+    def test_upstream_request_error_keeps_upstream_response_body(self):
+        exc = UpstreamRequestException(
+            service="identity_and_access",
+            upstream_status=422,
+            upstream_response_body='{"detail":"invalid"}',
+            upstream_response_body_truncated=False,
+        )
+
+        assert exc.upstream_response_body == '{"detail":"invalid"}'
+        assert exc.upstream_response_body_truncated is False
