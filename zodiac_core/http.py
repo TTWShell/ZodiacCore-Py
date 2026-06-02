@@ -20,6 +20,7 @@ from zodiac_core.exceptions import UpstreamRequestException, UpstreamServiceExce
 
 P = ParamSpec("P")
 R = TypeVar("R")
+MAX_UPSTREAM_RESPONSE_LOG_CHARS = 4096
 
 
 def _inject_header(request: httpx.Request) -> None:
@@ -55,32 +56,59 @@ def _merge_hooks(user_hooks: Optional[Dict[str, Any]], trace_hook: Any) -> Dict[
     return hooks
 
 
+def _loggable_response_body(response: httpx.Response) -> tuple[str, bool]:
+    try:
+        response_text = response.text
+    except httpx.ResponseNotRead:
+        return "<response body not read>", False
+
+    return (
+        response_text[:MAX_UPSTREAM_RESPONSE_LOG_CHARS],
+        len(response_text) > MAX_UPSTREAM_RESPONSE_LOG_CHARS,
+    )
+
+
+def _request_from_error(exc: httpx.HTTPStatusError | httpx.RequestError) -> httpx.Request | None:
+    try:
+        return exc.request
+    except RuntimeError:
+        return None
+
+
 def _raise_upstream_error(
     service: str,
     exc: httpx.HTTPStatusError | httpx.RequestError,
 ) -> NoReturn:
+    request = _request_from_error(exc)
+    log_context = {
+        "upstream_service": service,
+        "upstream_error_type": exc.__class__.__name__,
+    }
+    if request is not None:
+        log_context["upstream_method"] = request.method
+        log_context["upstream_url"] = str(request.url)
+
     if isinstance(exc, httpx.HTTPStatusError):
         status_code = exc.response.status_code
-        logger.warning(
-            "Upstream HTTP error service={} status_code={}",
-            service,
-            status_code,
-        )
+        response_body, response_body_truncated = _loggable_response_body(exc.response)
+        log_context["upstream_status"] = status_code
+        log_context["upstream_response_body"] = response_body
+        log_context["upstream_response_body_truncated"] = response_body_truncated
+        logger.bind(**log_context).warning("Upstream HTTP error")
         if status_code in (400, 422):
             raise UpstreamRequestException(
                 service=service,
                 upstream_status=status_code,
+                upstream_response_body=response_body,
+                upstream_response_body_truncated=response_body_truncated,
             ) from exc
         raise UpstreamServiceException(
             service=service,
             upstream_status=status_code,
         ) from exc
 
-    logger.warning(
-        "Upstream request error service={} error_type={}",
-        service,
-        exc.__class__.__name__,
-    )
+    log_context["upstream_error"] = str(exc)
+    logger.bind(**log_context).warning("Upstream request error")
     raise UpstreamServiceException(service=service) from exc
 
 
