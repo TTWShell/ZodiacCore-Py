@@ -10,7 +10,7 @@ Scope types ("http", "websocket", "lifespan") follow the ASGI spec:
 
 import time
 import uuid
-from typing import Callable
+from typing import Callable, Sequence
 
 from loguru import logger
 from starlette.datastructures import MutableHeaders
@@ -79,16 +79,25 @@ class AccessLogMiddleware:
     appears in logs when TraceIDMiddleware is used (context).
 
     Compatible with: app.add_middleware(AccessLogMiddleware).
+
+    Use ``exclude_paths`` to skip noisy endpoints such as health checks.
+    Paths are matched exactly against ``scope["path"]``.
     """
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        exclude_paths: Sequence[str] | None = None,
+    ) -> None:
         self.app = app
+        self._exclude_paths = frozenset(exclude_paths or ())
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # ASGI scope["type"]: "http" | "websocket" | "lifespan" (see module docstring links)
         if scope["type"] == "http":
             start_time = time.perf_counter()
             status_code = 500
+            path = scope.get("path", "/")
 
             async def send_wrapper(message: Message) -> None:
                 nonlocal status_code
@@ -99,14 +108,15 @@ class AccessLogMiddleware:
             try:
                 await self.app(scope, receive, send_wrapper)
             finally:
-                process_time = (time.perf_counter() - start_time) * 1000
-                logger.info(
-                    "{method} {path} - {status_code} - {latency:.2f}ms",
-                    method=scope.get("method", "GET"),
-                    path=scope.get("path", "/"),
-                    status_code=status_code,
-                    latency=process_time,
-                )
+                if path not in self._exclude_paths:
+                    process_time = (time.perf_counter() - start_time) * 1000
+                    logger.info(
+                        "{method} {path} - {status_code} - {latency:.2f}ms",
+                        method=scope.get("method", "GET"),
+                        path=path,
+                        status_code=status_code,
+                        latency=process_time,
+                    )
             return
         if scope["type"] == "websocket":
             start_time = time.perf_counter()
@@ -143,14 +153,26 @@ class ServiceNameMiddleware:
         await self.app(scope, receive, send)
 
 
-def register_middleware(app: ASGIApp, service_name: str | None = None) -> None:
+def register_middleware(
+    app: ASGIApp,
+    service_name: str | None = None,
+    *,
+    exclude_paths: Sequence[str] | None = None,
+) -> None:
     """
     Register TraceID and AccessLog middlewares in the correct order.
 
     Order: TraceID (outer) then ServiceName (optional) then AccessLog (inner),
     so the access log can include request_id and service from context.
+
+    Args:
+        exclude_paths: Optional exact paths to skip in access logs. Matches
+            against ``scope["path"]``.
     """
-    app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(
+        AccessLogMiddleware,
+        exclude_paths=exclude_paths,
+    )
     if service_name is not None:
         app.add_middleware(ServiceNameMiddleware, service_name=service_name)
     app.add_middleware(TraceIDMiddleware)
