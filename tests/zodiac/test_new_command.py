@@ -166,6 +166,7 @@ class TestNewCommand:
         assert main_py.exists()
         content = main_py.read_text()
         assert project_name in content
+        assert 'exclude_paths=["/api/v1/health"]' in content
 
         # Check that project_name is rendered in pyproject.toml
         pyproject = target_path / "pyproject.toml"
