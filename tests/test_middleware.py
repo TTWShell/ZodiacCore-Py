@@ -257,6 +257,87 @@ class TestAccessLogMiddleware:
         await middleware(scope, noop_receive, noop_send)
         assert call_count == 1
 
+    async def test_http_skips_excluded_paths(self):
+        log_capture = []
+        setup_loguru(
+            level="INFO",
+            json_format=False,
+            console_options={"sink": log_capture.append, "enqueue": False},
+        )
+
+        async def fake_app(scope, receive, send):
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b""})
+
+        async def noop_receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def noop_send(_message):
+            pass
+
+        middleware = AccessLogMiddleware(fake_app, exclude_paths=("/api/v1/health",))
+        await middleware(
+            {"type": "http", "method": "GET", "path": "/api/v1/health", "headers": []},
+            noop_receive,
+            noop_send,
+        )
+        assert log_capture == []
+
+    async def test_http_logs_non_excluded_paths(self):
+        log_capture = []
+        setup_loguru(
+            level="INFO",
+            json_format=False,
+            console_options={"sink": log_capture.append, "enqueue": False},
+        )
+
+        async def fake_app(scope, receive, send):
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b""})
+
+        async def noop_receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def noop_send(_message):
+            pass
+
+        middleware = AccessLogMiddleware(fake_app, exclude_paths=("/api/v1/health",))
+        await middleware(
+            {"type": "http", "method": "GET", "path": "/api/v1/items", "headers": []},
+            noop_receive,
+            noop_send,
+        )
+
+        assert len(log_capture) == 1
+        assert "GET /api/v1/items" in log_capture[0]
+        assert "200" in log_capture[0]
+
+    async def test_register_middleware_passes_exclude_paths(self):
+        app = FastAPI()
+        register_middleware(app, exclude_paths=["/api/v1/health"])
+
+        log_capture = []
+        setup_loguru(
+            level="INFO",
+            json_format=False,
+            console_options={"sink": log_capture.append, "enqueue": False},
+        )
+
+        @app.get("/api/v1/health")
+        async def health():
+            return {"status": "healthy"}
+
+        @app.get("/api/v1/items")
+        async def items():
+            return {"items": []}
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.get("/api/v1/health")
+            await client.get("/api/v1/items")
+
+        assert len(log_capture) == 1
+        assert "GET /api/v1/items" in log_capture[0]
+
 
 @pytest.mark.asyncio
 class TestServiceNameMiddleware:
