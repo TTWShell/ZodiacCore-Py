@@ -6,13 +6,22 @@ from sqlmodel import Field, SQLModel
 
 from zodiac_core.db.repository import BaseSQLRepository
 from zodiac_core.db.session import db
-from zodiac_core.pagination import PageParams
+from zodiac_core.exceptions import BadRequestException
+from zodiac_core.pagination import PageParams, PageSortParams, SortParams
 
 
 # 1. Define Test Models
 class ItemModel(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     name: str
+
+
+class SortableItemModel(SQLModel, table=True):
+    __tablename__ = "test_sortable_item"
+
+    id: int = Field(default=None, primary_key=True)
+    name: str
+    priority: int
 
 
 class ItemModelSchema(BaseModel):
@@ -39,6 +48,10 @@ class TestRepositoryPagination:
         async with db.session() as session:
             for i in range(1, 26):
                 session.add(ItemModel(name=f"Item {i:02d}"))
+            session.add(SortableItemModel(name="banana", priority=1))
+            session.add(SortableItemModel(name="apple", priority=1))
+            session.add(SortableItemModel(name="apple", priority=2))
+            session.add(SortableItemModel(name="banana", priority=2))
             await session.commit()
 
         yield
@@ -105,6 +118,40 @@ class TestRepositoryPagination:
         assert result.items[0].name == "Item 11"
 
     @pytest.mark.asyncio
+    async def test_paginate_query_applies_sorting(self):
+        """Test paginating with standard multi-column sort params."""
+        repo = ItemModelRepository()
+        params = PageSortParams(page=1, size=10, sort=["name:asc", "priority:desc"])
+
+        result = await repo.paginate_query(
+            select(SortableItemModel).order_by(SortableItemModel.id),
+            params,
+            sort_columns={
+                "name": SortableItemModel.name,
+                "priority": SortableItemModel.priority,
+            },
+        )
+
+        assert result.total == 4
+        assert [(item.name, item.priority) for item in result.items] == [
+            ("apple", 2),
+            ("apple", 1),
+            ("banana", 2),
+            ("banana", 1),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_paginate_query_requires_sort_params_for_sort_columns(self):
+        repo = ItemModelRepository()
+
+        with pytest.raises(TypeError):
+            await repo.paginate_query(
+                select(SortableItemModel),
+                PageParams(),
+                sort_columns={"name": SortableItemModel.name},
+            )
+
+    @pytest.mark.asyncio
     async def test_paginate_empty_result(self):
         """Test pagination on a query that returns no results."""
         repo = ItemModelRepository()
@@ -115,3 +162,61 @@ class TestRepositoryPagination:
 
         assert result.total == 0
         assert len(result.items) == 0
+
+    @pytest.mark.asyncio
+    async def test_apply_sorting(self):
+        """Test applying public multi-column sort fields to a statement."""
+        repo = ItemModelRepository()
+        params = SortParams(sort=["name:asc", "priority:desc"])
+
+        stmt = repo.apply_sorting(
+            select(SortableItemModel),
+            params,
+            {
+                "name": SortableItemModel.name,
+                "priority": SortableItemModel.priority,
+            },
+        )
+
+        async with repo.session() as session:
+            result = await session.execute(stmt)
+            items = result.scalars().all()
+
+        assert [(item.name, item.priority) for item in items] == [
+            ("apple", 2),
+            ("apple", 1),
+            ("banana", 2),
+            ("banana", 1),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_apply_sorting_replaces_existing_order_by(self):
+        repo = ItemModelRepository()
+        params = SortParams(sort=["name:asc", "priority:desc"])
+
+        stmt = repo.apply_sorting(
+            select(SortableItemModel).order_by(SortableItemModel.id),
+            params,
+            {
+                "name": SortableItemModel.name,
+                "priority": SortableItemModel.priority,
+            },
+        )
+
+        async with repo.session() as session:
+            result = await session.execute(stmt)
+            items = result.scalars().all()
+
+        assert [(item.name, item.priority) for item in items] == [
+            ("apple", 2),
+            ("apple", 1),
+            ("banana", 2),
+            ("banana", 1),
+        ]
+
+    def test_apply_sorting_rejects_unknown_field(self):
+        repo = ItemModelRepository()
+        params = SortParams(sort=["unknown:asc"])
+
+        with pytest.raises(BadRequestException):
+            repo.apply_sorting(select(SortableItemModel), params, {"name": SortableItemModel.name})

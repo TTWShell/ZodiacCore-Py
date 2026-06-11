@@ -5,6 +5,7 @@ ZodiacCore provides a comprehensive pagination system that standardizes how your
 ## 1. Request Parameters
 
 The `PageParams` model handles typical pagination query strings (`?page=1&size=20`).
+Use `SortParams` or `PageSortParams` when an endpoint also supports repeated multi-column sort parameters such as `?sort=name:asc&sort=created_at:desc`.
 
 ```python
 from typing import Annotated
@@ -31,7 +32,59 @@ async def list_items(
 
 ---
 
-## 2. Standard Paged Response
+## 2. Multi-Column Sorting
+
+Use `PageSortParams` for paginated list APIs that support sorting:
+
+```python
+from typing import Annotated
+
+from fastapi import Query
+from zodiac_core.pagination import PageSortParams
+
+
+@router.get("/items")
+async def list_items(
+    params: Annotated[PageSortParams, Query()],
+):
+    # /items?page=1&size=20&sort=name:asc&sort=created_at:desc
+    # params.sort == ["name:asc", "created_at:desc"]
+    ...
+```
+
+Use `SortParams` directly for endpoints that need sorting without pagination. Sort directions are limited to `asc` and `desc`; when omitted, the direction defaults to `asc`.
+
+If you do not use ZodiacCore repository helpers, consume `params.sort_pairs` directly:
+
+```python
+for field, direction in params.sort_pairs:
+    ...
+```
+
+For SQL repositories, pass an explicit field whitelist to `paginate_query()`:
+
+```python
+from sqlalchemy import select
+from zodiac_core.pagination import PageSortParams
+
+
+class ItemRepository(BaseSQLRepository):
+    async def list_items(self, params: PageSortParams):
+        return await self.paginate_query(
+            select(ItemModel),
+            params,
+            sort_columns={
+                "name": ItemModel.name,
+                "created_at": ItemModel.created_at,
+            },
+        )
+```
+
+The public query field is a list of strings, so OpenAPI documents `sort` as repeated string parameters. `paginate_query()` parses those strings internally when `sort_columns` is provided. Unknown sort fields raise `BadRequestException`; this keeps public API field names explicit and avoids sorting by arbitrary database columns.
+
+---
+
+## 3. Standard Paged Response
 
 The `PagedResponse[T]` is a generic model that wraps your data items along with metadata.
 
@@ -64,9 +117,9 @@ return PagedResponse.create(
 
 ---
 
-## 3. Professional Pagination with BaseSQLRepository
+## 4. Professional Pagination with BaseSQLRepository
 
-For database queries, `BaseSQLRepository` provides two methods that automate pagination:
+For database queries, `BaseSQLRepository` provides methods that automate pagination and sorting:
 
 ### `paginate_query()` - Recommended for Most Cases
 
@@ -88,6 +141,7 @@ class ItemRepository(BaseSQLRepository):
 **What it does:**
 
 - ✅ Automatically manages database session
+- ✅ Optionally applies multi-column sorting with `sort_columns`
 - ✅ Calculates total count (handles complex queries with joins/groups)
 - ✅ Applies limit/offset
 - ✅ Packages results into `PagedResponse`
@@ -148,7 +202,7 @@ return await self.paginate_query(stmt, params, transformer=ItemSchema)
 
 ---
 
-## 4. Complete Example
+## 5. Complete Example
 
 Here's a complete example showing the full flow:
 
@@ -159,8 +213,7 @@ from zodiac_core.pagination import PagedResponse, PageParams
 
 class ItemRepository(BaseSQLRepository):
     async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
-        stmt = select(ItemModel).order_by(ItemModel.id)
-        return await self.paginate_query(stmt, params)
+        return await self.paginate_query(select(ItemModel).order_by(ItemModel.id), params)
 ```
 
 **Service:**
@@ -198,7 +251,7 @@ async def list_items(
 
 ---
 
-## 5. API Reference
+## 6. API Reference
 
 ### Pagination Models
 ::: zodiac_core.pagination
@@ -207,6 +260,8 @@ async def list_items(
       show_root_heading: false
       members:
         - PageParams
+        - SortParams
+        - PageSortParams
         - PagedResponse
 
 ### Repository Methods
@@ -215,5 +270,6 @@ async def list_items(
       heading_level: 3
       show_root_heading: false
       members:
+        - apply_sorting
         - paginate
         - paginate_query

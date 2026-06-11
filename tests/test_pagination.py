@@ -5,7 +5,7 @@ from fastapi import FastAPI, Query
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ValidationError
 
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageParams, PageSortParams, SortParams
 
 
 class UserDTO(BaseModel):
@@ -39,6 +39,32 @@ class TestPageParams:
             PageParams(size=101)
 
 
+class TestSortParams:
+    """Tests for standard multi-column sort query parameters."""
+
+    def test_defaults(self):
+        p = SortParams()
+        assert p.sort == []
+
+    def test_parse_sort_expressions(self):
+        p = SortParams(sort=["name:asc", "created_at:desc"])
+        assert p.sort == ["name:asc", "created_at:desc"]
+        assert p.sort_pairs == [("name", "asc"), ("created_at", "desc")]
+
+    def test_default_direction(self):
+        p = SortParams(sort=["name"])
+        assert p.sort == ["name"]
+        assert p.sort_pairs == [("name", "asc")]
+
+    def test_invalid_direction(self):
+        with pytest.raises(ValidationError):
+            SortParams(sort=["name:invalid"])
+
+    def test_empty_field(self):
+        with pytest.raises(ValidationError):
+            SortParams(sort=[":asc"])
+
+
 class TestPagedResponse:
     """Tests for the PagedResponse model and its factory method."""
 
@@ -70,6 +96,10 @@ class TestPaginationIntegration:
             items = all_users[start:end]
             return PagedResponse.create(items, len(all_users), page_params)
 
+        @app.get("/sorted-users")
+        def list_sorted_users(params: Annotated[PageSortParams, Query()]):
+            return params.model_dump()
+
         return TestClient(app)
 
     def test_default_pagination(self, client):
@@ -92,3 +122,20 @@ class TestPaginationIntegration:
         response = client.get("/users?size=200")
         assert response.status_code == 422
         assert "less than or equal to 100" in response.text
+
+    def test_sort_query_params(self, client):
+        response = client.get("/sorted-users?page=2&size=5&sort=name:asc&sort=created_at:desc")
+        assert response.status_code == 200
+        assert response.json() == {
+            "sort": ["name:asc", "created_at:desc"],
+            "page": 2,
+            "size": 5,
+        }
+
+    def test_sort_openapi_schema_uses_string_wire_format(self, client):
+        schema = client.get("/openapi.json").json()
+        params = schema["paths"]["/sorted-users"]["get"]["parameters"]
+        sort_param = next(param for param in params if param["name"] == "sort")
+
+        assert sort_param["schema"]["type"] == "array"
+        assert sort_param["schema"]["items"]["type"] == "string"

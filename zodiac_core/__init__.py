@@ -22,7 +22,7 @@ from .http import (
 )
 from .logging import LogFileOptions, setup_loguru
 from .middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware, register_middleware
-from .pagination import PagedResponse, PageParams
+from .pagination import PagedResponse, PageParams, PageSortParams, SortParams
 from .response import (
     Response,
     create_response,
@@ -83,7 +83,9 @@ __all__ = [
     "translate_upstream_errors",
     # pagination
     "PageParams",
+    "PageSortParams",
     "PagedResponse",
+    "SortParams",
     # exceptions
     "BadRequestException",
     "UnauthorizedException",
