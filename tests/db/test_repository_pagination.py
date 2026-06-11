@@ -220,3 +220,12 @@ class TestRepositoryPagination:
 
         with pytest.raises(BadRequestException):
             repo.apply_sorting(select(SortableItemModel), params, {"name": SortableItemModel.name})
+
+    def test_apply_sorting_without_sort_keeps_statement(self):
+        repo = ItemModelRepository()
+        params = SortParams()
+        stmt = select(SortableItemModel).order_by(SortableItemModel.id)
+
+        sorted_stmt = repo.apply_sorting(stmt, params, {"name": SortableItemModel.name})
+
+        assert sorted_stmt is stmt
