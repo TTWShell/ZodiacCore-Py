@@ -44,7 +44,7 @@ from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import Depends, Query
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams
 from zodiac_core.routing import APIRouter
 
 from app.api.schemas.item_schema import ItemSchema
@@ -57,7 +57,7 @@ router = APIRouter()
 @router.get("", response_model=PagedResponse[ItemSchema])
 @inject
 async def list_items(
-    page_params: Annotated[PageParams, Query()],
+    page_params: Annotated[PageSortParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
     """List items with pagination."""
@@ -91,7 +91,7 @@ async def list_items(
 ```python
 from loguru import logger
 from zodiac_core.exceptions import NotFoundException
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams
 
 from app.infrastructure.database.models.item_model import ItemModel
 from app.infrastructure.database.repositories.item_repository import ItemRepository
@@ -108,7 +108,7 @@ class ItemService:
             raise NotFoundException(message=f"Item id '{item_id}' not found")
         return item
 
-    async def list_items(self, page_params: PageParams) -> PagedResponse[ItemModel]:
+    async def list_items(self, page_params: PageSortParams) -> PagedResponse[ItemModel]:
         """List items with pagination."""
         result = await self.item_repo.list_items(page_params)
         logger.bind(
@@ -148,11 +148,13 @@ class ItemService:
 ```python
 from sqlalchemy import select
 from zodiac_core.db.repository import BaseSQLRepository
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams, SortSpec
 
 from app.infrastructure.database.models.item_model import ItemModel
 
 class ItemRepository(BaseSQLRepository):
+    sort_spec = SortSpec(columns={"id": ItemModel.id, "name": ItemModel.name}, default=["id:asc"])
+
     async def get_by_id(self, item_id: int) -> ItemModel | None:
         """Get an item by ID."""
         async with self.session() as session:
@@ -160,9 +162,9 @@ class ItemRepository(BaseSQLRepository):
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
-        """List items with pagination using BaseSQLRepository.paginate_query."""
-        stmt = select(ItemModel).order_by(ItemModel.id)
+    async def list_items(self, params: PageSortParams) -> PagedResponse[ItemModel]:
+        """List items with pagination and sorting using BaseSQLRepository.paginate_query."""
+        stmt = select(ItemModel)
         return await self.paginate_query(stmt, params)
 ```
 
@@ -329,21 +331,22 @@ HTTP Request
 HTTP Response
 ```
 
-### Example Flow: `GET /api/v1/items?page=1&size=20` (3-Tier)
+### Example Flow: `GET /api/v1/items?page=1&size=20&sort=created_at:desc&sort=name:asc` (3-Tier)
 
 1. **Router** (`item_router.py`):
-   - Receives request with `PageParams`
+   - Receives request with `PageSortParams`
    - Injects `ItemService` from container
    - Calls `service.list_items(page_params)`
 
 2. **Service** (`item_service.py`):
-   - Receives `PageParams`
+   - Receives `PageSortParams`
    - Calls `item_repo.list_items(page_params)`
    - Logs the operation
    - Returns `PagedResponse[ItemModel]`
 
 3. **Repository** (`item_repository.py`):
-   - Builds SQL query: `select(ItemModel).order_by(ItemModel.id)`
+   - Builds SQL query: `select(ItemModel)`
+   - Applies the repository `SortSpec`
    - Calls `paginate_query(stmt, params)`
    - Returns `PagedResponse[ItemModel]`
 

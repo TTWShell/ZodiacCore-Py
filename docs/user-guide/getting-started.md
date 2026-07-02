@@ -88,12 +88,13 @@ from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import Depends, Query
+from zodiac_core.pagination import PageSortParams
 
 
 @router.get("")
 @inject
 async def list_items(
-    page_params: Annotated[PageParams, Query()],
+    page_params: Annotated[PageSortParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
     return await service.list_items(page_params)
@@ -101,11 +102,12 @@ async def list_items(
 
 ### Professional Pagination with `paginate_query`
 
-The generated project uses `BaseSQLRepository.paginate_query()` for pagination, which automatically handles:
+The generated project uses `BaseSQLRepository.paginate_query()` for pagination and sorting, which automatically handles:
 
 - Session management
 - Total count calculation
 - Limit/offset application
+- Sort whitelisting through `SortSpec`
 - Response packaging
 
 **Repository Example:**
@@ -113,27 +115,29 @@ The generated project uses `BaseSQLRepository.paginate_query()` for pagination, 
 ```python
 from sqlalchemy import select
 from zodiac_core.db.repository import BaseSQLRepository
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams, SortSpec
 
 
 class ItemRepository(BaseSQLRepository):
-    async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
-        """List items with pagination using BaseSQLRepository.paginate_query."""
-        stmt = select(ItemModel).order_by(ItemModel.id)
+    sort_spec = SortSpec(columns={"id": ItemModel.id, "name": ItemModel.name}, default=["id:asc"])
+
+    async def list_items(self, params: PageSortParams) -> PagedResponse[ItemModel]:
+        """List items with pagination and sorting using BaseSQLRepository.paginate_query."""
+        stmt = select(ItemModel)
         return await self.paginate_query(stmt, params)
 ```
 
 **Service Example:**
 
 ```python
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams
 
 
 class ItemService:
     def __init__(self, item_repo: ItemRepository) -> None:
         self.item_repo = item_repo
 
-    async def list_items(self, page_params: PageParams) -> PagedResponse[ItemModel]:
+    async def list_items(self, page_params: PageSortParams) -> PagedResponse[ItemModel]:
         """List items with pagination."""
         return await self.item_repo.list_items(page_params)
 ```
@@ -145,13 +149,13 @@ from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import Depends, Query
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams
 
 
 @router.get("", response_model=PagedResponse[ItemSchema])
 @inject
 async def list_items(
-    page_params: Annotated[PageParams, Query()],
+    page_params: Annotated[PageSortParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
     """List items with pagination."""
