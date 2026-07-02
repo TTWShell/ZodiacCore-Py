@@ -7,7 +7,7 @@ from sqlmodel import Field, SQLModel
 from zodiac_core.db.repository import BaseSQLRepository
 from zodiac_core.db.session import db
 from zodiac_core.exceptions import BadRequestException
-from zodiac_core.pagination import PageParams, PageSortParams, SortParams
+from zodiac_core.pagination import PageParams, PageSortParams, SortParams, SortSpec
 
 
 # 1. Define Test Models
@@ -34,6 +34,16 @@ class ItemModelSchema(BaseModel):
 class ItemModelRepository(BaseSQLRepository):
     def __init__(self):
         super().__init__()
+
+
+class SortableItemRepository(BaseSQLRepository):
+    sort_spec = SortSpec(
+        columns={
+            "name": SortableItemModel.name,
+            "priority": SortableItemModel.priority,
+        },
+        default=["name:asc", "priority:desc"],
+    )
 
 
 # 3. Pagination Test Class
@@ -141,6 +151,57 @@ class TestRepositoryPagination:
         ]
 
     @pytest.mark.asyncio
+    async def test_paginate_query_uses_repository_sort_spec(self):
+        """Repository-level SortSpec avoids repeating sort_columns in every method."""
+        repo = SortableItemRepository()
+        params = PageSortParams(page=1, size=10, sort=["priority:desc", "name:asc"])
+
+        result = await repo.paginate_query(select(SortableItemModel).order_by(SortableItemModel.id), params)
+
+        assert result.total == 4
+        assert [(item.name, item.priority) for item in result.items] == [
+            ("apple", 2),
+            ("banana", 2),
+            ("apple", 1),
+            ("banana", 1),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_paginate_query_uses_sort_spec_default_with_page_params(self):
+        """SortSpec.default gives stable ordering when callers pass only PageParams."""
+        repo = SortableItemRepository()
+        params = PageParams(page=1, size=10)
+
+        result = await repo.paginate_query(select(SortableItemModel).order_by(SortableItemModel.id), params)
+
+        assert [(item.name, item.priority) for item in result.items] == [
+            ("apple", 2),
+            ("apple", 1),
+            ("banana", 2),
+            ("banana", 1),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_paginate_query_accepts_explicit_sort_spec(self):
+        repo = ItemModelRepository()
+        params = PageSortParams(page=1, size=10, sort=["priority:asc", "name:desc"])
+        sort_spec = SortSpec(
+            columns={
+                "name": SortableItemModel.name,
+                "priority": SortableItemModel.priority,
+            }
+        )
+
+        result = await repo.paginate_query(select(SortableItemModel), params, sort_spec=sort_spec)
+
+        assert [(item.name, item.priority) for item in result.items] == [
+            ("banana", 1),
+            ("apple", 1),
+            ("banana", 2),
+            ("apple", 2),
+        ]
+
+    @pytest.mark.asyncio
     async def test_paginate_query_requires_sort_params_for_sort_columns(self):
         repo = ItemModelRepository()
 
@@ -220,6 +281,13 @@ class TestRepositoryPagination:
 
         with pytest.raises(BadRequestException):
             repo.apply_sorting(select(SortableItemModel), params, {"name": SortableItemModel.name})
+
+    def test_apply_sorting_rejects_unknown_field_from_sort_spec(self):
+        repo = SortableItemRepository()
+        params = SortParams(sort=["unknown:asc"])
+
+        with pytest.raises(BadRequestException):
+            repo.apply_sorting(select(SortableItemModel), params)
 
     def test_apply_sorting_without_sort_keeps_statement(self):
         repo = ItemModelRepository()

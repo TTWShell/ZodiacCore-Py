@@ -1,10 +1,14 @@
-from typing import Generic, List, Literal, Sequence, TypeVar
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
+from types import MappingProxyType
+from typing import Any, Generic, List, Literal, Mapping, Sequence, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 T = TypeVar("T")
 SortDirection = Literal["asc", "desc"]
 SortPair = tuple[str, SortDirection]
+SortExpression = str | SortPair
 
 
 class PageParams(BaseModel):
@@ -39,6 +43,7 @@ class _SortItem(BaseModel):
 
     @classmethod
     def parse(cls, expression: str) -> "_SortItem":
+        expression = expression.strip()
         field, separator, direction = expression.partition(":")
         data = {"field": field.strip()}
         if separator:
@@ -48,6 +53,62 @@ class _SortItem(BaseModel):
 
 def _parse_sort_items(expressions: Sequence[str]) -> List[_SortItem]:
     return [_SortItem.parse(expression) for expression in expressions]
+
+
+def _coerce_sort_expression(expression: SortExpression) -> List[SortPair]:
+    if isinstance(expression, tuple):
+        field, direction = expression
+        item = _SortItem.model_validate({"field": field, "direction": direction})
+        return [(item.field, item.direction)]
+    return [(item.field, item.direction) for item in _parse_sort_items([expression])]
+
+
+@dataclass(frozen=True)
+class SortSpec:
+    """
+    Reusable sorting configuration for repository list queries.
+
+    ``columns`` is an explicit whitelist from public API field names to
+    SQLAlchemy column/expression objects. ``default`` is used when the request
+    does not include a sort parameter.
+
+    Example:
+        ```python
+        class ItemRepository(BaseSQLRepository):
+            sort_spec = SortSpec(
+                columns={
+                    "name": ItemModel.name,
+                    "created_at": ItemModel.created_at,
+                },
+                default=["created_at:desc", "name:asc"],
+            )
+        ```
+    """
+
+    columns: Mapping[str, Any]
+    default: Sequence[SortExpression] = dataclass_field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        columns = MappingProxyType(dict(self.columns))
+        default_pairs = tuple(pair for expression in self.default for pair in _coerce_sort_expression(expression))
+        unknown_defaults = [field for field, _ in default_pairs if field not in columns]
+        if unknown_defaults:
+            unknown = ", ".join(sorted(set(unknown_defaults)))
+            raise ValueError(f"Default sort field is not configured in SortSpec.columns: {unknown}")
+
+        object.__setattr__(self, "columns", columns)
+        object.__setattr__(self, "_default_pairs", default_pairs)
+
+    @property
+    def default_pairs(self) -> List[SortPair]:
+        """Parsed default sort fields."""
+        return list(self._default_pairs)
+
+    def pairs_for(self, sort_params: "SortParams | None") -> List[SortPair]:
+        """Return request sort pairs when present; otherwise return defaults."""
+        if sort_params is not None and sort_params.sort_pairs:
+            return sort_params.sort_pairs
+        return self.default_pairs
 
 
 class SortParams(BaseModel):

@@ -22,7 +22,7 @@ from .http import (
 )
 from .logging import LogFileOptions, setup_loguru
 from .middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware, register_middleware
-from .pagination import PagedResponse, PageParams, PageSortParams, SortParams
+from .pagination import PagedResponse, PageParams, PageSortParams, SortParams, SortSpec
 from .response import (
     Response,
     create_response,
@@ -86,6 +86,7 @@ __all__ = [
     "PageSortParams",
     "PagedResponse",
     "SortParams",
+    "SortSpec",
     # exceptions
     "BadRequestException",
     "UnauthorizedException",

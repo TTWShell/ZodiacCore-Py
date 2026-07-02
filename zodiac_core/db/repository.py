@@ -12,7 +12,7 @@ except ImportError as e:
 
 from zodiac_core.db.session import DEFAULT_DB_NAME, db, manage_session
 from zodiac_core.exceptions import BadRequestException
-from zodiac_core.pagination import PagedResponse, PageParams, SortParams
+from zodiac_core.pagination import PagedResponse, PageParams, SortParams, SortSpec
 
 T = TypeVar("T")
 
@@ -24,6 +24,8 @@ class BaseSQLRepository:
     Supports multiple database instances via `db_name` and provides
     professional utilities for common operations like pagination.
     """
+
+    sort_spec: SortSpec | None = None
 
     def __init__(
         self,
@@ -65,6 +67,7 @@ class BaseSQLRepository:
         transformer: Optional[Type[T]] = None,
         *,
         sort_columns: Optional[Mapping[str, Any]] = None,
+        sort_spec: SortSpec | None = None,
     ) -> PagedResponse[T]:
         """
         Execute a paginated query with automatic count and paging.
@@ -81,6 +84,8 @@ class BaseSQLRepository:
             params: Standard PageParams (page, size).
             transformer: Optional Pydantic model to transform DB objects into.
             sort_columns: Optional public sort field names mapped to SQLAlchemy columns/expressions.
+            sort_spec: Optional reusable sort configuration. When omitted, the
+                repository class-level ``sort_spec`` is used.
 
         Example:
             ```python
@@ -89,10 +94,18 @@ class BaseSQLRepository:
                 return await self.paginate(session, stmt, params)
             ```
         """
+        if sort_columns is not None and sort_spec is not None:
+            raise TypeError("Use sort_spec or sort_columns, not both")
+
+        effective_sort_spec = sort_spec or self.sort_spec
         if sort_columns is not None:
             if not isinstance(params, SortParams):
                 raise TypeError("sort_columns requires params to be SortParams or PageSortParams")
-            statement = self.apply_sorting(statement, params, sort_columns)
+            effective_sort_spec = SortSpec(columns=sort_columns)
+
+        if effective_sort_spec is not None:
+            sort_params = params if isinstance(params, SortParams) else None
+            statement = self.apply_sorting(statement, sort_params, sort_spec=effective_sort_spec)
 
         # 1. Execute Count Query
         # Remove limit/offset/order_by (if any) for count query, then wrap in subquery.
@@ -116,8 +129,10 @@ class BaseSQLRepository:
     def apply_sorting(
         self,
         statement: Any,
-        sort_params: SortParams,
-        sort_columns: Mapping[str, Any],
+        sort_params: SortParams | None = None,
+        sort_columns: Mapping[str, Any] | None = None,
+        *,
+        sort_spec: SortSpec | None = None,
     ) -> Any:
         """
         Apply validated multi-column sorting to a SQLAlchemy statement.
@@ -125,8 +140,11 @@ class BaseSQLRepository:
 
         Args:
             statement: The SQLAlchemy select statement to sort.
-            sort_params: Standard SortParams or PageSortParams.
+            sort_params: Standard SortParams or PageSortParams. When omitted,
+                only the configured default sort is applied.
             sort_columns: Public sort field names mapped to SQLAlchemy columns/expressions.
+            sort_spec: Optional reusable sort configuration. When omitted, the
+                repository class-level ``sort_spec`` is used.
 
         Example:
             ```python
@@ -140,13 +158,26 @@ class BaseSQLRepository:
             )
             ```
         """
-        sort_pairs = sort_params.sort_pairs
+        if sort_columns is not None and sort_spec is not None:
+            raise TypeError("Use sort_spec or sort_columns, not both")
+
+        if sort_params is not None and not isinstance(sort_params, SortParams):
+            raise TypeError("sort_params must be SortParams or PageSortParams")
+
+        effective_sort_spec = sort_spec or self.sort_spec
+        if sort_columns is not None:
+            effective_sort_spec = SortSpec(columns=sort_columns)
+
+        if effective_sort_spec is None:
+            return statement
+
+        sort_pairs = effective_sort_spec.pairs_for(sort_params)
         if not sort_pairs:
             return statement
 
         order_by_clauses = []
         for field, direction in sort_pairs:
-            column = sort_columns.get(field)
+            column = effective_sort_spec.columns.get(field)
             if column is None:
                 raise BadRequestException(message=f"Unsupported sort field: {field}")
             order_by_clauses.append(column.asc() if direction == "asc" else column.desc())
@@ -160,6 +191,7 @@ class BaseSQLRepository:
         transformer: Optional[Type[T]] = None,
         *,
         sort_columns: Optional[Mapping[str, Any]] = None,
+        sort_spec: SortSpec | None = None,
     ) -> PagedResponse[T]:
         """
         Convenience method that automatically manages session for pagination.
@@ -172,6 +204,8 @@ class BaseSQLRepository:
             params: Standard PageParams (page, size).
             transformer: Optional Pydantic model to transform DB objects into.
             sort_columns: Optional public sort field names mapped to SQLAlchemy columns/expressions.
+            sort_spec: Optional reusable sort configuration. When omitted, the
+                repository class-level ``sort_spec`` is used.
 
         Example:
             ```python
@@ -181,4 +215,11 @@ class BaseSQLRepository:
             ```
         """
         async with self.session() as session:
-            return await self.paginate(session, statement, params, transformer, sort_columns=sort_columns)
+            return await self.paginate(
+                session,
+                statement,
+                params,
+                transformer,
+                sort_columns=sort_columns,
+                sort_spec=sort_spec,
+            )

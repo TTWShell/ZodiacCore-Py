@@ -61,26 +61,46 @@ for field, direction in params.sort_pairs:
     ...
 ```
 
-For SQL repositories, pass an explicit field whitelist to `paginate_query()`:
+For SQL repositories, define a reusable `SortSpec` once on the repository:
 
 ```python
 from sqlalchemy import select
-from zodiac_core.pagination import PageSortParams
+from zodiac_core.pagination import PageSortParams, SortSpec
 
 
 class ItemRepository(BaseSQLRepository):
+    sort_spec = SortSpec(
+        columns={
+            "name": ItemModel.name,
+            "created_at": ItemModel.created_at,
+        },
+        default=["created_at:desc", "name:asc"],
+    )
+
     async def list_items(self, params: PageSortParams):
-        return await self.paginate_query(
-            select(ItemModel),
-            params,
-            sort_columns={
-                "name": ItemModel.name,
-                "created_at": ItemModel.created_at,
-            },
-        )
+        return await self.paginate_query(select(ItemModel), params)
 ```
 
-The public query field is a list of strings, so OpenAPI documents `sort` as repeated string parameters. `paginate_query()` parses those strings internally when `sort_columns` is provided. Unknown sort fields raise `BadRequestException`; this keeps public API field names explicit and avoids sorting by arbitrary database columns.
+The public query field is a list of strings, so OpenAPI documents `sort` as repeated string parameters:
+
+```text
+?sort=name:asc&sort=created_at:desc
+```
+
+`paginate_query()` parses those strings internally and applies the repository `SortSpec`. Unknown sort fields raise `BadRequestException`; this keeps public API field names explicit and avoids sorting by arbitrary database columns.
+
+`sort_columns` remains supported for backward compatibility and one-off calls, but `SortSpec` is the preferred API for repository code:
+
+```python
+return await self.paginate_query(
+    select(ItemModel),
+    params,
+    sort_columns={
+        "name": ItemModel.name,
+        "created_at": ItemModel.created_at,
+    },
+)
+```
 
 ---
 
@@ -128,20 +148,29 @@ This is the **convenience method** that automatically manages the database sessi
 ```python
 from sqlalchemy import select
 from zodiac_core.db.repository import BaseSQLRepository
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams, SortSpec
 
 
 class ItemRepository(BaseSQLRepository):
-    async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
+    sort_spec = SortSpec(
+        columns={
+            "id": ItemModel.id,
+            "name": ItemModel.name,
+            "created_at": ItemModel.created_at,
+        },
+        default=["id:asc"],
+    )
+
+    async def list_items(self, params: PageSortParams) -> PagedResponse[ItemModel]:
         """List items with pagination."""
-        stmt = select(ItemModel).order_by(ItemModel.id)
+        stmt = select(ItemModel)
         return await self.paginate_query(stmt, params)
 ```
 
 **What it does:**
 
 - ✅ Automatically manages database session
-- ✅ Optionally applies multi-column sorting with `sort_columns`
+- ✅ Optionally applies multi-column sorting with repository-level `SortSpec` or per-call `sort_columns`
 - ✅ Calculates total count (handles complex queries with joins/groups)
 - ✅ Applies limit/offset
 - ✅ Packages results into `PagedResponse`
@@ -208,24 +237,26 @@ Here's a complete example showing the full flow:
 
 **Repository:**
 ```python
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams, SortSpec
 
 
 class ItemRepository(BaseSQLRepository):
-    async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
-        return await self.paginate_query(select(ItemModel).order_by(ItemModel.id), params)
+    sort_spec = SortSpec(columns={"id": ItemModel.id, "name": ItemModel.name}, default=["id:asc"])
+
+    async def list_items(self, params: PageSortParams) -> PagedResponse[ItemModel]:
+        return await self.paginate_query(select(ItemModel), params)
 ```
 
 **Service:**
 ```python
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams
 
 
 class ItemService:
     def __init__(self, item_repo: ItemRepository) -> None:
         self.item_repo = item_repo
 
-    async def list_items(self, page_params: PageParams) -> PagedResponse[ItemModel]:
+    async def list_items(self, page_params: PageSortParams) -> PagedResponse[ItemModel]:
         return await self.item_repo.list_items(page_params)
 ```
 
@@ -235,13 +266,13 @@ from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import Depends, Query
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams
 
 
 @router.get("", response_model=PagedResponse[ItemSchema])
 @inject
 async def list_items(
-    page_params: Annotated[PageParams, Query()],
+    page_params: Annotated[PageSortParams, Query()],
     service: Annotated[ItemService, Depends(Provide[Container.item_service])],
 ):
     return await service.list_items(page_params)
@@ -261,6 +292,7 @@ async def list_items(
       members:
         - PageParams
         - SortParams
+        - SortSpec
         - PageSortParams
         - PagedResponse
 

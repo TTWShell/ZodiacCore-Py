@@ -5,7 +5,7 @@ from fastapi import FastAPI, Query
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ValidationError
 
-from zodiac_core.pagination import PagedResponse, PageParams, PageSortParams, SortParams
+from zodiac_core.pagination import PagedResponse, PageParams, PageSortParams, SortParams, SortSpec
 
 
 class UserDTO(BaseModel):
@@ -63,6 +63,31 @@ class TestSortParams:
     def test_empty_field(self):
         with pytest.raises(ValidationError):
             SortParams(sort=[":asc"])
+
+
+class TestSortSpec:
+    """Tests for reusable sort configuration."""
+
+    def test_default_pairs_from_strings_and_tuples(self):
+        spec = SortSpec(
+            columns={"name": object(), "created_at": object()},
+            default=["created_at:desc", ("name", "asc")],
+        )
+
+        assert spec.default_pairs == [("created_at", "desc"), ("name", "asc")]
+        assert spec.pairs_for(SortParams()) == [("created_at", "desc"), ("name", "asc")]
+
+    def test_request_sort_overrides_default(self):
+        spec = SortSpec(
+            columns={"name": object(), "created_at": object()},
+            default=["created_at:desc"],
+        )
+
+        assert spec.pairs_for(SortParams(sort=["name:asc"])) == [("name", "asc")]
+
+    def test_rejects_default_field_not_in_columns(self):
+        with pytest.raises(ValueError, match="created_at"):
+            SortSpec(columns={"name": object()}, default=["created_at:desc"])
 
 
 class TestPagedResponse:

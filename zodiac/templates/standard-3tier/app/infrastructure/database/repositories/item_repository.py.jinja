@@ -1,18 +1,28 @@
 from sqlalchemy import select
 from zodiac_core.db.repository import BaseSQLRepository
-from zodiac_core.pagination import PagedResponse, PageParams
+from zodiac_core.pagination import PagedResponse, PageSortParams, SortSpec
 
 from {{ package_name }}.infrastructure.database.models.item_model import ItemModel
 
 
 class ItemRepository(BaseSQLRepository):
+    sort_spec = SortSpec(
+        columns={
+            "id": ItemModel.id,
+            "name": ItemModel.name,
+            "created_at": ItemModel.created_at,
+            "updated_at": ItemModel.updated_at,
+        },
+        default=["id:asc"],
+    )
+
     async def get_by_id(self, item_id: int) -> ItemModel | None:
         async with self.session() as session:
             stmt = select(ItemModel).where(ItemModel.id == item_id)
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def list_items(self, params: PageParams) -> PagedResponse[ItemModel]:
-        """List items with pagination using BaseSQLRepository.paginate_query."""
-        stmt = select(ItemModel).order_by(ItemModel.id)
+    async def list_items(self, params: PageSortParams) -> PagedResponse[ItemModel]:
+        """List items with pagination and sorting using BaseSQLRepository.paginate_query."""
+        stmt = select(ItemModel)
         return await self.paginate_query(stmt, params)
