@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-02
+
 ### Added
 
-- **Pagination**: Add reusable multi-column sorting query models (`SortParams`, `PageSortParams`), parsed `sort_pairs`, and `paginate_query(..., sort_columns=...)` support with explicit field whitelists.
+- **Pagination**: Add reusable multi-column sorting query models (`SortParams`, `PageSortParams`) and `SortSpec` for explicit repository sort whitelists and default ordering.
+- **Repositories**: Add validated sorting support to `BaseSQLRepository.paginate()`, `paginate_query()`, and `apply_sorting()`.
+- **Middleware**: Add `exclude_paths` support to skip noisy HTTP access logs such as health checks.
+
+### Changed
+
+- **Pagination**: Use repeated query parameters such as `?sort=created_at:desc&sort=name:asc` for multi-column sorting.
+- **Repositories**: Use `SortSpec` as the only repository sorting configuration API.
+- **Templates**: Update generated repository, service, router, and middleware setup code to use `PageSortParams`, repository-level `SortSpec`, and health-check access-log exclusion.
+- **Docs**: Document multi-column sorting, `SortSpec`, repository sorting helpers, service-name middleware, and access-log path exclusions.
 
 ## [0.9.1] - 2026-06-02
 
