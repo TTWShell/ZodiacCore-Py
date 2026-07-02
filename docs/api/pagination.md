@@ -89,16 +89,18 @@ The public query field is a list of strings, so OpenAPI documents `sort` as repe
 
 `paginate_query()` parses those strings internally and applies the repository `SortSpec`. Unknown sort fields raise `BadRequestException`; this keeps public API field names explicit and avoids sorting by arbitrary database columns.
 
-`sort_columns` remains supported for backward compatibility and one-off calls, but `SortSpec` is the preferred API for repository code:
+For one-off sorting configuration, pass an explicit `SortSpec`:
 
 ```python
 return await self.paginate_query(
     select(ItemModel),
     params,
-    sort_columns={
-        "name": ItemModel.name,
-        "created_at": ItemModel.created_at,
-    },
+    sort_spec=SortSpec(
+        columns={
+            "name": ItemModel.name,
+            "created_at": ItemModel.created_at,
+        }
+    ),
 )
 ```
 
@@ -170,7 +172,7 @@ class ItemRepository(BaseSQLRepository):
 **What it does:**
 
 - ✅ Automatically manages database session
-- ✅ Optionally applies multi-column sorting with repository-level `SortSpec` or per-call `sort_columns`
+- ✅ Optionally applies multi-column sorting with repository-level or per-call `SortSpec`
 - ✅ Calculates total count (handles complex queries with joins/groups)
 - ✅ Applies limit/offset
 - ✅ Packages results into `PagedResponse`

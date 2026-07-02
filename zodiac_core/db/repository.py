@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Mapping, Optional, Type, TypeVar
+from typing import Any, AsyncIterator, Optional, Type, TypeVar
 
 try:
     from sqlalchemy import func, select
@@ -66,7 +66,6 @@ class BaseSQLRepository:
         params: PageParams,
         transformer: Optional[Type[T]] = None,
         *,
-        sort_columns: Optional[Mapping[str, Any]] = None,
         sort_spec: SortSpec | None = None,
     ) -> PagedResponse[T]:
         """
@@ -83,7 +82,6 @@ class BaseSQLRepository:
             statement: The SQLAlchemy select statement (without limit/offset).
             params: Standard PageParams (page, size).
             transformer: Optional Pydantic model to transform DB objects into.
-            sort_columns: Optional public sort field names mapped to SQLAlchemy columns/expressions.
             sort_spec: Optional reusable sort configuration. When omitted, the
                 repository class-level ``sort_spec`` is used.
 
@@ -94,14 +92,7 @@ class BaseSQLRepository:
                 return await self.paginate(session, stmt, params)
             ```
         """
-        if sort_columns is not None and sort_spec is not None:
-            raise TypeError("Use sort_spec or sort_columns, not both")
-
         effective_sort_spec = sort_spec or self.sort_spec
-        if sort_columns is not None:
-            if not isinstance(params, SortParams):
-                raise TypeError("sort_columns requires params to be SortParams or PageSortParams")
-            effective_sort_spec = SortSpec(columns=sort_columns)
 
         if effective_sort_spec is not None:
             sort_params = params if isinstance(params, SortParams) else None
@@ -130,7 +121,6 @@ class BaseSQLRepository:
         self,
         statement: Any,
         sort_params: SortParams | None = None,
-        sort_columns: Mapping[str, Any] | None = None,
         *,
         sort_spec: SortSpec | None = None,
     ) -> Any:
@@ -142,7 +132,6 @@ class BaseSQLRepository:
             statement: The SQLAlchemy select statement to sort.
             sort_params: Standard SortParams or PageSortParams. When omitted,
                 only the configured default sort is applied.
-            sort_columns: Public sort field names mapped to SQLAlchemy columns/expressions.
             sort_spec: Optional reusable sort configuration. When omitted, the
                 repository class-level ``sort_spec`` is used.
 
@@ -151,22 +140,19 @@ class BaseSQLRepository:
             stmt = self.apply_sorting(
                 select(UserModel),
                 params,
-                {
-                    "name": UserModel.name,
-                    "created_at": UserModel.created_at,
-                },
+                sort_spec=SortSpec(
+                    columns={
+                        "name": UserModel.name,
+                        "created_at": UserModel.created_at,
+                    }
+                ),
             )
             ```
         """
-        if sort_columns is not None and sort_spec is not None:
-            raise TypeError("Use sort_spec or sort_columns, not both")
-
         if sort_params is not None and not isinstance(sort_params, SortParams):
             raise TypeError("sort_params must be SortParams or PageSortParams")
 
         effective_sort_spec = sort_spec or self.sort_spec
-        if sort_columns is not None:
-            effective_sort_spec = SortSpec(columns=sort_columns)
 
         if effective_sort_spec is None:
             return statement
@@ -190,7 +176,6 @@ class BaseSQLRepository:
         params: PageParams,
         transformer: Optional[Type[T]] = None,
         *,
-        sort_columns: Optional[Mapping[str, Any]] = None,
         sort_spec: SortSpec | None = None,
     ) -> PagedResponse[T]:
         """
@@ -203,7 +188,6 @@ class BaseSQLRepository:
             statement: The SQLAlchemy select statement (without limit/offset).
             params: Standard PageParams (page, size).
             transformer: Optional Pydantic model to transform DB objects into.
-            sort_columns: Optional public sort field names mapped to SQLAlchemy columns/expressions.
             sort_spec: Optional reusable sort configuration. When omitted, the
                 repository class-level ``sort_spec`` is used.
 
@@ -220,6 +204,5 @@ class BaseSQLRepository:
                 statement,
                 params,
                 transformer,
-                sort_columns=sort_columns,
                 sort_spec=sort_spec,
             )

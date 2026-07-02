@@ -136,10 +136,12 @@ class TestRepositoryPagination:
         result = await repo.paginate_query(
             select(SortableItemModel).order_by(SortableItemModel.id),
             params,
-            sort_columns={
-                "name": SortableItemModel.name,
-                "priority": SortableItemModel.priority,
-            },
+            sort_spec=SortSpec(
+                columns={
+                    "name": SortableItemModel.name,
+                    "priority": SortableItemModel.priority,
+                }
+            ),
         )
 
         assert result.total == 4
@@ -152,7 +154,7 @@ class TestRepositoryPagination:
 
     @pytest.mark.asyncio
     async def test_paginate_query_uses_repository_sort_spec(self):
-        """Repository-level SortSpec avoids repeating sort_columns in every method."""
+        """Repository-level SortSpec avoids repeating sort config in every method."""
         repo = SortableItemRepository()
         params = PageSortParams(page=1, size=10, sort=["priority:desc", "name:asc"])
 
@@ -202,15 +204,24 @@ class TestRepositoryPagination:
         ]
 
     @pytest.mark.asyncio
-    async def test_paginate_query_requires_sort_params_for_sort_columns(self):
+    async def test_paginate_query_applies_sort_spec_default_with_page_params(self):
         repo = ItemModelRepository()
+        sort_spec = SortSpec(
+            columns={
+                "name": SortableItemModel.name,
+                "priority": SortableItemModel.priority,
+            },
+            default=["name:desc", "priority:asc"],
+        )
 
-        with pytest.raises(TypeError):
-            await repo.paginate_query(
-                select(SortableItemModel),
-                PageParams(),
-                sort_columns={"name": SortableItemModel.name},
-            )
+        result = await repo.paginate_query(select(SortableItemModel), PageParams(), sort_spec=sort_spec)
+
+        assert [(item.name, item.priority) for item in result.items] == [
+            ("banana", 1),
+            ("banana", 2),
+            ("apple", 1),
+            ("apple", 2),
+        ]
 
     @pytest.mark.asyncio
     async def test_paginate_empty_result(self):
@@ -233,10 +244,12 @@ class TestRepositoryPagination:
         stmt = repo.apply_sorting(
             select(SortableItemModel),
             params,
-            {
-                "name": SortableItemModel.name,
-                "priority": SortableItemModel.priority,
-            },
+            sort_spec=SortSpec(
+                columns={
+                    "name": SortableItemModel.name,
+                    "priority": SortableItemModel.priority,
+                }
+            ),
         )
 
         async with repo.session() as session:
@@ -258,10 +271,12 @@ class TestRepositoryPagination:
         stmt = repo.apply_sorting(
             select(SortableItemModel).order_by(SortableItemModel.id),
             params,
-            {
-                "name": SortableItemModel.name,
-                "priority": SortableItemModel.priority,
-            },
+            sort_spec=SortSpec(
+                columns={
+                    "name": SortableItemModel.name,
+                    "priority": SortableItemModel.priority,
+                }
+            ),
         )
 
         async with repo.session() as session:
@@ -280,7 +295,11 @@ class TestRepositoryPagination:
         params = SortParams(sort=["unknown:asc"])
 
         with pytest.raises(BadRequestException):
-            repo.apply_sorting(select(SortableItemModel), params, {"name": SortableItemModel.name})
+            repo.apply_sorting(
+                select(SortableItemModel),
+                params,
+                sort_spec=SortSpec(columns={"name": SortableItemModel.name}),
+            )
 
     def test_apply_sorting_rejects_unknown_field_from_sort_spec(self):
         repo = SortableItemRepository()
@@ -289,11 +308,29 @@ class TestRepositoryPagination:
         with pytest.raises(BadRequestException):
             repo.apply_sorting(select(SortableItemModel), params)
 
+    def test_apply_sorting_rejects_non_sort_params(self):
+        repo = ItemModelRepository()
+
+        with pytest.raises(TypeError, match="sort_params must be SortParams"):
+            repo.apply_sorting(select(SortableItemModel), PageParams(page=1, size=10))
+
+    def test_apply_sorting_no_sort_spec_returns_unchanged(self):
+        repo = ItemModelRepository()
+        stmt = select(SortableItemModel).order_by(SortableItemModel.id)
+
+        result = repo.apply_sorting(stmt)
+
+        assert result is stmt
+
     def test_apply_sorting_without_sort_keeps_statement(self):
         repo = ItemModelRepository()
         params = SortParams()
         stmt = select(SortableItemModel).order_by(SortableItemModel.id)
 
-        sorted_stmt = repo.apply_sorting(stmt, params, {"name": SortableItemModel.name})
+        sorted_stmt = repo.apply_sorting(
+            stmt,
+            params,
+            sort_spec=SortSpec(columns={"name": SortableItemModel.name}),
+        )
 
         assert sorted_stmt is stmt
