@@ -50,6 +50,8 @@ register_middleware(
 )
 ```
 
+> For multi‑app deployments with `app.mount()`, see the [Sub Applications](../user-guide/sub-applications.md) guide.
+
 `exclude_paths` affects HTTP access logs only. WebSocket access logs are still recorded.
 
 ---

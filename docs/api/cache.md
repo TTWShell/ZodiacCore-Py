@@ -9,6 +9,8 @@ Unified cache on **aiocache**: one-time `cache.setup`, global default cache, sta
 - **Namespace**: `cache.setup(prefix="...")` → keys under `zodiac_cache:{prefix}`.
 - **Lifecycle**: `await cache.shutdown(name="...")` releases one named cache; `await cache.shutdown()` releases all registered caches.
 
+> For multi‑app deployments with `app.mount()`, see the [Sub Applications](../user-guide/sub-applications.md) guide.
+
 ---
 
 ## 2. Installation
