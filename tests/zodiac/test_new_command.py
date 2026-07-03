@@ -217,6 +217,39 @@ class TestNewCommand:
         pyproject = (target_path / "pyproject.toml").read_text()
         assert f'include = ["{package_name}*"]' in pyproject
 
+    def test_new_command_sub_applications_template(self, cli_runner):
+        """Test that the sub-applications template generates a mounted services project."""
+        project_name = "test-sub-applications"
+        target_path = self.test_output_dir / project_name
+
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                project_name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert (target_path / "main.py").exists()
+        assert (target_path / "app" / "users" / "app.py").exists()
+        assert (target_path / "app" / "orders" / "app.py").exists()
+
+        main_py = (target_path / "main.py").read_text()
+        assert 'app.mount("/users", users_app)' in main_py
+        assert 'app.mount("/orders", orders_app)' in main_py
+        assert "cache.setup(" in main_py
+        assert "db.setup(" in main_py
+
+        users_app = (target_path / "app" / "users" / "app.py").read_text()
+        orders_app = (target_path / "app" / "orders" / "app.py").read_text()
+        assert 'register_middleware(app, service_name="users")' in users_app
+        assert 'register_middleware(app, service_name="orders")' in orders_app
+
     @pytest.mark.parametrize(
         ("package_name", "error_message"),
         [

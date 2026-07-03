@@ -1,0 +1,20 @@
+from zodiac_core.cache import cached
+
+from {{ package_name }}.users.models import UserModel
+from {{ package_name }}.users.repository import UserRepository
+from {{ package_name }}.users.schemas import UserCreate
+
+
+class UserService:
+    def __init__(self, repository: UserRepository | None = None) -> None:
+        self.repository = repository or UserRepository()
+
+    async def create_user(self, payload: UserCreate) -> UserModel:
+        return await self.repository.create(UserModel(name=payload.name, email=str(payload.email)))
+
+    async def list_users(self) -> list[UserModel]:
+        return await self.repository.list()
+
+    @cached(ttl=30, include_self=True)
+    async def service_info(self) -> dict[str, str]:
+        return {"service": "users", "cache": "shared"}

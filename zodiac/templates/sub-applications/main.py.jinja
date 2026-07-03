@@ -1,0 +1,79 @@
+from contextlib import AsyncExitStack, asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI
+from sqlmodel import SQLModel
+from zodiac_core.cache import cache
+from zodiac_core.db import db
+from zodiac_core.logging import setup_loguru
+from zodiac_core.middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware
+
+from {{ package_name }}.core.config import load_config
+from {{ package_name }}.orders.app import create_orders_app
+from {{ package_name }}.users.app import create_users_app
+
+config_dir = Path(__file__).resolve().parent / "config"
+settings = load_config([config_dir])
+
+setup_loguru(
+    level="INFO",
+    json_format=True,
+    service_name="{{ project_name }}",
+)
+
+users_app = create_users_app()
+orders_app = create_orders_app()
+
+
+class MainServerMiddleware:
+    """Apply ZodiacCore middleware only to parent-server endpoints."""
+
+    def __init__(self, app):
+        self.app = app
+        self.main_app = TraceIDMiddleware(
+            ServiceNameMiddleware(
+                AccessLogMiddleware(app),
+                service_name="{{ project_name }}",
+            )
+        )
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path") == "/api/health":
+            await self.main_app(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with AsyncExitStack() as stack:
+        db.setup(
+            database_url=settings.db.url,
+            echo=settings.db.echo,
+        )
+        stack.push_async_callback(db.shutdown)
+
+        cache.setup(
+            prefix=settings.cache.prefix,
+            default_ttl=settings.cache.default_ttl,
+        )
+        stack.push_async_callback(cache.shutdown)
+
+        await db.create_all(metadata=SQLModel.metadata)
+        yield
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
+    app.add_middleware(MainServerMiddleware)
+
+    @app.get("/api/health")
+    async def health_check() -> dict[str, str]:
+        return {"status": "healthy", "service": "{{ project_name }}"}
+
+    app.mount("/users", users_app)
+    app.mount("/orders", orders_app)
+    return app
+
+
+app = create_app()

@@ -1,0 +1,40 @@
+from configparser import ConfigParser
+from pathlib import Path
+from typing import Sequence
+
+from zodiac_core.config import ConfigManagement, StrictConfig
+
+
+class DbConfig(StrictConfig):
+    url: str
+    echo: bool = False
+
+
+class CacheConfig(StrictConfig):
+    prefix: str
+    default_ttl: int = 300
+
+
+class AppConfig(StrictConfig):
+    db: DbConfig
+    cache: CacheConfig
+
+
+def load_config(search_paths: Sequence[str | Path]) -> AppConfig:
+    parser = ConfigParser()
+    config_files = ConfigManagement.get_config_files(
+        search_paths=list(search_paths),
+        default_env="develop",
+    )
+    parser.read(config_files)
+
+    return AppConfig(
+        db=DbConfig(
+            url=parser.get("db", "url"),
+            echo=parser.getboolean("db", "echo", fallback=False),
+        ),
+        cache=CacheConfig(
+            prefix=parser.get("cache", "prefix"),
+            default_ttl=parser.getint("cache", "default_ttl", fallback=300),
+        ),
+    )

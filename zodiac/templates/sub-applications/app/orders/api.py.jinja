@@ -1,0 +1,24 @@
+from fastapi import APIRouter, status
+
+from {{ package_name }}.orders.schemas import OrderCreate, OrderRead
+from {{ package_name }}.orders.service import OrderService
+
+router = APIRouter(prefix="/api/v1")
+service = OrderService()
+
+
+@router.get("/info")
+async def service_info() -> dict[str, str]:
+    return await service.service_info()
+
+
+@router.post("/orders", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
+async def create_order(payload: OrderCreate) -> OrderRead:
+    order = await service.create_order(payload)
+    return OrderRead.model_validate(order)
+
+
+@router.get("/orders", response_model=list[OrderRead])
+async def list_orders() -> list[OrderRead]:
+    orders = await service.list_orders()
+    return [OrderRead.model_validate(order) for order in orders]

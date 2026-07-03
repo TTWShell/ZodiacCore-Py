@@ -1,0 +1,16 @@
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class OrderCreate(BaseModel):
+    user_id: int = Field(gt=0)
+    item: str = Field(min_length=1)
+    quantity: int = Field(default=1, ge=1)
+
+
+class OrderRead(BaseModel):
+    id: int
+    user_id: int
+    item: str
+    quantity: int
+
+    model_config = ConfigDict(from_attributes=True)

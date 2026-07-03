@@ -1,0 +1,24 @@
+from fastapi import APIRouter, status
+
+from {{ package_name }}.users.schemas import UserCreate, UserRead
+from {{ package_name }}.users.service import UserService
+
+router = APIRouter(prefix="/api/v1")
+service = UserService()
+
+
+@router.get("/info")
+async def service_info() -> dict[str, str]:
+    return await service.service_info()
+
+
+@router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+async def create_user(payload: UserCreate) -> UserRead:
+    user = await service.create_user(payload)
+    return UserRead.model_validate(user)
+
+
+@router.get("/users", response_model=list[UserRead])
+async def list_users() -> list[UserRead]:
+    users = await service.list_users()
+    return [UserRead.model_validate(user) for user in users]

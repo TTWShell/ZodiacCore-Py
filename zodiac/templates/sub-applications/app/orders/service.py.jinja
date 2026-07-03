@@ -1,0 +1,22 @@
+from zodiac_core.cache import cached
+
+from {{ package_name }}.orders.models import OrderModel
+from {{ package_name }}.orders.repository import OrderRepository
+from {{ package_name }}.orders.schemas import OrderCreate
+
+
+class OrderService:
+    def __init__(self, repository: OrderRepository | None = None) -> None:
+        self.repository = repository or OrderRepository()
+
+    async def create_order(self, payload: OrderCreate) -> OrderModel:
+        return await self.repository.create(
+            OrderModel(user_id=payload.user_id, item=payload.item, quantity=payload.quantity)
+        )
+
+    async def list_orders(self) -> list[OrderModel]:
+        return await self.repository.list()
+
+    @cached(ttl=30, include_self=True)
+    async def service_info(self) -> dict[str, str]:
+        return {"service": "orders", "cache": "shared"}
