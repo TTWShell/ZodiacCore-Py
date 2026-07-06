@@ -236,8 +236,18 @@ class TestNewCommand:
 
         assert result.exit_code == 0
         assert (target_path / "main.py").exists()
-        assert (target_path / "app" / "users" / "app.py").exists()
         assert (target_path / "app" / "orders" / "app.py").exists()
+        assert (target_path / "app" / "users" / "app.py").exists()
+        assert (target_path / "app" / "orders" / "core" / "container.py").exists()
+        assert (target_path / "app" / "users" / "core" / "container.py").exists()
+        assert (target_path / "app" / "orders" / "api" / "routers" / "order_router.py").exists()
+        assert (target_path / "app" / "users" / "api" / "routers" / "user_router.py").exists()
+        assert (target_path / "tests" / "conftest.py").exists()
+        assert (target_path / "tests" / "test_health.py").exists()
+        assert (target_path / "tests" / "orders" / "test_api.py").exists()
+        assert (target_path / "tests" / "users" / "test_api.py").exists()
+        assert (target_path / "tests" / "orders" / "conftest.py").exists()
+        assert (target_path / "tests" / "users" / "conftest.py").exists()
 
         main_py = (target_path / "main.py").read_text()
         assert 'app.mount("/users", users_app)' in main_py
@@ -245,10 +255,12 @@ class TestNewCommand:
         assert "cache.setup(" in main_py
         assert "db.setup(" in main_py
 
-        users_app = (target_path / "app" / "users" / "app.py").read_text()
-        orders_app = (target_path / "app" / "orders" / "app.py").read_text()
-        assert 'register_middleware(app, service_name="users")' in users_app
-        assert 'register_middleware(app, service_name="orders")' in orders_app
+        users_app_py = (target_path / "app" / "users" / "app.py").read_text()
+        orders_app_py = (target_path / "app" / "orders" / "app.py").read_text()
+        assert 'register_middleware(app, service_name="users")' in users_app_py
+        assert 'register_middleware(app, service_name="orders")' in orders_app_py
+        assert "Container" in users_app_py
+        assert "Container" in orders_app_py
 
     @pytest.mark.parametrize(
         ("package_name", "error_message"),

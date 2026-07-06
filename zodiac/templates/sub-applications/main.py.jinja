@@ -1,19 +1,20 @@
+from configparser import ConfigParser
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from sqlmodel import SQLModel
 from zodiac_core.cache import cache
+from zodiac_core.config import ConfigManagement
 from zodiac_core.db import db
 from zodiac_core.logging import setup_loguru
 from zodiac_core.middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware
+from zodiac_core.routing import APIRouter
 
-from {{ package_name }}.core.config import load_config
 from {{ package_name }}.orders.app import create_orders_app
 from {{ package_name }}.users.app import create_users_app
 
 config_dir = Path(__file__).resolve().parent / "config"
-settings = load_config([config_dir])
 
 setup_loguru(
     level="INFO",
@@ -21,12 +22,13 @@ setup_loguru(
     service_name="{{ project_name }}",
 )
 
-users_app = create_users_app()
 orders_app = create_orders_app()
+users_app = create_users_app()
 
 
 class MainServerMiddleware:
-    """Apply ZodiacCore middleware only to parent-server endpoints."""
+    """Apply middleware only to parent-server endpoints, avoiding double-wrapping
+    of requests that are forwarded to mounted sub-applications."""
 
     def __init__(self, app):
         self.app = app
@@ -47,15 +49,26 @@ class MainServerMiddleware:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with AsyncExitStack() as stack:
+        # Enter sub-application lifespans (not triggered automatically by app.mount)
+        await stack.enter_async_context(orders_app.router.lifespan_context(orders_app))
+        await stack.enter_async_context(users_app.router.lifespan_context(users_app))
+
+        parser = ConfigParser()
+        config_files = ConfigManagement.get_config_files(
+            search_paths=[config_dir],
+            default_env="develop",
+        )
+        parser.read(config_files)
+
         db.setup(
-            database_url=settings.db.url,
-            echo=settings.db.echo,
+            database_url=parser.get("db", "url"),
+            echo=parser.getboolean("db", "echo", fallback=False),
         )
         stack.push_async_callback(db.shutdown)
 
         cache.setup(
-            prefix=settings.cache.prefix,
-            default_ttl=settings.cache.default_ttl,
+            prefix=parser.get("cache", "prefix"),
+            default_ttl=parser.getint("cache", "default_ttl", fallback=300),
         )
         stack.push_async_callback(cache.shutdown)
 
@@ -63,14 +76,19 @@ async def lifespan(app: FastAPI):
         yield
 
 
+health_router = APIRouter()
+
+
+@health_router.get("/api/health")
+async def health_check() -> dict[str, str]:
+    return {"status": "healthy", "service": "{{ project_name }}"}
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
     app.add_middleware(MainServerMiddleware)
 
-    @app.get("/api/health")
-    async def health_check() -> dict[str, str]:
-        return {"status": "healthy", "service": "{{ project_name }}"}
-
+    app.include_router(health_router)
     app.mount("/users", users_app)
     app.mount("/orders", orders_app)
     return app

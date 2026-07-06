@@ -1,0 +1,16 @@
+from zodiac_core.routing import APIRouter
+
+from {{ package_name }}.users.api.routers.user_router import router as user_router
+
+router = APIRouter(prefix="/api/v1")
+
+router.include_router(user_router, prefix="/users", tags=["Users"])
+
+
+@router.get("/info")
+async def service_info():
+    """Service metadata endpoint."""
+    from {{ package_name }}.users.application.services.user_service import UserService
+
+    svc = UserService()
+    return await svc.service_info()

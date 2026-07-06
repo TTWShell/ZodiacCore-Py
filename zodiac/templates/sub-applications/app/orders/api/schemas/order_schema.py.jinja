@@ -8,9 +8,9 @@ class OrderCreate(BaseModel):
 
 
 class OrderRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     item: str
     quantity: int
-
-    model_config = ConfigDict(from_attributes=True)

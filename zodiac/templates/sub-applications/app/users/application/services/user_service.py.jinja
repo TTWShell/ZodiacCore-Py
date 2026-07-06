@@ -1,8 +1,9 @@
 from zodiac_core.cache import cached
+from zodiac_core.pagination import PagedResponse, PageSortParams
 
-from {{ package_name }}.users.models import UserModel
-from {{ package_name }}.users.repository import UserRepository
-from {{ package_name }}.users.schemas import UserCreate
+from {{ package_name }}.users.api.schemas.user_schema import UserCreate
+from {{ package_name }}.users.infrastructure.database.models.user_model import UserModel
+from {{ package_name }}.users.infrastructure.database.repositories.user_repository import UserRepository
 
 
 class UserService:
@@ -12,8 +13,8 @@ class UserService:
     async def create_user(self, payload: UserCreate) -> UserModel:
         return await self.repository.create(UserModel(name=payload.name, email=str(payload.email)))
 
-    async def list_users(self) -> list[UserModel]:
-        return await self.repository.list()
+    async def list_users(self, params: PageSortParams) -> PagedResponse[UserModel]:
+        return await self.repository.list(params)
 
     @cached(ttl=30, include_self=True)
     async def service_info(self) -> dict[str, str]:
