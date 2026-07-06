@@ -256,6 +256,8 @@ class TestNewCommand:
         assert 'app.mount("/orders", orders_app)' in main_py
         assert "cache.setup(" in main_py
         assert "db.setup(" in main_py
+        assert main_py.index("db.setup(") < main_py.index("orders_app.router.lifespan_context")
+        assert main_py.index("cache.setup(") < main_py.index("orders_app.router.lifespan_context")
 
         users_app_py = (target_path / "app" / "users" / "app.py").read_text()
         orders_app_py = (target_path / "app" / "orders" / "app.py").read_text()

@@ -49,10 +49,6 @@ class MainServerMiddleware:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with AsyncExitStack() as stack:
-        # Enter sub-application lifespans (not triggered automatically by app.mount)
-        await stack.enter_async_context(orders_app.router.lifespan_context(orders_app))
-        await stack.enter_async_context(users_app.router.lifespan_context(users_app))
-
         parser = ConfigParser()
         config_files = ConfigManagement.get_config_files(
             search_paths=[config_dir],
@@ -73,6 +69,12 @@ async def lifespan(app: FastAPI):
         stack.push_async_callback(cache.shutdown)
 
         await db.create_all(metadata=SQLModel.metadata)
+
+        # Enter sub-application lifespans after shared resources are ready.
+        # AsyncExitStack unwinds in reverse order, so sub-apps stop before
+        # parent-owned database/cache resources are closed.
+        await stack.enter_async_context(orders_app.router.lifespan_context(orders_app))
+        await stack.enter_async_context(users_app.router.lifespan_context(users_app))
         yield
 
 
