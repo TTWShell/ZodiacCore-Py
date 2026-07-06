@@ -236,6 +236,8 @@ class TestNewCommand:
 
         assert result.exit_code == 0
         assert (target_path / "main.py").exists()
+        assert (target_path / "AGENTS.md").exists()
+        assert (target_path / "CLAUDE.md").exists()
         assert (target_path / "app" / "orders" / "app.py").exists()
         assert (target_path / "app" / "users" / "app.py").exists()
         assert (target_path / "app" / "orders" / "core" / "container.py").exists()
@@ -261,6 +263,12 @@ class TestNewCommand:
         assert 'register_middleware(app, service_name="orders")' in orders_app_py
         assert "Container" in users_app_py
         assert "Container" in orders_app_py
+
+        agents_md = (target_path / "AGENTS.md").read_text()
+        claude_md = (target_path / "CLAUDE.md").read_text()
+        assert "FastAPI multi-app server" in agents_md
+        assert "ZodiacCore response envelope" in agents_md
+        assert "Codex and Claude" in claude_md
 
     @pytest.mark.parametrize(
         ("package_name", "error_message"),

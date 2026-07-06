@@ -9,7 +9,7 @@ class TestPackageBuild:
     """Tests for verifying package build completeness."""
 
     # Manually verified expected file counts
-    EXPECTED_ZODIAC_FILES = 91  # 4 Python files + 87 .jinja template files
+    EXPECTED_ZODIAC_FILES = 93  # 4 Python files + 89 .jinja template files
     EXPECTED_ZODIAC_CORE_FILES = 20  # Python files only
 
     def test_build_includes_all_files(self, tmp_path):
