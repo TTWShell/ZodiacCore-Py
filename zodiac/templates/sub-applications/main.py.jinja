@@ -7,6 +7,7 @@ from sqlmodel import SQLModel
 from zodiac_core.cache import cache
 from zodiac_core.config import ConfigManagement
 from zodiac_core.db import db
+from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.logging import setup_loguru
 from zodiac_core.middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware
 from zodiac_core.routing import APIRouter
@@ -106,6 +107,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
     app.add_middleware(MainServerMiddleware)
 
+    register_exception_handlers(app)
     app.include_router(health_router)
     app.mount("/users", users_app)
     app.mount("/orders", orders_app)

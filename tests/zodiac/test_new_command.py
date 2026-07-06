@@ -256,6 +256,7 @@ class TestNewCommand:
         assert 'app.mount("/orders", orders_app)' in main_py
         assert "cache.setup(" in main_py
         assert "db.setup(" in main_py
+        assert "register_exception_handlers(app)" in main_py
         assert "providers.Configuration(strict=True)" in main_py
         assert "container.config.from_ini(path, required=True)" in main_py
         assert "ConfigManagement.provide_config(container.config.logging(), LoggingConfig)" in main_py
@@ -272,6 +273,8 @@ class TestNewCommand:
         orders_app_py = (target_path / "app" / "orders" / "app.py").read_text()
         assert 'register_middleware(app, service_name="users")' in users_app_py
         assert 'register_middleware(app, service_name="orders")' in orders_app_py
+        assert "register_exception_handlers(app)" in users_app_py
+        assert "register_exception_handlers(app)" in orders_app_py
         assert "Container" in users_app_py
         assert "Container" in orders_app_py
 
