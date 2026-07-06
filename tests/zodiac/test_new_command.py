@@ -410,3 +410,77 @@ class TestGeneratedProjectQuality:
             env=test_env,
         )
         assert test.returncode == 0, f"generated project pytest failed:\n{test.stdout}\n{test.stderr}"
+
+    @pytest.fixture(scope="class")
+    def generated_sub_applications_path(self, tmp_path_factory):
+        """Generate a sub-applications project once for all tests in this class."""
+        from click.testing import CliRunner
+
+        project_name = "test-sub-quality"
+        test_output_dir = tmp_path_factory.mktemp("zodiac_sub_quality_test")
+        target_path = test_output_dir / project_name
+
+        if target_path.exists():
+            shutil.rmtree(target_path)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "new",
+                project_name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(test_output_dir),
+            ],
+        )
+        assert result.exit_code == 0, f"Failed to generate project: {result.output}"
+        assert target_path.exists(), f"Project was not created at {target_path}"
+
+        repo_root = Path(__file__).resolve().parents[2]
+        pyproject_path = target_path / "pyproject.toml"
+        content = pyproject_path.read_text()
+        content = content.replace(
+            '"zodiac-core[sql,cache]"',
+            f'"zodiac-core[sql,cache] @ {repo_root.as_uri()}"',
+        )
+        pyproject_path.write_text(content)
+
+        return target_path
+
+    def test_generated_sub_applications_ruff_lint(self, generated_sub_applications_path):
+        """Test that generated sub-applications project passes ruff lint."""
+        ruff_check_result = subprocess.run(
+            ["ruff", "check", "."],
+            cwd=generated_sub_applications_path,
+            capture_output=True,
+            text=True,
+        )
+        assert ruff_check_result.returncode == 0, (
+            f"Ruff lint failed:\n{ruff_check_result.stdout}\n{ruff_check_result.stderr}"
+        )
+
+    def test_generated_sub_applications_pytest(self, generated_sub_applications_path):
+        """Test that generated sub-applications project installs and passes pytest."""
+        sync = subprocess.run(
+            ["uv", "sync", "--extra", "dev", "--reinstall-package", "zodiac-core"],
+            cwd=generated_sub_applications_path,
+            capture_output=True,
+            text=True,
+        )
+        assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
+
+        test_env = os.environ.copy()
+        for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"):
+            test_env.pop(key, None)
+            test_env.pop(key.lower(), None)
+
+        test = subprocess.run(
+            ["uv", "run", "pytest", "-q"],
+            cwd=generated_sub_applications_path,
+            capture_output=True,
+            text=True,
+            env=test_env,
+        )
+        assert test.returncode == 0, f"generated sub-applications pytest failed:\n{test.stdout}\n{test.stderr}"

@@ -33,6 +33,9 @@ extend-exclude = [".venv", ".tox"]
 select = ["E", "F", "I", "B"]
 ignore = []
 
+[tool.ruff.lint.isort]
+known-first-party = ["{{ package_name }}"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
