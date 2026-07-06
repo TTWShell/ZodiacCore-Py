@@ -256,8 +256,17 @@ class TestNewCommand:
         assert 'app.mount("/orders", orders_app)' in main_py
         assert "cache.setup(" in main_py
         assert "db.setup(" in main_py
+        assert "providers.Configuration(strict=True)" in main_py
+        assert "container.config.from_ini(path, required=True)" in main_py
+        assert "ConfigManagement.provide_config(container.config.logging(), LoggingConfig)" in main_py
+        assert 'os.getenv("APPLICATION_ENVIRONMENT")' not in main_py
         assert main_py.index("db.setup(") < main_py.index("orders_app.router.lifespan_context")
         assert main_py.index("cache.setup(") < main_py.index("orders_app.router.lifespan_context")
+        testing_config = (target_path / "config" / "app.testing.ini").read_text()
+        assert "[logging]" in testing_config
+        assert "level = WARNING" in testing_config
+        core_config = (target_path / "app" / "core" / "config.py").read_text()
+        assert "class LoggingConfig" in core_config
 
         users_app_py = (target_path / "app" / "users" / "app.py").read_text()
         orders_app_py = (target_path / "app" / "orders" / "app.py").read_text()
@@ -494,3 +503,6 @@ class TestGeneratedProjectQuality:
             env=test_env,
         )
         assert test.returncode == 0, f"generated sub-applications pytest failed:\n{test.stdout}\n{test.stderr}"
+        output = test.stdout + test.stderr
+        assert "GET /users/api/v1" not in output
+        assert "GET /orders/api/v1" not in output

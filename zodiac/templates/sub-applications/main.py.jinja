@@ -1,7 +1,7 @@
-from configparser import ConfigParser
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
+from dependency_injector import containers, providers
 from fastapi import FastAPI
 from sqlmodel import SQLModel
 from zodiac_core.cache import cache
@@ -11,15 +11,35 @@ from zodiac_core.logging import setup_loguru
 from zodiac_core.middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware
 from zodiac_core.routing import APIRouter
 
+from {{ package_name }}.core.config import CacheConfig, DbConfig, LoggingConfig
 from {{ package_name }}.orders.app import create_orders_app
 from {{ package_name }}.users.app import create_users_app
 
 config_dir = Path(__file__).resolve().parent / "config"
 
+
+class ParentContainer(containers.DeclarativeContainer):
+    config = providers.Configuration(strict=True)
+
+
+def initialize_parent_container() -> ParentContainer:
+    container = ParentContainer()
+    config_files = ConfigManagement.get_config_files(
+        search_paths=[config_dir],
+        default_env="develop",
+    )
+    for path in config_files:
+        container.config.from_ini(path, required=True)
+    return container
+
+
+container = initialize_parent_container()
+logging_cfg = ConfigManagement.provide_config(container.config.logging(), LoggingConfig)
+
 setup_loguru(
-    level="INFO",
-    json_format=True,
-    service_name="{{ project_name }}",
+    level=logging_cfg.level,
+    json_format=logging_cfg.json_format,
+    service_name=logging_cfg.service_name,
 )
 
 orders_app = create_orders_app()
@@ -49,22 +69,18 @@ class MainServerMiddleware:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with AsyncExitStack() as stack:
-        parser = ConfigParser()
-        config_files = ConfigManagement.get_config_files(
-            search_paths=[config_dir],
-            default_env="develop",
-        )
-        parser.read(config_files)
+        db_cfg = ConfigManagement.provide_config(container.config.db(), DbConfig)
+        cache_cfg = ConfigManagement.provide_config(container.config.cache(), CacheConfig)
 
         db.setup(
-            database_url=parser.get("db", "url"),
-            echo=parser.getboolean("db", "echo", fallback=False),
+            database_url=db_cfg.url,
+            echo=db_cfg.echo,
         )
         stack.push_async_callback(db.shutdown)
 
         cache.setup(
-            prefix=parser.get("cache", "prefix"),
-            default_ttl=parser.getint("cache", "default_ttl", fallback=300),
+            prefix=cache_cfg.prefix,
+            default_ttl=cache_cfg.default_ttl,
         )
         stack.push_async_callback(cache.shutdown)
 
