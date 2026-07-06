@@ -275,6 +275,17 @@ class TestNewCommand:
         assert "Container" in users_app_py
         assert "Container" in orders_app_py
 
+        user_schema_py = (target_path / "app" / "users" / "api" / "schemas" / "user_schema.py").read_text()
+        order_schema_py = (target_path / "app" / "orders" / "api" / "schemas" / "order_schema.py").read_text()
+        assert "from zodiac_core.schemas import CoreModel, IntIDSchema" in user_schema_py
+        assert "from zodiac_core.schemas import CoreModel, IntIDSchema" in order_schema_py
+        assert "class UserCreate(CoreModel)" in user_schema_py
+        assert "class UserRead(IntIDSchema)" in user_schema_py
+        assert "class OrderCreate(CoreModel)" in order_schema_py
+        assert "class OrderRead(IntIDSchema)" in order_schema_py
+        assert "ConfigDict(from_attributes=True)" not in user_schema_py
+        assert "ConfigDict(from_attributes=True)" not in order_schema_py
+
         agents_md = (target_path / "AGENTS.md").read_text()
         claude_md = (target_path / "CLAUDE.md").read_text()
         assert "FastAPI multi-app server" in agents_md

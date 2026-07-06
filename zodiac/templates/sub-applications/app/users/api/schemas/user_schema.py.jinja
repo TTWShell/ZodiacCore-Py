@@ -1,14 +1,12 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+from zodiac_core.schemas import CoreModel, IntIDSchema
 
 
-class UserCreate(BaseModel):
+class UserCreate(CoreModel):
     name: str = Field(min_length=1)
     email: str = Field(min_length=1)
 
 
-class UserRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
+class UserRead(IntIDSchema):
     name: str
     email: str

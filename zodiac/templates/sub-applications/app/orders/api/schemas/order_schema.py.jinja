@@ -1,16 +1,14 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+from zodiac_core.schemas import CoreModel, IntIDSchema
 
 
-class OrderCreate(BaseModel):
+class OrderCreate(CoreModel):
     user_id: int = Field(gt=0)
     item: str = Field(min_length=1)
     quantity: int = Field(default=1, ge=1)
 
 
-class OrderRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
+class OrderRead(IntIDSchema):
     user_id: int
     item: str
     quantity: int
