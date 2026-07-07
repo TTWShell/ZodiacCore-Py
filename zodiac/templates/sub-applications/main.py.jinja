@@ -51,12 +51,12 @@ class MainServerMiddleware:
     """Apply middleware only to parent-server endpoints, avoiding double-wrapping
     of requests that are forwarded to mounted sub-applications."""
 
-    def __init__(self, app):
+    def __init__(self, app, service_name: str):
         self.app = app
         self.main_app = TraceIDMiddleware(
             ServiceNameMiddleware(
                 AccessLogMiddleware(app),
-                service_name="{{ project_name }}",
+                service_name=service_name,
             )
         )
 
@@ -105,7 +105,7 @@ async def health_check() -> dict[str, str]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
-    app.add_middleware(MainServerMiddleware)
+    app.add_middleware(MainServerMiddleware, service_name=logging_cfg.service_name)
 
     register_exception_handlers(app)
     app.include_router(health_router)

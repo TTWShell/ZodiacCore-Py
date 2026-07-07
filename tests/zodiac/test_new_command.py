@@ -260,6 +260,8 @@ class TestNewCommand:
         assert "providers.Configuration(strict=True)" in main_py
         assert "container.config.from_ini(path, required=True)" in main_py
         assert "ConfigManagement.provide_config(container.config.logging(), LoggingConfig)" in main_py
+        assert "service_name=logging_cfg.service_name" in main_py
+        assert 'service_name="test-sub-applications"' not in main_py
         assert 'os.getenv("APPLICATION_ENVIRONMENT")' not in main_py
         assert main_py.index("db.setup(") < main_py.index("orders_app.router.lifespan_context")
         assert main_py.index("cache.setup(") < main_py.index("orders_app.router.lifespan_context")
