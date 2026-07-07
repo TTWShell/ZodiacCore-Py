@@ -26,6 +26,8 @@ setup_loguru(
 )
 ```
 
+> For multi‑app deployments with `app.mount()`, see the [Sub Applications](../user-guide/sub-applications.md) guide.
+
 ---
 
 ## 3. Advanced Configuration

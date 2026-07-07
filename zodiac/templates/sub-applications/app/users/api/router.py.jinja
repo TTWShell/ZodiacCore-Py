@@ -1,0 +1,22 @@
+from typing import Annotated
+
+from dependency_injector.wiring import Provide, inject
+from fastapi import Depends
+from zodiac_core.routing import APIRouter
+
+from {{ package_name }}.users.api.routers.user_router import router as user_router
+from {{ package_name }}.users.application.services.user_service import UserService
+from {{ package_name }}.users.core.container import Container
+
+router = APIRouter(prefix="/api/v1")
+
+router.include_router(user_router, prefix="/users", tags=["Users"])
+
+
+@router.get("/info")
+@inject
+async def service_info(
+    service: Annotated[UserService, Depends(Provide[Container.user_service])],
+):
+    """Service metadata endpoint."""
+    return await service.service_info()

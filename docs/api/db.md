@@ -46,6 +46,8 @@ Both `IntIDModel` and `UUIDModel` include `SQLDateTimeMixin`, which provides:
 
 You should initialize the database during your application's startup and ensure it shuts down cleanly.
 Calling `db.setup(...)` again with the same `name` is allowed only when the effective configuration is identical; different settings for an existing name raise `RuntimeError`.
+
+> For multi‑app deployments with `app.mount()`, see the [Sub Applications](../user-guide/sub-applications.md) guide.
 Lifecycle control is now **name-aware**:
 
 - `await db.shutdown(name="...")` disposes only the selected named database.

@@ -1,0 +1,17 @@
+from pydantic import Field
+from zodiac_core.pagination import PageSortParams
+from zodiac_core.schemas import CoreModel, IntIDSchema
+
+
+class UserListParams(PageSortParams):
+    keyword: str | None = Field(None, min_length=1, description="Search by user name or email.")
+
+
+class UserCreate(CoreModel):
+    name: str = Field(min_length=1)
+    email: str = Field(min_length=1)
+
+
+class UserRead(IntIDSchema):
+    name: str
+    email: str

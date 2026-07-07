@@ -1,0 +1,12 @@
+[db]
+url = sqlite+aiosqlite:///./data.db
+echo = true
+
+[cache]
+prefix = {{ project_name }}_dev
+default_ttl = 60
+
+[logging]
+level = INFO
+json_format = true
+service_name = {{ project_name }}

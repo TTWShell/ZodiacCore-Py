@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-07
+
+### Added
+
+- **Templates**: Add a `sub-applications` scaffold for a parent FastAPI server with mounted `users` and `orders` services, shared parent-owned database/cache lifecycle, scoped middleware/logging, exception handlers, and generated contract tests.
+- **CLI**: Support `zodiac new PROJECT_NAME --tpl sub-applications -o OUTPUT_DIR` for generating multi-app service projects.
+- **Docs**: Add a sub-applications guide for FastAPI mounts, sub-app lifespan handling, process-global logging, shared or named database/cache resources, and shutdown ownership.
+- **Templates**: Include keyword filtering, whitelisted sorting, ZodiacCore schema bases, in-memory testing configuration, and Codex project guidance in the generated sub-applications project.
+
+### Changed
+
+- **Repositories**: Return clearer unsupported-sort errors with the rejected field and supported sort fields in response metadata.
+
 ## [0.10.0] - 2026-07-02
 
 ### Added

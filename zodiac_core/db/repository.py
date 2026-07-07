@@ -165,7 +165,16 @@ class BaseSQLRepository:
         for field, direction in sort_pairs:
             column = effective_sort_spec.columns.get(field)
             if column is None:
-                raise BadRequestException(message=f"Unsupported sort field: {field}")
+                supported_fields = sorted(effective_sort_spec.columns)
+                raise BadRequestException(
+                    message=(
+                        f"Unsupported sort field '{field}'. Supported sort fields: {', '.join(supported_fields)}."
+                    ),
+                    data={
+                        "field": field,
+                        "supported_fields": supported_fields,
+                    },
+                )
             order_by_clauses.append(column.asc() if direction == "asc" else column.desc())
 
         return statement.order_by(None).order_by(*order_by_clauses)

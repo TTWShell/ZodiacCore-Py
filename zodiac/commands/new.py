@@ -9,7 +9,7 @@ from jinja2 import Environment, FileSystemLoader
 
 VALID_TEMPLATES = [
     "standard-3tier",
-    # "ddd-4tier",
+    "sub-applications",
 ]
 RESERVED_PACKAGE_NAMES = frozenset({"config", "main", "tests"})
 
@@ -40,7 +40,7 @@ def render_template_path(rel_path: Path, package_name: str) -> Path:
     "template",
     required=True,
     type=click.Choice(VALID_TEMPLATES),
-    help="Template id (standard-3tier or ddd-4tier).",
+    help="Template id (standard-3tier or sub-applications).",
 )
 @click.option(
     "-o",

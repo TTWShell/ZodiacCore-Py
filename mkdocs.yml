@@ -64,6 +64,7 @@ nav:
       - Installation: user-guide/installation.md
       - Basic Usage: user-guide/getting-started.md
       - Architecture Guide: user-guide/architecture.md
+      - Sub Applications: user-guide/sub-applications.md
       - zodiac CLI: user-guide/cli.md
   - API Reference:
       - Configuration: api/config.md

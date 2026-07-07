@@ -1,0 +1,24 @@
+"""Shared configuration types referenced by main.py lifespan.
+
+In a multi-app setup these types are shared because the parent process owns
+the single database and cache backends.  Each sub-application may define its
+own per-app config in its ``core/`` package when needed.
+"""
+
+from zodiac_core.config import StrictConfig
+
+
+class DbConfig(StrictConfig):
+    url: str
+    echo: bool = False
+
+
+class CacheConfig(StrictConfig):
+    prefix: str
+    default_ttl: int = 300
+
+
+class LoggingConfig(StrictConfig):
+    level: str = "INFO"
+    json_format: bool = True
+    service_name: str = "{{ project_name }}"

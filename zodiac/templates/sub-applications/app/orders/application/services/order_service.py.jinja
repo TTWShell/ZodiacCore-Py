@@ -1,0 +1,23 @@
+from zodiac_core.cache import cached
+from zodiac_core.pagination import PagedResponse, PageSortParams
+
+from {{ package_name }}.orders.api.schemas.order_schema import OrderCreate
+from {{ package_name }}.orders.infrastructure.database.models.order_model import OrderModel
+from {{ package_name }}.orders.infrastructure.database.repositories.order_repository import OrderRepository
+
+
+class OrderService:
+    def __init__(self, repository: OrderRepository) -> None:
+        self.repository = repository
+
+    async def create_order(self, payload: OrderCreate) -> OrderModel:
+        return await self.repository.create(
+            OrderModel(user_id=payload.user_id, item=payload.item, quantity=payload.quantity)
+        )
+
+    async def list_orders(self, params: PageSortParams, keyword: str | None = None) -> PagedResponse[OrderModel]:
+        return await self.repository.list(params, keyword=keyword)
+
+    @cached(ttl=30, include_self=True)
+    async def service_info(self) -> dict[str, str]:
+        return {"service": "orders", "cache": "shared"}

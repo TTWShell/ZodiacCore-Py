@@ -1,0 +1,25 @@
+from fastapi import FastAPI
+from zodiac_core.exception_handlers import register_exception_handlers
+from zodiac_core.middleware import register_middleware
+
+from {{ package_name }}.users.api.router import router
+from {{ package_name }}.users.core.container import Container
+
+
+def create_users_app() -> FastAPI:
+    app = FastAPI(title="users-service")
+
+    register_middleware(app, service_name="users")
+    register_exception_handlers(app)
+
+    container = Container()
+    container.wire(
+        modules=[
+            "{{ package_name }}.users.api.router",
+            "{{ package_name }}.users.api.routers.user_router",
+        ]
+    )
+    app.state.container = container
+
+    app.include_router(router)
+    return app

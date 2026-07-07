@@ -1,0 +1,117 @@
+from contextlib import AsyncExitStack, asynccontextmanager
+from pathlib import Path
+
+from dependency_injector import containers, providers
+from fastapi import FastAPI
+from sqlmodel import SQLModel
+from zodiac_core.cache import cache
+from zodiac_core.config import ConfigManagement
+from zodiac_core.db import db
+from zodiac_core.exception_handlers import register_exception_handlers
+from zodiac_core.logging import setup_loguru
+from zodiac_core.middleware import AccessLogMiddleware, ServiceNameMiddleware, TraceIDMiddleware
+from zodiac_core.routing import APIRouter
+
+from {{ package_name }}.core.config import CacheConfig, DbConfig, LoggingConfig
+from {{ package_name }}.orders.app import create_orders_app
+from {{ package_name }}.users.app import create_users_app
+
+config_dir = Path(__file__).resolve().parent / "config"
+
+
+class ParentContainer(containers.DeclarativeContainer):
+    config = providers.Configuration(strict=True)
+
+
+def initialize_parent_container() -> ParentContainer:
+    container = ParentContainer()
+    config_files = ConfigManagement.get_config_files(
+        search_paths=[config_dir],
+        default_env="develop",
+    )
+    for path in config_files:
+        container.config.from_ini(path, required=True)
+    return container
+
+
+container = initialize_parent_container()
+logging_cfg = ConfigManagement.provide_config(container.config.logging(), LoggingConfig)
+
+setup_loguru(
+    level=logging_cfg.level,
+    json_format=logging_cfg.json_format,
+    service_name=logging_cfg.service_name,
+)
+
+orders_app = create_orders_app()
+users_app = create_users_app()
+
+
+class MainServerMiddleware:
+    """Apply middleware only to parent-server endpoints, avoiding double-wrapping
+    of requests that are forwarded to mounted sub-applications."""
+
+    def __init__(self, app, service_name: str):
+        self.app = app
+        self.main_app = TraceIDMiddleware(
+            ServiceNameMiddleware(
+                AccessLogMiddleware(app),
+                service_name=service_name,
+            )
+        )
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path") == "/api/health":
+            await self.main_app(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with AsyncExitStack() as stack:
+        db_cfg = ConfigManagement.provide_config(container.config.db(), DbConfig)
+        cache_cfg = ConfigManagement.provide_config(container.config.cache(), CacheConfig)
+
+        db.setup(
+            database_url=db_cfg.url,
+            echo=db_cfg.echo,
+        )
+        stack.push_async_callback(db.shutdown)
+
+        cache.setup(
+            prefix=cache_cfg.prefix,
+            default_ttl=cache_cfg.default_ttl,
+        )
+        stack.push_async_callback(cache.shutdown)
+
+        await db.create_all(metadata=SQLModel.metadata)
+
+        # Enter sub-application lifespans after shared resources are ready.
+        # AsyncExitStack unwinds in reverse order, so sub-apps stop before
+        # parent-owned database/cache resources are closed.
+        await stack.enter_async_context(orders_app.router.lifespan_context(orders_app))
+        await stack.enter_async_context(users_app.router.lifespan_context(users_app))
+        yield
+
+
+health_router = APIRouter()
+
+
+@health_router.get("/api/health")
+async def health_check() -> dict[str, str]:
+    return {"status": "healthy", "service": "{{ project_name }}"}
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="{{ project_name }}", lifespan=lifespan)
+    app.add_middleware(MainServerMiddleware, service_name=logging_cfg.service_name)
+
+    register_exception_handlers(app)
+    app.include_router(health_router)
+    app.mount("/users", users_app)
+    app.mount("/orders", orders_app)
+    return app
+
+
+app = create_app()

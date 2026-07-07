@@ -1,0 +1,53 @@
+"""Contract tests for the orders sub-application."""
+
+
+class TestOrdersApi:
+    async def test_create_order(self, client):
+        response = await client.post(
+            "/orders/api/v1/orders",
+            json={"user_id": 1, "item": "Notebook", "quantity": 2},
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["code"] == 0
+        assert body["data"]["item"] == "Notebook"
+        assert body["data"]["quantity"] == 2
+        assert "id" in body["data"]
+
+    async def test_list_orders_uses_standard_paged_response(self, client):
+        response = await client.get("/orders/api/v1/orders?page=1&size=20")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["code"] == 0
+        assert body["data"]["items"] == []
+        assert body["data"]["total"] == 0
+        assert body["data"]["page"] == 1
+        assert body["data"]["size"] == 20
+
+    async def test_list_orders_supports_keyword_and_sort(self, client):
+        await client.post("/orders/api/v1/orders", json={"user_id": 1, "item": "Notebook", "quantity": 2})
+        await client.post("/orders/api/v1/orders", json={"user_id": 1, "item": "Pencil", "quantity": 10})
+        await client.post("/orders/api/v1/orders", json={"user_id": 2, "item": "Book", "quantity": 1})
+
+        response = await client.get("/orders/api/v1/orders?keyword=book&sort=quantity:desc&page=1&size=20")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["code"] == 0
+        assert body["data"]["total"] == 2
+        assert [(item["item"], item["quantity"]) for item in body["data"]["items"]] == [
+            ("Notebook", 2),
+            ("Book", 1),
+        ]
+
+    async def test_orders_info_is_cached(self, client):
+        response = await client.get("/orders/api/v1/info")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "code": 0,
+            "message": "Success",
+            "data": {"service": "orders", "cache": "shared"},
+        }
