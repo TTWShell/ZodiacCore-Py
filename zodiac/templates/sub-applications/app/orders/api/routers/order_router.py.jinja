@@ -2,10 +2,10 @@ from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import Depends, Query
-from zodiac_core.pagination import PagedResponse, PageSortParams
+from zodiac_core.pagination import PagedResponse
 from zodiac_core.routing import APIRouter
 
-from {{ package_name }}.orders.api.schemas.order_schema import OrderCreate, OrderRead
+from {{ package_name }}.orders.api.schemas.order_schema import OrderCreate, OrderListParams, OrderRead
 from {{ package_name }}.orders.application.services.order_service import OrderService
 from {{ package_name }}.orders.core.container import Container
 
@@ -15,10 +15,10 @@ router = APIRouter()
 @router.get("", response_model=PagedResponse[OrderRead])
 @inject
 async def list_orders(
-    page_params: Annotated[PageSortParams, Query()],
+    page_params: Annotated[OrderListParams, Query()],
     service: Annotated[OrderService, Depends(Provide[Container.order_service])],
 ):
-    return await service.list_orders(page_params)
+    return await service.list_orders(page_params, keyword=page_params.keyword)
 
 
 @router.post("", response_model=OrderRead, status_code=201)

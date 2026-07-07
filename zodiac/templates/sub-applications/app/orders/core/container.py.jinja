@@ -7,7 +7,7 @@ from {{ package_name }}.orders.infrastructure.database.repositories.order_reposi
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration(strict=True)
 
-    order_repository = providers.Factory(OrderRepository)
+    order_repository = providers.Singleton(OrderRepository)
 
     order_service = providers.Factory(
         OrderService,

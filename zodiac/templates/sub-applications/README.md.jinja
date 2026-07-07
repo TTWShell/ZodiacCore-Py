@@ -17,6 +17,14 @@ backend managed by the parent process.
 | `GET` | `/orders/api/v1/orders` | orders |
 | `GET` | `/orders/api/v1/info` | orders |
 
+List endpoints support Zodiac pagination and sorting query parameters, plus a
+template-level `keyword` filter:
+
+```bash
+GET /users/api/v1/users?page=1&size=20&sort=name:desc&keyword=ada
+GET /orders/api/v1/orders?page=1&size=20&sort=quantity:desc&keyword=book
+```
+
 ## Architecture
 
 Each sub-application follows the standard ZodiacCore 3-tier architecture with

@@ -294,19 +294,31 @@ class TestRepositoryPagination:
         repo = ItemModelRepository()
         params = SortParams(sort=["unknown:asc"])
 
-        with pytest.raises(BadRequestException):
+        with pytest.raises(BadRequestException) as exc_info:
             repo.apply_sorting(
                 select(SortableItemModel),
                 params,
                 sort_spec=SortSpec(columns={"name": SortableItemModel.name}),
             )
 
+        assert exc_info.value.message == "Unsupported sort field 'unknown'. Supported sort fields: name."
+        assert exc_info.value.data == {
+            "field": "unknown",
+            "supported_fields": ["name"],
+        }
+
     def test_apply_sorting_rejects_unknown_field_from_sort_spec(self):
         repo = SortableItemRepository()
         params = SortParams(sort=["unknown:asc"])
 
-        with pytest.raises(BadRequestException):
+        with pytest.raises(BadRequestException) as exc_info:
             repo.apply_sorting(select(SortableItemModel), params)
+
+        assert exc_info.value.message == ("Unsupported sort field 'unknown'. Supported sort fields: name, priority.")
+        assert exc_info.value.data == {
+            "field": "unknown",
+            "supported_fields": ["name", "priority"],
+        }
 
     def test_apply_sorting_rejects_non_sort_params(self):
         repo = ItemModelRepository()

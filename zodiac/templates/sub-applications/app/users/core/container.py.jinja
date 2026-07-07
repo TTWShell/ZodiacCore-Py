@@ -7,7 +7,7 @@ from {{ package_name }}.users.infrastructure.database.repositories.user_reposito
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration(strict=True)
 
-    user_repository = providers.Factory(UserRepository)
+    user_repository = providers.Singleton(UserRepository)
 
     user_service = providers.Factory(
         UserService,

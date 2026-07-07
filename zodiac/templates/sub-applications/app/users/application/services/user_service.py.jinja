@@ -13,8 +13,8 @@ class UserService:
     async def create_user(self, payload: UserCreate) -> UserModel:
         return await self.repository.create(UserModel(name=payload.name, email=str(payload.email)))
 
-    async def list_users(self, params: PageSortParams) -> PagedResponse[UserModel]:
-        return await self.repository.list(params)
+    async def list_users(self, params: PageSortParams, keyword: str | None = None) -> PagedResponse[UserModel]:
+        return await self.repository.list(params, keyword=keyword)
 
     @cached(ttl=30, include_self=True)
     async def service_info(self) -> dict[str, str]:

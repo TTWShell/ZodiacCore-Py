@@ -1,6 +1,6 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from zodiac_core.db.repository import BaseSQLRepository
-from zodiac_core.pagination import SortSpec
+from zodiac_core.pagination import PageSortParams, SortSpec
 
 from {{ package_name }}.users.infrastructure.database.models.user_model import UserModel
 
@@ -22,5 +22,14 @@ class UserRepository(BaseSQLRepository):
             await session.refresh(user)
             return user
 
-    async def list(self, params):
-        return await self.paginate_query(select(UserModel), params)
+    async def list(self, params: PageSortParams, keyword: str | None = None):
+        stmt = select(UserModel)
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    UserModel.name.ilike(pattern),
+                    UserModel.email.ilike(pattern),
+                )
+            )
+        return await self.paginate_query(stmt, params)

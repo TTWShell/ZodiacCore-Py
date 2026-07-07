@@ -26,6 +26,34 @@ class TestUsersApi:
         assert body["data"]["page"] == 1
         assert body["data"]["size"] == 20
 
+    async def test_list_users_supports_keyword_and_sort(self, client):
+        await client.post("/users/api/v1/users", json={"name": "Ada Lovelace", "email": "ada@example.com"})
+        await client.post("/users/api/v1/users", json={"name": "Alan Turing", "email": "alan@example.com"})
+        await client.post("/users/api/v1/users", json={"name": "Grace Hopper", "email": "grace@example.com"})
+
+        response = await client.get("/users/api/v1/users?keyword=a&sort=name:desc&page=1&size=20")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["code"] == 0
+        assert body["data"]["total"] == 3
+        assert [item["name"] for item in body["data"]["items"]] == [
+            "Grace Hopper",
+            "Alan Turing",
+            "Ada Lovelace",
+        ]
+
+    async def test_list_users_rejects_unsupported_sort_field(self, client):
+        response = await client.get("/users/api/v1/users?sort=unknown:asc")
+
+        assert response.status_code == 400
+        body = response.json()
+        assert body["message"] == "Unsupported sort field 'unknown'. Supported sort fields: email, id, name."
+        assert body["data"] == {
+            "field": "unknown",
+            "supported_fields": ["email", "id", "name"],
+        }
+
     async def test_users_info_is_cached(self, client):
         response = await client.get("/users/api/v1/info")
 

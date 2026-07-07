@@ -15,8 +15,8 @@ class OrderService:
             OrderModel(user_id=payload.user_id, item=payload.item, quantity=payload.quantity)
         )
 
-    async def list_orders(self, params: PageSortParams) -> PagedResponse[OrderModel]:
-        return await self.repository.list(params)
+    async def list_orders(self, params: PageSortParams, keyword: str | None = None) -> PagedResponse[OrderModel]:
+        return await self.repository.list(params, keyword=keyword)
 
     @cached(ttl=30, include_self=True)
     async def service_info(self) -> dict[str, str]:

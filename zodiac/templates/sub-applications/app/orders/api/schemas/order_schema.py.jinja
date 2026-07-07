@@ -1,5 +1,10 @@
 from pydantic import Field
+from zodiac_core.pagination import PageSortParams
 from zodiac_core.schemas import CoreModel, IntIDSchema
+
+
+class OrderListParams(PageSortParams):
+    keyword: str | None = Field(None, min_length=1, description="Search by item name.")
 
 
 class OrderCreate(CoreModel):
