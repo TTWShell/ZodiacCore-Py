@@ -13,7 +13,12 @@ def create_users_app() -> FastAPI:
     register_exception_handlers(app)
 
     container = Container()
-    container.wire(modules=["{{ package_name }}.users.api.routers.user_router"])
+    container.wire(
+        modules=[
+            "{{ package_name }}.users.api.router",
+            "{{ package_name }}.users.api.routers.user_router",
+        ]
+    )
     app.state.container = container
 
     app.include_router(router)

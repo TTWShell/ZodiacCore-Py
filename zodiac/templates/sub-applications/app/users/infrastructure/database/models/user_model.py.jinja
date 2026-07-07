@@ -3,7 +3,7 @@ from zodiac_core.db.sql import IntIDModel
 
 
 class UserModel(IntIDModel, table=True):
-    __tablename__ = "users"
+    __tablename__ = "user_users"
 
     name: str = Field(index=True, min_length=1)
     email: str = Field(index=True, min_length=1)

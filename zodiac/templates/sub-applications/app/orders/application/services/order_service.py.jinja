@@ -7,8 +7,8 @@ from {{ package_name }}.orders.infrastructure.database.repositories.order_reposi
 
 
 class OrderService:
-    def __init__(self, repository: OrderRepository | None = None) -> None:
-        self.repository = repository or OrderRepository()
+    def __init__(self, repository: OrderRepository) -> None:
+        self.repository = repository
 
     async def create_order(self, payload: OrderCreate) -> OrderModel:
         return await self.repository.create(

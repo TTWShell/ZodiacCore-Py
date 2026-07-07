@@ -277,6 +277,29 @@ class TestNewCommand:
         assert "register_exception_handlers(app)" in orders_app_py
         assert "Container" in users_app_py
         assert "Container" in orders_app_py
+        assert '"app.users.api.router"' in users_app_py
+        assert '"app.orders.api.router"' in orders_app_py
+
+        user_service_py = (target_path / "app" / "users" / "application" / "services" / "user_service.py").read_text()
+        order_service_py = (
+            target_path / "app" / "orders" / "application" / "services" / "order_service.py"
+        ).read_text()
+        user_api_router_py = (target_path / "app" / "users" / "api" / "router.py").read_text()
+        order_api_router_py = (target_path / "app" / "orders" / "api" / "router.py").read_text()
+        user_model_py = (
+            target_path / "app" / "users" / "infrastructure" / "database" / "models" / "user_model.py"
+        ).read_text()
+        order_model_py = (
+            target_path / "app" / "orders" / "infrastructure" / "database" / "models" / "order_model.py"
+        ).read_text()
+        assert "repository: UserRepository | None" not in user_service_py
+        assert "repository or UserRepository()" not in user_service_py
+        assert "repository: OrderRepository | None" not in order_service_py
+        assert "repository or OrderRepository()" not in order_service_py
+        assert "UserService()" not in user_api_router_py
+        assert "OrderService()" not in order_api_router_py
+        assert '__tablename__ = "user_users"' in user_model_py
+        assert '__tablename__ = "order_orders"' in order_model_py
 
         user_schema_py = (target_path / "app" / "users" / "api" / "schemas" / "user_schema.py").read_text()
         order_schema_py = (target_path / "app" / "orders" / "api" / "schemas" / "order_schema.py").read_text()

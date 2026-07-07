@@ -7,8 +7,8 @@ from {{ package_name }}.users.infrastructure.database.repositories.user_reposito
 
 
 class UserService:
-    def __init__(self, repository: UserRepository | None = None) -> None:
-        self.repository = repository or UserRepository()
+    def __init__(self, repository: UserRepository) -> None:
+        self.repository = repository
 
     async def create_user(self, payload: UserCreate) -> UserModel:
         return await self.repository.create(UserModel(name=payload.name, email=str(payload.email)))

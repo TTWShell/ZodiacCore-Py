@@ -13,7 +13,12 @@ def create_orders_app() -> FastAPI:
     register_exception_handlers(app)
 
     container = Container()
-    container.wire(modules=["{{ package_name }}.orders.api.routers.order_router"])
+    container.wire(
+        modules=[
+            "{{ package_name }}.orders.api.router",
+            "{{ package_name }}.orders.api.routers.order_router",
+        ]
+    )
     app.state.container = container
 
     app.include_router(router)
