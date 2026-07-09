@@ -26,7 +26,7 @@ pagination, mark it as ➖ and explain that in a footnote.
 
 Output one Markdown table row per service. The columns are fixed:
 
-`Service` | `version` | `Routing & Response` | `Exception Handling` | `Middleware` | `Logging` | `HTTP & Upstream` | `Pagination` | `Cache` | `Database` | `Configuration` | `Schemas`
+`Service` | `version` | `Routing & Response` | `Exception Handling` | `Middleware` | `Logging` | `HTTP & Upstream` | `Pagination` | `Cache` | `Database` | `Configuration` | `Schemas` | `Sub Applications`
 
 Cells should contain only ✅, ❌, ➖, or ❓. Put explanations below the table as
 short footnotes.
@@ -38,12 +38,13 @@ a localized table.
 Example:
 
 ```markdown
-| Service | version | Routing & Response | Exception Handling | Middleware | Logging | HTTP & Upstream | Pagination | Cache | Database | Configuration | Schemas |
-|---------|---------|:------------------:|:------------------:|:----------:|:-------:|:---------------:|:----------:|:-----:|:--------:|:-------------:|:-------:|
-| example-svc | 0.11.0 | ✅ | ✅ | ✅ | ✅ | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ |
+| Service | version | Routing & Response | Exception Handling | Middleware | Logging | HTTP & Upstream | Pagination | Cache | Database | Configuration | Schemas | Sub Applications |
+|---------|---------|:------------------:|:------------------:|:----------:|:-------:|:---------------:|:----------:|:-----:|:--------:|:-------------:|:-------:|:----------------:|
+| example-svc | 0.11.0 | ✅ | ✅ | ✅ | ✅ | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ➖ |
 
 - Pagination is ➖ because this service intentionally keeps a business-specific list contract.
 - HTTP & Upstream is ➖ because this service has no downstream HTTP calls.
+- Sub Applications is ➖ because this service is a single FastAPI app.
 ```
 
 ## Audit Steps
@@ -348,6 +349,48 @@ Best practices:
   ZodiacCore schema bases.
 
 Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/api/schemas/>
+
+### 12. Sub Applications
+
+Search for:
+
+- `app.mount(`
+- `FastAPI(lifespan=`
+- `router.lifespan_context`
+- `create_users_app`, `create_orders_app`, or other `create_*_app` factories
+- parent-only health routes such as `/api/health`
+- sub-app middleware registration such as `register_middleware(app, service_name=...)`
+
+Mark:
+
+| Symbol | Condition |
+|--------|-----------|
+| ✅ | The service uses mounted FastAPI sub-applications with clear parent/sub-app ownership, scoped middleware/logging, explicit sub-app lifespan entry when needed, and correct shared resource lifecycle. |
+| ❌ | The service mounts sub-applications but has unsafe lifecycle, duplicated middleware/access logs, unclear service log attribution, or shared resource shutdown risks. |
+| ➖ | The service is a single FastAPI app or does not use `app.mount()`. |
+| ❓ | The service appears to mount apps, but parent/sub-app lifecycle or middleware ownership cannot be confirmed. |
+
+Best practices:
+
+- Parent app owns process-wide setup such as `setup_loguru()`, shared database,
+  shared cache, and parent-only routes like `/api/health`.
+- Sub-applications own their routers, schemas, services, repositories, DI
+  containers, exception handlers, and request middleware.
+- Do not register normal request middleware on both the parent and mounted
+  sub-apps for the same request path; this causes duplicate request IDs and
+  duplicate access logs.
+- Use `register_middleware(sub_app, service_name="...")` so each sub-app gets
+  correct request-scoped log attribution.
+- If sub-apps define lifespan logic, the parent lifespan must explicitly enter
+  each sub-app lifespan with `sub_app.router.lifespan_context(sub_app)`.
+- Initialize parent-owned shared database/cache before entering sub-app
+  lifespans, so sub-apps start after and stop before shared resources.
+- Use `db.shutdown(name="...")` and `cache.shutdown(name="...")` for scoped
+  sub-app-owned resources. Bare shutdown closes all registered resources.
+- Parent OpenAPI docs normally show parent routes only; mounted sub-app docs
+  live under each mount unless the project intentionally aggregates docs.
+
+Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/user-guide/sub-applications/>
 
 ## Footnote Rules
 
