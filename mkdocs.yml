@@ -65,6 +65,7 @@ nav:
       - Basic Usage: user-guide/getting-started.md
       - Architecture Guide: user-guide/architecture.md
       - Sub Applications: user-guide/sub-applications.md
+      - Codex Skills: user-guide/skills.md
       - zodiac CLI: user-guide/cli.md
   - API Reference:
       - Configuration: api/config.md
