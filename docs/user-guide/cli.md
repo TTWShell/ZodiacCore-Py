@@ -58,7 +58,7 @@ Add a new mounted sub-application to an existing `sub-applications` project:
 ```bash
 cd ./projects/my_subapps
 uv sync --extra dev
-uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
+uv run zodiac add sub-app billing
 ```
 
 This generates `app/billing/` and `tests/billing/`, but it does not modify
@@ -69,9 +69,16 @@ the mounted-application structure in `main.py`.
 For irregular plurals, pass both names explicitly:
 
 ```bash
-uvx --from "zodiac-core[zodiac]" zodiac add sub-app catalog \
+uv run zodiac add sub-app catalog \
   --resource category \
   --resource-plural categories
+```
+
+To use the CLI without installing development dependencies, run it as a
+one-shot tool instead:
+
+```bash
+uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
 ```
 
 To customize the generated Python package name:
