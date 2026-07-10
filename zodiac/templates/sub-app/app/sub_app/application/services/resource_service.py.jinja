@@ -1,0 +1,27 @@
+from zodiac_core.cache import cached
+from zodiac_core.pagination import PagedResponse, PageSortParams
+
+from {{ package_name }}.{{ service_name }}.api.schemas.{{ resource_name }}_schema import {{ resource_class }}Create
+from {{ package_name }}.{{ service_name }}.infrastructure.database.models.{{ resource_name }}_model import {{ resource_class }}Model
+from {{ package_name }}.{{ service_name }}.infrastructure.database.repositories.{{ resource_name }}_repository import (
+    {{ resource_class }}Repository,
+)
+
+
+class {{ resource_class }}Service:
+    def __init__(self, repository: {{ resource_class }}Repository) -> None:
+        self.repository = repository
+
+    async def create_{{ resource_name }}(self, payload: {{ resource_class }}Create) -> {{ resource_class }}Model:
+        return await self.repository.create({{ resource_class }}Model(name=payload.name))
+
+    async def list_{{ resource_plural }}(
+        self,
+        params: PageSortParams,
+        keyword: str | None = None,
+    ) -> PagedResponse[{{ resource_class }}Model]:
+        return await self.repository.list(params, keyword=keyword)
+
+    @cached(ttl=30, include_self=True)
+    async def service_info(self) -> dict[str, str]:
+        return {"service": "{{ service_name }}", "cache": "shared"}

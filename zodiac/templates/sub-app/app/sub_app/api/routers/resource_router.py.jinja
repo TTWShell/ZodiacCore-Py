@@ -1,0 +1,35 @@
+from typing import Annotated
+
+from dependency_injector.wiring import Provide, inject
+from fastapi import Depends, Query
+from zodiac_core.pagination import PagedResponse
+from zodiac_core.routing import APIRouter
+
+from {{ package_name }}.{{ service_name }}.api.schemas.{{ resource_name }}_schema import (
+    {{ resource_class }}Create,
+    {{ resource_class }}ListParams,
+    {{ resource_class }}Read,
+)
+from {{ package_name }}.{{ service_name }}.application.services.{{ resource_name }}_service import {{ resource_class }}Service
+from {{ package_name }}.{{ service_name }}.core.container import Container
+
+router = APIRouter()
+
+
+@router.get("", response_model=PagedResponse[{{ resource_class }}Read])
+@inject
+async def list_{{ resource_plural }}(
+    page_params: Annotated[{{ resource_class }}ListParams, Query()],
+    service: Annotated[{{ resource_class }}Service, Depends(Provide[Container.{{ resource_name }}_service])],
+):
+    return await service.list_{{ resource_plural }}(page_params, keyword=page_params.keyword)
+
+
+@router.post("", response_model={{ resource_class }}Read, status_code=201)
+@inject
+async def create_{{ resource_name }}(
+    payload: {{ resource_class }}Create,
+    service: Annotated[{{ resource_class }}Service, Depends(Provide[Container.{{ resource_name }}_service])],
+):
+    item = await service.create_{{ resource_name }}(payload)
+    return {{ resource_class }}Read.model_validate(item)

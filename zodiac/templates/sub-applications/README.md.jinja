@@ -49,11 +49,24 @@ sub-application to avoid double-wrapping of requests.
 This project includes `AGENTS.md` so teams can use Codex with the project
 conventions for FastAPI, pytest, and ZodiacCore.
 
+## Add A Sub-Application
+
+Generate a new service skeleton from the project root with an installed Zodiac
+CLI, or run it as a one-shot development tool with `uvx`:
+
+```bash
+uv sync --extra dev
+uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
+```
+
+The command does not edit `main.py`. Follow the printed import, lifespan, and
+mount instructions, or ask Codex to complete and test the integration.
+
 ## Run
 
 ```bash
 uv sync --extra dev
-uv run uvicorn main:app --reload
+uv run uvicorn main:app --reload --no-access-log
 ```
 
 ## Test

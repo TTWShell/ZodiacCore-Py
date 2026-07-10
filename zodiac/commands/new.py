@@ -1,17 +1,19 @@
 """zodiac new: generate a new project from a template."""
 
 import keyword
-import os
+import re
 from pathlib import Path
 
 import click
-from jinja2 import Environment, FileSystemLoader
+
+from zodiac.commands.rendering import build_render_plan, write_render_plan
 
 VALID_TEMPLATES = [
     "standard-3tier",
     "sub-applications",
 ]
 RESERVED_PACKAGE_NAMES = frozenset({"config", "main", "tests"})
+PROJECT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def get_template_path(template_id: str) -> Path:
@@ -28,13 +30,20 @@ def validate_package_name(_ctx: click.Context, _param: click.Parameter, value: s
     return value
 
 
+def validate_project_name(_ctx: click.Context, _param: click.Parameter, value: str) -> str:
+    """Reject project names that cannot be safely rendered into paths and config files."""
+    if value in {".", ".."} or PROJECT_NAME_PATTERN.fullmatch(value) is None:
+        raise click.BadParameter("must use only letters, numbers, dots, underscores, and hyphens")
+    return value
+
+
 def render_template_path(rel_path: Path, package_name: str) -> Path:
     """Map the template's default app package directory to the requested package name."""
     return Path(*(package_name if part == "app" else part for part in rel_path.parts))
 
 
 @click.command("new")
-@click.argument("project_name", required=True)
+@click.argument("project_name", required=True, callback=validate_project_name)
 @click.option(
     "--tpl",
     "template",
@@ -79,28 +88,19 @@ def new_cmd(project_name: str, template: str, output_dir: str, force: bool, pack
 
     click.echo(f"🚀 Generating project {project_name} using {template}...")
 
-    env = Environment(loader=FileSystemLoader(str(template_path)))
     context = {
         "project_name": project_name,
         "package_name": package_name,
         "template_id": template,
     }
 
-    # Walk through template directory
-    for root, _dirs, files in os.walk(template_path):
-        rel_path = Path(root).relative_to(template_path)
-        dest_rel_path = render_template_path(rel_path, package_name)
-        dest_dir = target_path / dest_rel_path
-        dest_dir.mkdir(parents=True, exist_ok=True)
-
-        for file in files:
-            if not file.endswith(".jinja"):
-                continue
-
-            dest_file = dest_dir / file[:-6]  # Remove .jinja extension
-            template_obj = env.get_template((rel_path / file).as_posix())
-            rendered_content = template_obj.render(**context)
-            dest_file.write_text(rendered_content, encoding="utf-8")
+    plan = build_render_plan(
+        template_path=template_path,
+        destination_root=target_path,
+        context=context,
+        path_mapper=lambda path: render_template_path(path, package_name),
+    )
+    write_render_plan(plan, force=force)
 
     click.echo(f"✅ Project created at: {target_path.absolute()}")
     click.echo("\nTo get started:")

@@ -3,12 +3,51 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from zodiac.commands.new import get_template_path
 from zodiac.main import cli
+
+
+def without_proxy_environment() -> dict[str, str]:
+    """Return a subprocess environment without host proxy settings."""
+    env = os.environ.copy()
+    for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"):
+        env.pop(key, None)
+        env.pop(key.lower(), None)
+    return env
+
+
+def wire_generated_sub_app(main_path: Path, *, package_name: str, service_name: str) -> None:
+    """Apply the CLI's printed wiring contract in a generated quality-test project."""
+    content = main_path.read_text(encoding="utf-8")
+    replacements = [
+        (
+            f"from {package_name}.core.config import CacheConfig, DbConfig, LoggingConfig",
+            f"from {package_name}.{service_name}.app import create_{service_name}_app\n"
+            f"from {package_name}.core.config import CacheConfig, DbConfig, LoggingConfig",
+        ),
+        (
+            "orders_app = create_orders_app()",
+            f"{service_name}_app = create_{service_name}_app()\norders_app = create_orders_app()",
+        ),
+        (
+            "await stack.enter_async_context(orders_app.router.lifespan_context(orders_app))",
+            f"await stack.enter_async_context({service_name}_app.router.lifespan_context({service_name}_app))\n"
+            "        await stack.enter_async_context(orders_app.router.lifespan_context(orders_app))",
+        ),
+        (
+            'app.mount("/users", users_app)',
+            f'app.mount("/{service_name}", {service_name}_app)\n    app.mount("/users", users_app)',
+        ),
+    ]
+    for old, new in replacements:
+        assert old in content, f"Generated main.py wiring marker changed: {old}"
+        content = content.replace(old, new, 1)
+    main_path.write_text(content, encoding="utf-8")
 
 
 class TestNewCommand:
@@ -268,6 +307,9 @@ class TestNewCommand:
         testing_config = (target_path / "config" / "app.testing.ini").read_text()
         assert "[logging]" in testing_config
         assert "level = WARNING" in testing_config
+        generated_pyproject = (target_path / "pyproject.toml").read_text()
+        assert '"zodiac-core[sql,cache]"' in generated_pyproject
+        assert '"zodiac-core[zodiac,sql,cache]"' not in generated_pyproject
         core_config = (target_path / "app" / "core" / "config.py").read_text()
         assert "class LoggingConfig" in core_config
 
@@ -319,6 +361,200 @@ class TestNewCommand:
         assert "ZodiacCore response envelope" in agents_md
         assert "Codex" in agents_md
         assert "Claude" not in agents_md
+
+    def test_add_sub_app_generates_sub_application_without_patching_main(self, cli_runner, monkeypatch):
+        """Test adding a sub-application skeleton to an existing mounted services project."""
+        project_name = "test-add-sub-app"
+        target_path = self.test_output_dir / project_name
+
+        new_result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                project_name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+        assert new_result.exit_code == 0
+
+        main_before = (target_path / "main.py").read_text()
+        monkeypatch.chdir(target_path)
+        add_result = cli_runner.invoke(cli, ["add", "sub-app", "billing"])
+
+        assert add_result.exit_code == 0
+        assert "Sub-application created: billing" in add_result.output
+        assert "from app.billing.app import create_billing_app" in add_result.output
+        assert "billing_app = create_billing_app()" in add_result.output
+        assert 'app.mount("/billing", billing_app)' in add_result.output
+        assert "Wire the newly generated billing sub-application into main.py" in add_result.output
+
+        assert (target_path / "main.py").read_text() == main_before
+        assert (target_path / "app" / "billing" / "app.py").exists()
+        assert (target_path / "app" / "billing" / "core" / "container.py").exists()
+        assert (target_path / "app" / "billing" / "api" / "routers" / "item_router.py").exists()
+        assert (target_path / "app" / "billing" / "api" / "schemas" / "item_schema.py").exists()
+        assert (target_path / "tests" / "billing" / "test_api.py").exists()
+
+        billing_app_py = (target_path / "app" / "billing" / "app.py").read_text()
+        billing_router_py = (target_path / "app" / "billing" / "api" / "router.py").read_text()
+        billing_model_py = (
+            target_path / "app" / "billing" / "infrastructure" / "database" / "models" / "item_model.py"
+        ).read_text()
+        billing_test_py = (target_path / "tests" / "billing" / "test_api.py").read_text()
+        assert "def create_billing_app() -> FastAPI:" in billing_app_py
+        assert 'register_middleware(app, service_name="billing")' in billing_app_py
+        assert '"app.billing.api.routers.item_router"' in billing_app_py
+        assert 'prefix="/items"' in billing_router_py
+        assert 'tags=["Items"]' in billing_router_py
+        assert '__tablename__ = "billing_items"' in billing_model_py
+        assert "/billing/api/v1/items" in billing_test_py
+
+    def test_add_sub_app_supports_explicit_resource_plural(self, cli_runner, monkeypatch):
+        """Test irregular resource plurals are used in routes, functions, and tables."""
+        target_path = self.test_output_dir / "test-add-sub-app-plural"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                target_path.name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+        assert result.exit_code == 0
+
+        monkeypatch.chdir(target_path)
+        result = cli_runner.invoke(
+            cli,
+            [
+                "add",
+                "sub-app",
+                "catalog",
+                "--resource",
+                "category",
+                "--resource-plural",
+                "categories",
+            ],
+        )
+
+        assert result.exit_code == 0
+        router = (target_path / "app" / "catalog" / "api" / "router.py").read_text()
+        service = (target_path / "app" / "catalog" / "application" / "services" / "category_service.py").read_text()
+        model = (
+            target_path / "app" / "catalog" / "infrastructure" / "database" / "models" / "category_model.py"
+        ).read_text()
+        assert 'prefix="/categories"' in router
+        assert 'tags=["Categories"]' in router
+        assert "async def list_categories(" in service
+        assert '__tablename__ = "catalog_categories"' in model
+
+    def test_add_sub_app_preflights_all_conflicts_before_writing(self, cli_runner, monkeypatch):
+        """A late conflict must not leave a partially generated application behind."""
+        target_path = self.test_output_dir / "test-add-sub-app-conflict"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                target_path.name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+        assert result.exit_code == 0
+
+        conflict = target_path / "tests" / "billing" / "test_api.py"
+        conflict.parent.mkdir(parents=True)
+        conflict.write_text("existing\n", encoding="utf-8")
+        monkeypatch.chdir(target_path)
+
+        result = cli_runner.invoke(cli, ["add", "sub-app", "billing"])
+
+        assert result.exit_code != 0
+        assert "File already exists" in result.output
+        assert conflict.read_text(encoding="utf-8") == "existing\n"
+        assert not (target_path / "app" / "billing").exists()
+
+    def test_add_sub_app_rejects_non_sub_applications_project(self, cli_runner, monkeypatch):
+        """Test that add sub-app only runs inside generated sub-applications projects."""
+        project_name = "test-add-sub-app-invalid"
+        target_path = self.test_output_dir / project_name
+
+        new_result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                project_name,
+                "--tpl",
+                "standard-3tier",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+        assert new_result.exit_code == 0
+
+        monkeypatch.chdir(target_path)
+        result = cli_runner.invoke(cli, ["add", "sub-app", "billing"])
+
+        assert result.exit_code != 0
+        assert "sub-applications project root" in result.output
+
+    def test_add_sub_app_respects_custom_package_name(self, cli_runner, monkeypatch):
+        """Test that add sub-app detects and uses a custom generated package name."""
+        project_name = "test-add-sub-app-custom-package"
+        package_name = "svc_a"
+        target_path = self.test_output_dir / project_name
+
+        new_result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                project_name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(self.test_output_dir),
+                "--package-name",
+                package_name,
+            ],
+        )
+        assert new_result.exit_code == 0
+
+        monkeypatch.chdir(target_path)
+        add_result = cli_runner.invoke(cli, ["add", "sub-app", "billing"])
+
+        assert add_result.exit_code == 0
+        assert "from svc_a.billing.app import create_billing_app" in add_result.output
+        assert (target_path / package_name / "billing" / "app.py").exists()
+        assert not (target_path / "app" / "billing").exists()
+
+        billing_app_py = (target_path / package_name / "billing" / "app.py").read_text()
+        assert "from svc_a.billing.api.router import router" in billing_app_py
+        assert '"svc_a.billing.api.routers.item_router"' in billing_app_py
+
+    @pytest.mark.parametrize("project_name", ["../escape", 'bad"name', ".", ".."])
+    def test_new_command_rejects_unsafe_project_name(self, cli_runner, project_name):
+        """Project names must not escape the output directory or break rendered config."""
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                project_name,
+                "--tpl",
+                "standard-3tier",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "must use only letters" in result.output
 
     @pytest.mark.parametrize(
         ("package_name", "error_message"),
@@ -432,6 +668,16 @@ class TestGeneratedProjectQuality:
 
         return target_path
 
+    def test_generated_sub_applications_accept_external_add_command(self, generated_sub_applications_path):
+        """The developer CLI must generate a sub-app without becoming a project dependency."""
+        assert (generated_sub_applications_path / "app" / "billing" / "app.py").exists()
+        assert (generated_sub_applications_path / "tests" / "billing" / "test_api.py").exists()
+        pyproject_content = (generated_sub_applications_path / "pyproject.toml").read_text()
+        assert "zodiac-core[zodiac" not in pyproject_content
+        main_content = (generated_sub_applications_path / "main.py").read_text()
+        assert "from app.billing.app import create_billing_app" in main_content
+        assert 'app.mount("/billing", billing_app)' in main_content
+
     def test_generated_project_ruff_lint(self, generated_project_path):
         """Test that generated project passes ruff lint."""
         ruff_check_result = subprocess.run(
@@ -505,6 +751,36 @@ class TestGeneratedProjectQuality:
         )
         pyproject_path.write_text(content)
 
+        add = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "zodiac.main",
+                "add",
+                "sub-app",
+                "billing",
+                "--resource",
+                "category",
+                "--resource-plural",
+                "categories",
+            ],
+            cwd=target_path,
+            capture_output=True,
+            text=True,
+            env=without_proxy_environment(),
+        )
+        assert add.returncode == 0, f"zodiac add failed:\n{add.stdout}\n{add.stderr}"
+        wire_generated_sub_app(target_path / "main.py", package_name="app", service_name="billing")
+
+        sync = subprocess.run(
+            ["uv", "sync", "--extra", "dev", "--reinstall-package", "zodiac-core"],
+            cwd=target_path,
+            capture_output=True,
+            text=True,
+            env=without_proxy_environment(),
+        )
+        assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
+
         return target_path
 
     def test_generated_sub_applications_ruff_lint(self, generated_sub_applications_path):
@@ -521,27 +797,15 @@ class TestGeneratedProjectQuality:
 
     def test_generated_sub_applications_pytest(self, generated_sub_applications_path):
         """Test that generated sub-applications project installs and passes pytest."""
-        sync = subprocess.run(
-            ["uv", "sync", "--extra", "dev", "--reinstall-package", "zodiac-core"],
-            cwd=generated_sub_applications_path,
-            capture_output=True,
-            text=True,
-        )
-        assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
-
-        test_env = os.environ.copy()
-        for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"):
-            test_env.pop(key, None)
-            test_env.pop(key.lower(), None)
-
         test = subprocess.run(
             ["uv", "run", "pytest", "-q"],
             cwd=generated_sub_applications_path,
             capture_output=True,
             text=True,
-            env=test_env,
+            env=without_proxy_environment(),
         )
         assert test.returncode == 0, f"generated sub-applications pytest failed:\n{test.stdout}\n{test.stderr}"
         output = test.stdout + test.stderr
         assert "GET /users/api/v1" not in output
         assert "GET /orders/api/v1" not in output
+        assert "GET /billing/api/v1" not in output
