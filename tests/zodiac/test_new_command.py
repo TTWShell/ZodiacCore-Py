@@ -414,12 +414,18 @@ class TestNewCommand:
         assert '__tablename__ = "billing_items"' in billing_model_py
         assert "/billing/api/v1/items" in billing_test_py
 
-    @pytest.mark.parametrize("name", ["bad-name", "app"])
+    @pytest.mark.parametrize("name", ["bad-name", "app", "_"])
     def test_add_sub_app_rejects_invalid_service_name(self, cli_runner, name):
         result = cli_runner.invoke(cli, ["add", "sub-app", name])
 
         assert result.exit_code != 0
         assert "sub-application name" in result.output
+
+    def test_add_sub_app_rejects_placeholder_resource_name(self, cli_runner):
+        result = cli_runner.invoke(cli, ["add", "sub-app", "billing", "--resource", "_"])
+
+        assert result.exit_code != 0
+        assert "resource name must contain at least one non-underscore character" in result.output
 
     def test_add_sub_app_requires_pyproject(self, cli_runner, monkeypatch, tmp_path):
         monkeypatch.chdir(tmp_path)
@@ -451,6 +457,8 @@ class TestNewCommand:
             ("category", "categories"),
             ("person", "people"),
             ("audit_entry", "audit_entries"),
+            ("type_", "types"),
+            ("class_", "classes"),
         ],
     )
     def test_pluralize_identifier(self, singular, plural):
@@ -495,6 +503,33 @@ class TestNewCommand:
         assert 'tags=["Categories"]' in router
         assert "async def list_categories(" in service
         assert '__tablename__ = "catalog_categories"' in model
+
+    def test_add_sub_app_infers_plural_for_keyword_safe_resource(self, cli_runner, monkeypatch):
+        """Trailing underscores remain in singular identifiers but not inferred plurals."""
+        target_path = self.test_output_dir / "test-add-sub-app-keyword-safe-resource"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                target_path.name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+        assert result.exit_code == 0
+
+        monkeypatch.chdir(target_path)
+        result = cli_runner.invoke(cli, ["add", "sub-app", "catalog", "--resource", "type_"])
+
+        assert result.exit_code == 0
+        router = (target_path / "app" / "catalog" / "api" / "router.py").read_text()
+        resource_router = target_path / "app" / "catalog" / "api" / "routers" / "type__router.py"
+        model = target_path / "app" / "catalog" / "infrastructure" / "database" / "models" / "type__model.py"
+        assert 'prefix="/types"' in router
+        assert resource_router.exists()
+        assert '__tablename__ = "catalog_types"' in model.read_text()
 
     def test_add_sub_app_supports_resource_plural_override(self, cli_runner, monkeypatch):
         """Explicit plurals override the inferred English form."""

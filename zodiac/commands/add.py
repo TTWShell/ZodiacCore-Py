@@ -22,6 +22,8 @@ def validate_identifier(name: str, *, label: str) -> str:
     """Validate a CLI-provided Python identifier."""
     if not name.isidentifier() or keyword.iskeyword(name):
         raise click.ClickException(f"{label} must be a valid Python identifier, for example: billing")
+    if not name.strip("_"):
+        raise click.ClickException(f"{label} must contain at least one non-underscore character")
     if name in RESERVED_SUB_APP_NAMES:
         raise click.ClickException(
             f"{label} must not conflict with reserved project names: api, app, config, core, main, tests"
@@ -35,8 +37,9 @@ def to_class_name(name: str) -> str:
 
 
 def pluralize_identifier(name: str) -> str:
-    """Pluralize the final word in a snake_case identifier."""
-    prefix, separator, noun = name.rpartition("_")
+    """Pluralize the final word, dropping keyword-safe trailing underscores."""
+    stem = name.rstrip("_")
+    prefix, separator, noun = stem.rpartition("_")
     plural = INFLECTOR.plural_noun(noun) or f"{noun}s"
     return f"{prefix}{separator}{plural}"
 
