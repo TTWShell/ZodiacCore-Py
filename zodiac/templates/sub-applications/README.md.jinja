@@ -51,16 +51,22 @@ conventions for FastAPI, pytest, and ZodiacCore.
 
 ## Add A Sub-Application
 
-Generate a new service skeleton from the project root with an installed Zodiac
-CLI, or run it as a one-shot development tool with `uvx`:
+Generate a new service skeleton from the project root:
 
 ```bash
 uv sync --extra dev
-uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
+uv run zodiac add sub-app billing
 ```
 
 The command does not edit `main.py`. Follow the printed import, lifespan, and
 mount instructions, or ask Codex to complete and test the integration.
+
+To use the CLI without installing development dependencies, run it as a
+one-shot tool instead:
+
+```bash
+uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
+```
 
 ## Run
 

@@ -80,10 +80,10 @@ uv run ruff check .
 uv run pytest -q
 ```
 
-Create another mounted service with the developer's Zodiac CLI:
+Create another mounted service with the project's development CLI:
 
 ```bash
-uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
+uv run zodiac add sub-app billing
 ```
 
 For irregular resource plurals, pass both forms explicitly, for example

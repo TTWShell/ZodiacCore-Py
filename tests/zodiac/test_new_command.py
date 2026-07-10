@@ -3,7 +3,6 @@
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -12,12 +11,14 @@ from zodiac.commands.new import get_template_path
 from zodiac.main import cli
 
 
-def without_proxy_environment() -> dict[str, str]:
-    """Return a subprocess environment without host proxy settings."""
+def isolated_project_environment() -> dict[str, str]:
+    """Return an environment isolated from the outer test runner."""
     env = os.environ.copy()
     for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"):
         env.pop(key, None)
         env.pop(key.lower(), None)
+    for key in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT"):
+        env.pop(key, None)
     return env
 
 
@@ -307,6 +308,7 @@ class TestNewCommand:
         assert "level = WARNING" in testing_config
         generated_pyproject = (target_path / "pyproject.toml").read_text()
         assert '"zodiac-core[sql,cache]"' in generated_pyproject
+        assert '"zodiac-core[zodiac]"' in generated_pyproject
         assert '"zodiac-core[zodiac,sql,cache]"' not in generated_pyproject
         core_config = (target_path / "app" / "core" / "config.py").read_text()
         assert "class LoggingConfig" in core_config
@@ -641,6 +643,7 @@ class TestNewCommand:
         )
 
 
+@pytest.mark.serial
 class TestGeneratedProjectQuality:
     """Tests for verifying quality of generated projects (ruff lint, pytest)."""
 
@@ -685,12 +688,12 @@ class TestGeneratedProjectQuality:
 
         return target_path
 
-    def test_generated_sub_applications_accept_external_add_command(self, generated_sub_applications_path):
-        """The developer CLI must generate a sub-app without becoming a project dependency."""
+    def test_generated_sub_applications_include_development_cli(self, generated_sub_applications_path):
+        """Generated projects install the Zodiac CLI through their development extra."""
         assert (generated_sub_applications_path / "app" / "billing" / "app.py").exists()
         assert (generated_sub_applications_path / "tests" / "billing" / "test_api.py").exists()
         pyproject_content = (generated_sub_applications_path / "pyproject.toml").read_text()
-        assert "zodiac-core[zodiac" not in pyproject_content
+        assert '"zodiac-core[zodiac]"' in pyproject_content
         main_content = (generated_sub_applications_path / "main.py").read_text()
         assert "from app.billing.app import create_billing_app" in main_content
         assert 'app.mount("/billing", billing_app)' in main_content
@@ -715,20 +718,16 @@ class TestGeneratedProjectQuality:
             cwd=generated_project_path,
             capture_output=True,
             text=True,
+            env=isolated_project_environment(),
         )
         assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
-
-        test_env = os.environ.copy()
-        for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"):
-            test_env.pop(key, None)
-            test_env.pop(key.lower(), None)
 
         test = subprocess.run(
             ["uv", "run", "pytest", "-q"],
             cwd=generated_project_path,
             capture_output=True,
             text=True,
-            env=test_env,
+            env=isolated_project_environment(),
         )
         assert test.returncode == 0, f"generated project pytest failed:\n{test.stdout}\n{test.stderr}"
 
@@ -768,11 +767,20 @@ class TestGeneratedProjectQuality:
         )
         pyproject_path.write_text(content)
 
+        sync = subprocess.run(
+            ["uv", "sync", "--extra", "dev", "--reinstall-package", "zodiac-core"],
+            cwd=target_path,
+            capture_output=True,
+            text=True,
+            env=isolated_project_environment(),
+        )
+        assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
+
         add = subprocess.run(
             [
-                sys.executable,
-                "-m",
-                "zodiac.main",
+                "uv",
+                "run",
+                "zodiac",
                 "add",
                 "sub-app",
                 "billing",
@@ -784,19 +792,10 @@ class TestGeneratedProjectQuality:
             cwd=target_path,
             capture_output=True,
             text=True,
-            env=without_proxy_environment(),
+            env=isolated_project_environment(),
         )
         assert add.returncode == 0, f"zodiac add failed:\n{add.stdout}\n{add.stderr}"
         wire_generated_sub_app(target_path / "main.py", package_name="app", service_name="billing")
-
-        sync = subprocess.run(
-            ["uv", "sync", "--extra", "dev", "--reinstall-package", "zodiac-core"],
-            cwd=target_path,
-            capture_output=True,
-            text=True,
-            env=without_proxy_environment(),
-        )
-        assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
 
         return target_path
 
@@ -819,7 +818,7 @@ class TestGeneratedProjectQuality:
             cwd=generated_sub_applications_path,
             capture_output=True,
             text=True,
-            env=without_proxy_environment(),
+            env=isolated_project_environment(),
         )
         assert test.returncode == 0, f"generated sub-applications pytest failed:\n{test.stdout}\n{test.stderr}"
         output = test.stdout + test.stderr
