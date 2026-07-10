@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from zodiac.commands.rendering import TemplateConflictError, build_render_plan, write_render_plan
+from zodiac.commands.rendering import RenderedFile, TemplateConflictError, build_render_plan, write_render_plan
 
 RESERVED_SUB_APP_NAMES = frozenset({"api", "app", "config", "core", "main", "tests"})
 
@@ -69,12 +69,6 @@ def ensure_sub_applications_project(project_root: Path, package_name: str) -> No
             "Expected mounted sub-applications in main.py."
         )
 
-    if not (package_root / "core" / "config.py").exists():
-        raise click.ClickException(
-            "This command must be run from a ZodiacCore sub-applications project root. "
-            f"Expected {package_name}/core/config.py."
-        )
-
 
 def render_sub_app_path(rel_path: Path, *, service_name: str, resource_name: str, package_name: str) -> Path:
     """Render path placeholders used by the sub-application unit template."""
@@ -91,6 +85,41 @@ def render_sub_app_path(rel_path: Path, *, service_name: str, resource_name: str
     return Path(*rendered_parts)
 
 
+def build_sub_app_render_plan(
+    *,
+    project_root: Path,
+    service_name: str,
+    resource_name: str,
+    resource_plural: str,
+    package_name: str,
+    table_prefix: str | None = None,
+) -> list[RenderedFile]:
+    """Build a render plan for one reusable sub-application."""
+    template_path = get_sub_app_template_path()
+    context = {
+        "package_name": package_name,
+        "service_name": service_name,
+        "service_class": to_class_name(service_name),
+        "resource_name": resource_name,
+        "resource_plural": resource_plural,
+        "resource_plural_class": to_class_name(resource_plural),
+        "resource_class": to_class_name(resource_name),
+        "table_name": f"{table_prefix or service_name}_{resource_plural}",
+    }
+
+    return build_render_plan(
+        template_path=template_path,
+        destination_root=project_root,
+        context=context,
+        path_mapper=lambda path: render_sub_app_path(
+            path,
+            service_name=service_name,
+            resource_name=resource_name,
+            package_name=package_name,
+        ),
+    )
+
+
 def render_sub_app_template(
     *,
     project_root: Path,
@@ -101,28 +130,12 @@ def render_sub_app_template(
     force: bool,
 ) -> None:
     """Render a reusable sub-application template into an existing project."""
-    template_path = get_sub_app_template_path()
-    context = {
-        "package_name": package_name,
-        "service_name": service_name,
-        "service_class": to_class_name(service_name),
-        "resource_name": resource_name,
-        "resource_plural": resource_plural,
-        "resource_plural_class": to_class_name(resource_plural),
-        "resource_class": to_class_name(resource_name),
-        "table_name": f"{service_name}_{resource_plural}",
-    }
-
-    plan = build_render_plan(
-        template_path=template_path,
-        destination_root=project_root,
-        context=context,
-        path_mapper=lambda path: render_sub_app_path(
-            path,
-            service_name=service_name,
-            resource_name=resource_name,
-            package_name=package_name,
-        ),
+    plan = build_sub_app_render_plan(
+        project_root=project_root,
+        service_name=service_name,
+        resource_name=resource_name,
+        resource_plural=resource_plural,
+        package_name=package_name,
     )
     try:
         write_render_plan(plan, force=force)

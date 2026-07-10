@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from zodiac.commands.add import build_sub_app_render_plan
 from zodiac.commands.rendering import build_render_plan, write_render_plan
 
 VALID_TEMPLATES = [
@@ -100,6 +101,27 @@ def new_cmd(project_name: str, template: str, output_dir: str, force: bool, pack
         context=context,
         path_mapper=lambda path: render_template_path(path, package_name),
     )
+    if template == "sub-applications":
+        plan.extend(
+            build_sub_app_render_plan(
+                project_root=target_path,
+                service_name="users",
+                resource_name="user",
+                resource_plural="users",
+                package_name=package_name,
+                table_prefix="user",
+            )
+        )
+        plan.extend(
+            build_sub_app_render_plan(
+                project_root=target_path,
+                service_name="orders",
+                resource_name="order",
+                resource_plural="orders",
+                package_name=package_name,
+                table_prefix="order",
+            )
+        )
     write_render_plan(plan, force=force)
 
     click.echo(f"✅ Project created at: {target_path.absolute()}")

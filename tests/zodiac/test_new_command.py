@@ -287,8 +287,6 @@ class TestNewCommand:
         assert (target_path / "tests" / "test_health.py").exists()
         assert (target_path / "tests" / "orders" / "test_api.py").exists()
         assert (target_path / "tests" / "users" / "test_api.py").exists()
-        assert (target_path / "tests" / "orders" / "conftest.py").exists()
-        assert (target_path / "tests" / "users" / "conftest.py").exists()
 
         main_py = (target_path / "main.py").read_text()
         assert 'app.mount("/users", users_app)' in main_py
@@ -504,6 +502,25 @@ class TestNewCommand:
 
         assert result.exit_code != 0
         assert "sub-applications project root" in result.output
+
+    def test_add_sub_app_detects_project_from_pyproject_and_main_only(self, cli_runner, monkeypatch):
+        """Project detection must not depend on generated support files."""
+        target_path = self.test_output_dir / "minimal-sub-applications"
+        (target_path / "app").mkdir(parents=True)
+        (target_path / "pyproject.toml").write_text(
+            '[tool.setuptools.packages.find]\ninclude = ["app*"]\n',
+            encoding="utf-8",
+        )
+        (target_path / "main.py").write_text(
+            'def create_app():\n    app.mount("/users", users_app)\n    users_app.router.lifespan_context(users_app)\n',
+            encoding="utf-8",
+        )
+
+        monkeypatch.chdir(target_path)
+        result = cli_runner.invoke(cli, ["add", "sub-app", "billing"])
+
+        assert result.exit_code == 0
+        assert (target_path / "app" / "billing" / "app.py").exists()
 
     def test_add_sub_app_respects_custom_package_name(self, cli_runner, monkeypatch):
         """Test that add sub-app detects and uses a custom generated package name."""
