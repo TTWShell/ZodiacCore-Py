@@ -6,8 +6,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from click import ClickException
 
-from zodiac.commands.add import pluralize_identifier
+from zodiac.commands.add import ensure_sub_applications_project, get_project_package_name, pluralize_identifier
 from zodiac.commands.new import get_template_path
 from zodiac.main import cli
 
@@ -412,6 +413,37 @@ class TestNewCommand:
         assert 'tags=["Items"]' in billing_router_py
         assert '__tablename__ = "billing_items"' in billing_model_py
         assert "/billing/api/v1/items" in billing_test_py
+
+    @pytest.mark.parametrize("name", ["bad-name", "app"])
+    def test_add_sub_app_rejects_invalid_service_name(self, cli_runner, name):
+        result = cli_runner.invoke(cli, ["add", "sub-app", name])
+
+        assert result.exit_code != 0
+        assert "sub-application name" in result.output
+
+    def test_add_sub_app_requires_pyproject(self, cli_runner, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)
+
+        result = cli_runner.invoke(cli, ["add", "sub-app", "billing"])
+
+        assert result.exit_code != 0
+        assert "project root with pyproject.toml" in result.output
+
+    def test_get_project_package_name_falls_back_to_app(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'example'\n", encoding="utf-8")
+        (tmp_path / "app").mkdir()
+
+        assert get_project_package_name(tmp_path) == "app"
+
+    def test_get_project_package_name_rejects_unknown_layout(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'example'\n", encoding="utf-8")
+
+        with pytest.raises(ClickException, match="Could not detect the generated Python package"):
+            get_project_package_name(tmp_path)
+
+    def test_ensure_sub_applications_project_requires_main_and_package(self, tmp_path):
+        with pytest.raises(ClickException, match="sub-applications project root"):
+            ensure_sub_applications_project(tmp_path, "app")
 
     @pytest.mark.parametrize(
         ("singular", "plural"),
