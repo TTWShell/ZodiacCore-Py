@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from zodiac.commands.add import pluralize_identifier
 from zodiac.commands.new import get_template_path
 from zodiac.main import cli
 
@@ -412,8 +413,20 @@ class TestNewCommand:
         assert '__tablename__ = "billing_items"' in billing_model_py
         assert "/billing/api/v1/items" in billing_test_py
 
-    def test_add_sub_app_supports_explicit_resource_plural(self, cli_runner, monkeypatch):
-        """Test irregular resource plurals are used in routes, functions, and tables."""
+    @pytest.mark.parametrize(
+        ("singular", "plural"),
+        [
+            ("category", "categories"),
+            ("person", "people"),
+            ("audit_entry", "audit_entries"),
+        ],
+    )
+    def test_pluralize_identifier(self, singular, plural):
+        """Resource plurals handle irregular nouns and snake_case identifiers."""
+        assert pluralize_identifier(singular) == plural
+
+    def test_add_sub_app_infers_irregular_resource_plural(self, cli_runner, monkeypatch):
+        """Inferred plurals are used in routes, functions, and tables."""
         target_path = self.test_output_dir / "test-add-sub-app-plural"
         result = cli_runner.invoke(
             cli,
@@ -437,8 +450,6 @@ class TestNewCommand:
                 "catalog",
                 "--resource",
                 "category",
-                "--resource-plural",
-                "categories",
             ],
         )
 
@@ -452,6 +463,47 @@ class TestNewCommand:
         assert 'tags=["Categories"]' in router
         assert "async def list_categories(" in service
         assert '__tablename__ = "catalog_categories"' in model
+
+    def test_add_sub_app_supports_resource_plural_override(self, cli_runner, monkeypatch):
+        """Explicit plurals override the inferred English form."""
+        target_path = self.test_output_dir / "test-add-sub-app-plural-override"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                target_path.name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+        assert result.exit_code == 0
+
+        monkeypatch.chdir(target_path)
+        result = cli_runner.invoke(
+            cli,
+            [
+                "add",
+                "sub-app",
+                "directory",
+                "--resource",
+                "person",
+                "--resource-plural",
+                "persons",
+            ],
+        )
+
+        assert result.exit_code == 0
+        router = (target_path / "app" / "directory" / "api" / "router.py").read_text()
+        service = (target_path / "app" / "directory" / "application" / "services" / "person_service.py").read_text()
+        model = (
+            target_path / "app" / "directory" / "infrastructure" / "database" / "models" / "person_model.py"
+        ).read_text()
+        assert 'prefix="/persons"' in router
+        assert 'tags=["Persons"]' in router
+        assert "async def list_persons(" in service
+        assert '__tablename__ = "directory_persons"' in model
 
     def test_add_sub_app_preflights_all_conflicts_before_writing(self, cli_runner, monkeypatch):
         """A late conflict must not leave a partially generated application behind."""

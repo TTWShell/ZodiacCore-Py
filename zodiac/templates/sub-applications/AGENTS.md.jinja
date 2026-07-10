@@ -86,10 +86,11 @@ Create another mounted service with the project's development CLI:
 uv run zodiac add sub-app billing
 ```
 
-For irregular resource plurals, pass both forms explicitly, for example
-`--resource category --resource-plural categories`. The command intentionally
-does not edit `main.py`; apply its printed import, lifespan, and mount steps,
-then run the full checks above.
+Resource plurals are inferred automatically. Use `--resource-plural` only when
+the API needs a domain-specific override, for example
+`--resource person --resource-plural persons`. The command intentionally does
+not edit `main.py`; apply its printed import, lifespan, and mount steps, then run
+the full checks above.
 
 When working on the template from the ZodiacCore repository, also generate a
 fresh project and verify it:

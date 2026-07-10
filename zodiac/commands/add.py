@@ -5,10 +5,12 @@ import tomllib
 from pathlib import Path
 
 import click
+import inflect
 
 from zodiac.commands.rendering import RenderedFile, TemplateConflictError, build_render_plan, write_render_plan
 
 RESERVED_SUB_APP_NAMES = frozenset({"api", "app", "config", "core", "main", "tests"})
+INFLECTOR = inflect.engine()
 
 
 def get_sub_app_template_path() -> Path:
@@ -30,6 +32,13 @@ def validate_identifier(name: str, *, label: str) -> str:
 def to_class_name(name: str) -> str:
     """Convert a snake_case identifier to a PascalCase class name."""
     return "".join(part.capitalize() for part in name.split("_"))
+
+
+def pluralize_identifier(name: str) -> str:
+    """Pluralize the final word in a snake_case identifier."""
+    prefix, separator, noun = name.rpartition("_")
+    plural = INFLECTOR.plural_noun(noun) or f"{noun}s"
+    return f"{prefix}{separator}{plural}"
 
 
 def get_project_package_name(project_root: Path) -> str:
@@ -183,7 +192,7 @@ def add_cmd() -> None:
 @click.option(
     "--resource-plural",
     default=None,
-    help="Plural resource name used in routes and generated function names.",
+    help="Override the inferred plural used in routes and generated function names.",
 )
 @click.option(
     "-f",
@@ -199,7 +208,7 @@ def add_sub_app_new_cmd(name: str, resource: str, resource_plural: str | None, f
     """
     service_name = validate_identifier(name, label="sub-application name")
     resource_name = validate_identifier(resource, label="resource name")
-    plural_name = validate_identifier(resource_plural or f"{resource_name}s", label="resource plural")
+    plural_name = validate_identifier(resource_plural or pluralize_identifier(resource_name), label="resource plural")
     project_root = Path.cwd()
     package_name = get_project_package_name(project_root)
 

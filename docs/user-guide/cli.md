@@ -32,7 +32,7 @@ uv add "zodiac-core[zodiac]"
 |-------------------|----------|-------------|
 | `NAME`            | Yes      | Sub-application service name, for example `billing`. |
 | `--resource`      | No       | Example resource name generated inside the sub-application. Defaults to `item`. |
-| `--resource-plural` | No     | Explicit plural used in routes and function names, for example `categories`. |
+| `--resource-plural` | No     | Override the automatically inferred plural used in routes and function names. |
 | `-f` / `--force`  | No       | Overwrite generated files if they already exist. |
 
 ## Example
@@ -66,12 +66,18 @@ This generates `app/billing/` and `tests/billing/`, but it does not modify
 developer or coding agent should add after reviewing the current parent app.
 The command identifies the generated package from `pyproject.toml` and verifies
 the mounted-application structure in `main.py`.
-For irregular plurals, pass both names explicitly:
+Plural resource names are inferred automatically, including irregular forms:
 
 ```bash
-uv run zodiac add sub-app catalog \
-  --resource category \
-  --resource-plural categories
+uv run zodiac add sub-app catalog --resource category
+```
+
+Use `--resource-plural` when the API needs a domain-specific form:
+
+```bash
+uv run zodiac add sub-app directory \
+  --resource person \
+  --resource-plural persons
 ```
 
 To use the CLI without installing development dependencies, run it as a
