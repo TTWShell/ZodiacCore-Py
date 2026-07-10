@@ -160,6 +160,8 @@ def start_dual_full_apps_server(workspace_dir: Path, port: int, repo_root: Path)
     for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"):
         env.pop(key, None)
         env.pop(key.lower(), None)
+    for key in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT"):
+        env.pop(key, None)
 
     sync = subprocess.run(
         ["uv", "sync", "--project", str(app_a_dir), "--extra", "dev", "--reinstall-package", "zodiac-core"],
