@@ -7,7 +7,13 @@ from pathlib import Path
 import click
 import inflect
 
-from zodiac.commands.rendering import RenderedFile, TemplateConflictError, build_render_plan, write_render_plan
+from zodiac.commands.rendering import (
+    RenderedFile,
+    TemplateConflictError,
+    TemplatePathError,
+    build_render_plan,
+    write_render_plan,
+)
 
 RESERVED_SUB_APP_NAMES = frozenset({"api", "app", "config", "core", "main", "tests"})
 INFLECTOR = inflect.engine()
@@ -152,19 +158,21 @@ def render_sub_app_template(
     force: bool,
 ) -> None:
     """Render a reusable sub-application template into an existing project."""
-    plan = build_sub_app_render_plan(
-        project_root=project_root,
-        service_name=service_name,
-        resource_name=resource_name,
-        resource_plural=resource_plural,
-        package_name=package_name,
-    )
     try:
+        plan = build_sub_app_render_plan(
+            project_root=project_root,
+            service_name=service_name,
+            resource_name=resource_name,
+            resource_plural=resource_plural,
+            package_name=package_name,
+        )
         write_render_plan(plan, force=force)
     except TemplateConflictError as exc:
         raise click.ClickException(
             f"File already exists: {exc.paths[0]}. Use --force to overwrite generated files."
         ) from exc
+    except TemplatePathError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def print_sub_app_next_steps(*, service_name: str, package_name: str) -> None:

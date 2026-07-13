@@ -23,6 +23,10 @@ class TemplateConflictError(Exception):
         super().__init__(str(self.paths[0]))
 
 
+class TemplatePathError(ValueError):
+    """Raised when a rendered destination escapes its requested root."""
+
+
 def build_render_plan(
     *,
     template_path: Path,
@@ -39,14 +43,18 @@ def build_render_plan(
     mapper = path_mapper or (lambda path: path)
     plan: list[RenderedFile] = []
     destinations: set[Path] = set()
+    resolved_destination_root = destination_root.resolve()
 
     for source_path in sorted(template_path.rglob("*.jinja")):
         relative_source = source_path.relative_to(template_path)
         relative_destination = mapper(relative_source.with_suffix(""))
         destination = destination_root / relative_destination
-        if destination in destinations:
+        resolved_destination = destination.resolve()
+        if not resolved_destination.is_relative_to(resolved_destination_root):
+            raise TemplatePathError(f"Template destination escapes its output directory: {relative_destination}")
+        if resolved_destination in destinations:
             raise ValueError(f"Multiple templates render to the same file: {destination}")
-        destinations.add(destination)
+        destinations.add(resolved_destination)
 
         template = env.get_template(relative_source.as_posix())
         plan.append(RenderedFile(destination=destination, content=template.render(**context)))

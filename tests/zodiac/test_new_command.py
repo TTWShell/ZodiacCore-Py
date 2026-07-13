@@ -698,6 +698,32 @@ class TestNewCommand:
         assert result.exit_code == 0
         assert (target_path / "app" / "billing" / "app.py").exists()
 
+    def test_add_sub_app_does_not_overwrite_outside_project(self, cli_runner, monkeypatch, tmp_path):
+        """Setuptools package patterns must not redirect scaffold writes outside the project."""
+        target_path = tmp_path / "project"
+        target_path.mkdir()
+        external_package = tmp_path / "external-package"
+        external_billing = external_package / "billing"
+        external_billing.mkdir(parents=True)
+        sentinel = external_billing / "app.py"
+        sentinel.write_text("# external sentinel\n", encoding="utf-8")
+        (target_path / "pyproject.toml").write_text(
+            f'[tool.setuptools.packages.find]\ninclude = ["{external_package.as_posix()}*"]\n',
+            encoding="utf-8",
+        )
+        (target_path / "main.py").write_text(
+            'def create_app():\n    app.mount("/users", users_app)\n    users_app.router.lifespan_context(users_app)\n',
+            encoding="utf-8",
+        )
+
+        monkeypatch.chdir(target_path)
+        result = cli_runner.invoke(cli, ["add", "sub-app", "billing", "--force"])
+
+        assert result.exit_code != 0
+        assert "Template destination escapes its output directory" in result.output
+        assert sentinel.read_text(encoding="utf-8") == "# external sentinel\n"
+        assert not (external_billing / "api").exists()
+
     def test_add_sub_app_respects_custom_package_name(self, cli_runner, monkeypatch):
         """Test that add sub-app detects and uses a custom generated package name."""
         project_name = "test-add-sub-app-custom-package"

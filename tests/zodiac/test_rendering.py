@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 from jinja2 import UndefinedError
 
-from zodiac.commands.rendering import RenderedFile, build_render_plan, write_render_plan
+from zodiac.commands.rendering import (
+    RenderedFile,
+    TemplatePathError,
+    build_render_plan,
+    write_render_plan,
+)
 
 
 class TestBuildRenderPlan:
@@ -37,6 +42,51 @@ class TestBuildRenderPlan:
                 destination_root=tmp_path / "output",
                 context={},
                 path_mapper=lambda _path: Path("duplicate.txt"),
+            )
+
+    @pytest.mark.parametrize("mapped_destination", [Path("../outside.txt"), Path("nested/../../outside.txt")])
+    def test_rejects_mapped_destinations_that_traverse_outside_root(self, tmp_path, mapped_destination):
+        template_root = tmp_path / "templates"
+        template_root.mkdir()
+        (template_root / "example.jinja").write_text("example", encoding="utf-8")
+
+        with pytest.raises(TemplatePathError, match="escapes its output directory"):
+            build_render_plan(
+                template_path=template_root,
+                destination_root=tmp_path / "output",
+                context={},
+                path_mapper=lambda _path: mapped_destination,
+            )
+
+    def test_rejects_absolute_mapped_destinations_outside_root(self, tmp_path):
+        template_root = tmp_path / "templates"
+        template_root.mkdir()
+        (template_root / "example.jinja").write_text("example", encoding="utf-8")
+
+        with pytest.raises(TemplatePathError, match="escapes its output directory"):
+            build_render_plan(
+                template_path=template_root,
+                destination_root=tmp_path / "output",
+                context={},
+                path_mapper=lambda _path: tmp_path / "outside.txt",
+            )
+
+    def test_rejects_destinations_reached_through_external_symlink(self, tmp_path):
+        template_root = tmp_path / "templates"
+        template_root.mkdir()
+        (template_root / "example.jinja").write_text("example", encoding="utf-8")
+        destination_root = tmp_path / "output"
+        destination_root.mkdir()
+        external_root = tmp_path / "external"
+        external_root.mkdir()
+        (destination_root / "linked").symlink_to(external_root, target_is_directory=True)
+
+        with pytest.raises(TemplatePathError, match="escapes its output directory"):
+            build_render_plan(
+                template_path=template_root,
+                destination_root=destination_root,
+                context={},
+                path_mapper=lambda _path: Path("linked/example.txt"),
             )
 
     def test_rejects_missing_template_context(self, tmp_path):
