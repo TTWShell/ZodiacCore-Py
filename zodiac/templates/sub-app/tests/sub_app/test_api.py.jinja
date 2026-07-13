@@ -4,10 +4,16 @@ These tests expect the generated sub-application to be wired into main.py.
 """
 
 
-class Test{{ service_class }}Api:
-    async def test_create_{{ resource_name }}(self, client):
+class TestResourceApi:
+    resource_url = (
+        "/{{ service_name }}"
+        "/api/v1/"
+        "{{ resource_plural }}"
+    )
+
+    async def test_create_resource(self, client):
         response = await client.post(
-            "/{{ service_name }}/api/v1/{{ resource_plural }}",
+            self.resource_url,
             json={"name": "Example {{ resource_class }}"},
         )
 
@@ -17,8 +23,10 @@ class Test{{ service_class }}Api:
         assert body["data"]["name"] == "Example {{ resource_class }}"
         assert "id" in body["data"]
 
-    async def test_list_{{ resource_plural }}_uses_standard_paged_response(self, client):
-        response = await client.get("/{{ service_name }}/api/v1/{{ resource_plural }}?page=1&size=20")
+    async def test_list_resources_uses_standard_paged_response(self, client):
+        response = await client.get(
+            f"{self.resource_url}?page=1&size=20",
+        )
 
         assert response.status_code == 200
         body = response.json()
@@ -28,12 +36,14 @@ class Test{{ service_class }}Api:
         assert body["data"]["page"] == 1
         assert body["data"]["size"] == 20
 
-    async def test_list_{{ resource_plural }}_supports_keyword_and_sort(self, client):
-        await client.post("/{{ service_name }}/api/v1/{{ resource_plural }}", json={"name": "Alpha"})
-        await client.post("/{{ service_name }}/api/v1/{{ resource_plural }}", json={"name": "Beta"})
-        await client.post("/{{ service_name }}/api/v1/{{ resource_plural }}", json={"name": "Gamma"})
+    async def test_list_resources_supports_keyword_and_sort(self, client):
+        await client.post(self.resource_url, json={"name": "Alpha"})
+        await client.post(self.resource_url, json={"name": "Beta"})
+        await client.post(self.resource_url, json={"name": "Gamma"})
 
-        response = await client.get("/{{ service_name }}/api/v1/{{ resource_plural }}?keyword=a&sort=name:desc&page=1&size=20")
+        response = await client.get(
+            f"{self.resource_url}?keyword=a&sort=name:desc&page=1&size=20",
+        )
 
         assert response.status_code == 200
         body = response.json()
@@ -41,8 +51,10 @@ class Test{{ service_class }}Api:
         assert body["data"]["total"] == 3
         assert [item["name"] for item in body["data"]["items"]] == ["Gamma", "Beta", "Alpha"]
 
-    async def test_list_{{ resource_plural }}_rejects_unsupported_sort_field(self, client):
-        response = await client.get("/{{ service_name }}/api/v1/{{ resource_plural }}?sort=unknown:asc")
+    async def test_list_resources_rejects_unsupported_sort_field(self, client):
+        response = await client.get(
+            f"{self.resource_url}?sort=unknown:asc",
+        )
 
         assert response.status_code == 400
         body = response.json()
@@ -50,14 +62,4 @@ class Test{{ service_class }}Api:
         assert body["data"] == {
             "field": "unknown",
             "supported_fields": ["id", "name"],
-        }
-
-    async def test_{{ service_name }}_info_is_cached(self, client):
-        response = await client.get("/{{ service_name }}/api/v1/info")
-
-        assert response.status_code == 200
-        assert response.json() == {
-            "code": 0,
-            "message": "Success",
-            "data": {"service": "{{ service_name }}", "cache": "shared"},
         }

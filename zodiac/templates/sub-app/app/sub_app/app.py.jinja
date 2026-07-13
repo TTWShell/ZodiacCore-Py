@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from zodiac_core.exception_handlers import register_exception_handlers
 from zodiac_core.middleware import register_middleware
 
-from {{ package_name }}.{{ service_name }}.api.router import router
-from {{ package_name }}.{{ service_name }}.core.container import Container
+from .api.router import router
+from .core.container import Container
 
 
 def create_{{ service_name }}_app() -> FastAPI:

@@ -4,7 +4,11 @@ from zodiac_core.schemas import CoreModel, IntIDSchema
 
 
 class {{ resource_class }}ListParams(PageSortParams):
-    keyword: str | None = Field(None, min_length=1, description="Search by {{ resource_name }} name.")
+    keyword: str | None = Field(
+        None,
+        min_length=1,
+        description="Search by {{ resource_name }} name.",
+    )
 
 
 class {{ resource_class }}Create(CoreModel):

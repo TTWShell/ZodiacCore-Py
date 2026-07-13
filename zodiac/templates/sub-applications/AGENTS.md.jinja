@@ -64,8 +64,8 @@ project-level contract for Codex agent work.
   - `tests/test_health.py`
   - `tests/users/test_api.py`
   - `tests/orders/test_api.py`
-- Prefer class-based pytest tests for API contract groups, for example
-  `TestUsersApi` and `TestOrdersApi`.
+- Prefer class-based pytest tests for API contract groups, following the
+  generated `TestResourceApi` structure.
 - Tests should assert the ZodiacCore response envelope:
   `code`, `message`, and `data`.
 - For mounted routes, assert that `X-Request-ID` is not duplicated when changing

@@ -20,15 +20,25 @@ def get_sub_app_template_path() -> Path:
 
 def validate_identifier(name: str, *, label: str) -> str:
     """Validate a CLI-provided Python identifier."""
+    # Keep name validation intentionally minimal. The scaffold assumes users
+    # choose sensible names and will not deliberately create collisions for
+    # themselves, so guard only its fundamental invariants instead of building
+    # exhaustive deny-lists for routing, database, test, or lint edge cases.
     if not name.isidentifier() or keyword.iskeyword(name):
         raise click.ClickException(f"{label} must be a valid Python identifier, for example: billing")
     if not name.strip("_"):
         raise click.ClickException(f"{label} must contain at least one non-underscore character")
-    if name in RESERVED_SUB_APP_NAMES:
-        raise click.ClickException(
-            f"{label} must not conflict with reserved project names: api, app, config, core, main, tests"
-        )
     return name
+
+
+def validate_sub_app_name(name: str) -> str:
+    """Validate the service directory name against the shared package layout."""
+    service_name = validate_identifier(name, label="sub-application name")
+    if service_name in RESERVED_SUB_APP_NAMES:
+        raise click.ClickException(
+            "sub-application name must not conflict with built-in project modules: api, app, config, core, main, tests"
+        )
+    return service_name
 
 
 def to_class_name(name: str) -> str:
@@ -209,7 +219,7 @@ def add_sub_app_new_cmd(name: str, resource: str, resource_plural: str | None, f
 
     NAME  Sub-application service name, for example billing.
     """
-    service_name = validate_identifier(name, label="sub-application name")
+    service_name = validate_sub_app_name(name)
     resource_name = validate_identifier(resource, label="resource name")
     plural_name = validate_identifier(resource_plural or pluralize_identifier(resource_name), label="resource plural")
     project_root = Path.cwd()

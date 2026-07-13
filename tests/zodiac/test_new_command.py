@@ -8,7 +8,11 @@ from pathlib import Path
 import pytest
 from click import ClickException
 
-from zodiac.commands.add import ensure_sub_applications_project, get_project_package_name, pluralize_identifier
+from zodiac.commands.add import (
+    ensure_sub_applications_project,
+    get_project_package_name,
+    pluralize_identifier,
+)
 from zodiac.commands.new import get_template_path
 from zodiac.main import cli
 
@@ -50,6 +54,13 @@ def wire_generated_sub_app(main_path: Path, *, package_name: str, service_name: 
     for old, new in replacements:
         assert old in content, f"Generated main.py wiring marker changed: {old}"
         content = content.replace(old, new, 1)
+
+    lines = content.splitlines()
+    package_import_indexes = [index for index, line in enumerate(lines) if line.startswith(f"from {package_name}.")]
+    sorted_package_imports = sorted(lines[index] for index in package_import_indexes)
+    for index, import_line in zip(package_import_indexes, sorted_package_imports, strict=True):
+        lines[index] = import_line
+    content = "\n".join(lines) + "\n"
     main_path.write_text(content, encoding="utf-8")
 
 
@@ -412,9 +423,11 @@ class TestNewCommand:
         assert 'prefix="/items"' in billing_router_py
         assert 'tags=["Items"]' in billing_router_py
         assert '__tablename__ = "billing_items"' in billing_model_py
-        assert "/billing/api/v1/items" in billing_test_py
+        assert '"/billing"' in billing_test_py
+        assert '"/api/v1/"' in billing_test_py
+        assert '"items"' in billing_test_py
 
-    @pytest.mark.parametrize("name", ["bad-name", "app", "_"])
+    @pytest.mark.parametrize("name", ["bad-name", "app", "core", "_"])
     def test_add_sub_app_rejects_invalid_service_name(self, cli_runner, name):
         result = cli_runner.invoke(cli, ["add", "sub-app", name])
 
@@ -426,6 +439,48 @@ class TestNewCommand:
 
         assert result.exit_code != 0
         assert "resource name must contain at least one non-underscore character" in result.output
+
+    def test_add_sub_app_keeps_user_controlled_names_lint_clean(self, cli_runner, monkeypatch):
+        """User-controlled resource and service names render without extra deny-lists."""
+        target_path = self.test_output_dir / "test-add-sub-app-edge-names"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "new",
+                target_path.name,
+                "--tpl",
+                "sub-applications",
+                "-o",
+                str(self.test_output_dir),
+            ],
+        )
+        assert result.exit_code == 0
+
+        monkeypatch.chdir(target_path)
+        cases = [
+            ("catalog", ["--resource", "entry", "--resource-plural", "info"]),
+            ("customer_relationship", ["--resource", "subscription_plan"]),
+        ]
+        for service_name, options in cases:
+            result = cli_runner.invoke(cli, ["add", "sub-app", service_name, *options])
+            assert result.exit_code == 0, result.output
+            assert (target_path / "app" / service_name / "app.py").exists()
+            assert (target_path / "tests" / service_name / "test_api.py").exists()
+
+        catalog_router = (target_path / "app" / "catalog" / "api" / "router.py").read_text()
+        catalog_tests = (target_path / "tests" / "catalog" / "test_api.py").read_text()
+        assert 'prefix="/info"' in catalog_router
+        assert '"/catalog"' in catalog_tests
+        assert '"info"' in catalog_tests
+        assert "service_info" not in catalog_router
+
+        lint = subprocess.run(
+            ["ruff", "check", "."],
+            cwd=target_path,
+            capture_output=True,
+            text=True,
+        )
+        assert lint.returncode == 0, lint.stdout + lint.stderr
 
     def test_add_sub_app_requires_pyproject(self, cli_runner, monkeypatch, tmp_path):
         monkeypatch.chdir(tmp_path)
@@ -673,7 +728,8 @@ class TestNewCommand:
         assert not (target_path / "app" / "billing").exists()
 
         billing_app_py = (target_path / package_name / "billing" / "app.py").read_text()
-        assert "from svc_a.billing.api.router import router" in billing_app_py
+        assert "from .api.router import router" in billing_app_py
+        assert "from .core.container import Container" in billing_app_py
         assert '"svc_a.billing.api.routers.item_router"' in billing_app_py
 
     @pytest.mark.parametrize("project_name", ["../escape", 'bad"name', ".", ".."])
@@ -895,26 +951,29 @@ class TestGeneratedProjectQuality:
         )
         assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
 
-        add = subprocess.run(
-            [
-                "uv",
-                "run",
-                "zodiac",
-                "add",
-                "sub-app",
-                "billing",
-                "--resource",
-                "category",
-                "--resource-plural",
-                "categories",
-            ],
-            cwd=target_path,
-            capture_output=True,
-            text=True,
-            env=isolated_project_environment(),
-        )
-        assert add.returncode == 0, f"zodiac add failed:\n{add.stdout}\n{add.stderr}"
-        wire_generated_sub_app(target_path / "main.py", package_name="app", service_name="billing")
+        sub_apps = [
+            ("billing", ["--resource", "category", "--resource-plural", "categories"]),
+            ("catalog", ["--resource", "entry", "--resource-plural", "info"]),
+            ("customer_relationship", ["--resource", "subscription_plan"]),
+        ]
+        for service_name, options in sub_apps:
+            add = subprocess.run(
+                [
+                    "uv",
+                    "run",
+                    "zodiac",
+                    "add",
+                    "sub-app",
+                    service_name,
+                    *options,
+                ],
+                cwd=target_path,
+                capture_output=True,
+                text=True,
+                env=isolated_project_environment(),
+            )
+            assert add.returncode == 0, f"zodiac add failed:\n{add.stdout}\n{add.stderr}"
+            wire_generated_sub_app(target_path / "main.py", package_name="app", service_name=service_name)
 
         return target_path
 
