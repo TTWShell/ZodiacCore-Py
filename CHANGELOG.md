@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-07-14
+
+### Added
+
+- **CLI**: Add `zodiac add sub-app NAME` to generate a mountable service and contract tests inside an existing `sub-applications` project, with configurable resources, automatic regular and irregular pluralization, explicit plural overrides, package detection, and printed wiring instructions.
+- **Templates**: Add a reusable parameterized sub-application scaffold with ZodiacCore routing, schemas, dependency injection, SQLModel persistence, pagination, filtering, sorting, and API contract tests.
+- **Codex Skills**: Add the repository-hosted `zodiac-core-integration-summary` skill and installation guidance for auditing ZodiacCore adoption in downstream services.
+
+### Changed
+
+- **Sub-applications**: Generate the built-in `users` and `orders` examples from the reusable scaffold and standardize them on a minimal name-based CRUD contract.
+- **Generated Projects**: Include `zodiac-core[zodiac]` in the development extra and reset shared database state around generated-project tests.
+
+### Removed
+
+- **Templates**: Remove the generated `users` and `orders` service metadata endpoints and their cache demonstration code from new sub-application projects.
+
+### Fixed
+
+- **Scaffolding Safety**: Reject unsafe project names and destinations that escape the requested output root through absolute paths, traversal, or symbolic links, preventing `--force` from overwriting files outside the project.
+- **Template Rendering**: Validate template context strictly, preflight destination conflicts, and restore overwritten or newly created paths after write failures to avoid partial scaffolds.
+
 ## [0.11.0] - 2026-07-07
 
 ### Added
