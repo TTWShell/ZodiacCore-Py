@@ -37,6 +37,35 @@ class TestExceptionHandlers:
         assert data["message"] == "Internal Server Error"
         assert data["data"] is None
 
+    @pytest.mark.asyncio
+    async def test_global_exception_logs_supplied_exception_traceback(self, mock_request):
+        """The handler logs the traceback attached to an exception it receives."""
+
+        def build_exception_with_traceback():
+            try:
+                raise RuntimeError("unknown exception")
+            except RuntimeError as exc:
+                return exc
+
+        logs = []
+        sink_id = logger.add(logs.append, level="ERROR", serialize=True, enqueue=False)
+
+        try:
+            exc = build_exception_with_traceback()
+            await handler_global_exception(mock_request, exc)
+        finally:
+            logger.remove(sink_id)
+
+        log = json.loads(logs[-1])
+        assert log["record"]["message"] == "Unhandled exception occurred accessing /api/test"
+        assert log["record"]["exception"] == {
+            "type": "RuntimeError",
+            "value": "unknown exception",
+            "traceback": True,
+        }
+        assert "Traceback (most recent call last)" in log["text"]
+        assert "RuntimeError: unknown exception" in log["text"]
+
     def build_request_validation_error(self):
         from pydantic import BaseModel, Field, ValidationError
 

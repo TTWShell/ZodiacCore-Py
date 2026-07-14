@@ -55,7 +55,16 @@ uv run pytest
 ### 3. Run the Application
 
 ```bash
-uvicorn main:app --reload
+uv run uvicorn main:app --no-access-log
+```
+
+ZodiacCore records access logs through its own middleware, so Uvicorn's access
+logger is disabled to avoid duplicate request logs.
+
+For local development with automatic reload:
+
+```bash
+uv run uvicorn main:app --reload --no-access-log
 ```
 
 ### 4. API Documentation
