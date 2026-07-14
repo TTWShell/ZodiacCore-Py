@@ -1,4 +1,5 @@
 import sys
+import traceback
 from typing import Any, Dict, Optional
 
 from loguru import logger
@@ -39,7 +40,8 @@ def setup_loguru(
         json_format: Whether to output JSON (True) or Text (False). When True, the
             serialized JSON has an empty "text" field to avoid duplicating the message
             (see record.message); pass a custom "format" in console_options/file_options
-            if you need a non-empty "text".
+            if you need a non-empty "text". Exception tracebacks are stored in
+            record.extra.exception_traceback.
         service_name: Name of the service (added to JSON logs).
         log_file: Optional file path to save logs.
         console_options: Extra kwargs to pass to the console sink (e.g. {"enqueue": True}).
@@ -56,6 +58,11 @@ def setup_loguru(
         if request_id:
             record["extra"]["request_id"] = request_id
         record["extra"]["service"] = get_service_name() or default_service
+        exception = record["exception"]
+        if exception:
+            record["extra"]["exception_traceback"] = "".join(
+                traceback.format_exception(exception.type, exception.value, exception.traceback)
+            )
 
     logger.configure(patcher=patcher)
 
@@ -63,7 +70,7 @@ def setup_loguru(
     def _dev_formatter(record):
         if "request_id" not in record["extra"]:
             record["extra"]["request_id"] = "-"
-        return (
+        log_format = (
             "<green>{time:YYYYMMDD HH:mm:ss}</green> "
             "| {extra[service]} "
             "| {extra[request_id]} "
@@ -74,6 +81,9 @@ def setup_loguru(
             "<level>{message}</level> "
             "| {file.path}:{line}\n"
         )
+        if "exception_traceback" in record["extra"]:
+            log_format += "{extra[exception_traceback]}"
+        return log_format
 
     # 4. Sink defaults shared by console and file (level, enqueue, format/serialize)
     # Empty format avoids duplicating message in "text" and "record.message" (see loguru#594)
