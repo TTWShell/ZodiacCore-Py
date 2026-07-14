@@ -16,8 +16,10 @@ Database and other settings are loaded from **config files** under `config/`:
 
 - `config/app.ini` — Base settings (all environments).
 - `config/app.develop.ini` — Overrides when `APPLICATION_ENVIRONMENT=develop`.
+- `config/app.testing.ini` — Test overrides for pytest and local integration runs.
 
 The generated project reads only `APPLICATION_ENVIRONMENT`. If it is unset, the template defaults to `develop`. Config is merged in order: base first, then environment-specific overrides.
+Pytest sets `APPLICATION_ENVIRONMENT=testing` through `pytest-env`, so generated tests do not create `data.db`.
 
 ## External Services
 

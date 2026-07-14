@@ -220,12 +220,19 @@ class TestNewCommand:
         content = main_py.read_text()
         assert project_name in content
         assert 'exclude_paths=["/api/v1/health"]' in content
+        assert "ConfigManagement.provide_config(container.config.logging(), LoggingConfig)" in content
+        assert "level=logging_cfg.level" in content
+        assert "json_format=logging_cfg.json_format" in content
+        assert "service_name=logging_cfg.service_name" in content
+        assert 'level="INFO"' not in content
 
         # Check that project_name is rendered in pyproject.toml
         pyproject = target_path / "pyproject.toml"
         assert pyproject.exists()
         content = pyproject.read_text()
         assert f'name = "{project_name}"' in content
+        assert '"pytest-env>=1.1.0"' in content
+        assert '"APPLICATION_ENVIRONMENT=testing"' in content
 
         # Check that project_name is rendered in README.md
         readme = target_path / "README.md"
@@ -239,6 +246,13 @@ class TestNewCommand:
         assert container_py.exists()
         content = container_py.read_text()
         assert 'default_env="develop"' in content
+
+        testing_config = (target_path / "config" / "app.testing.ini").read_text()
+        assert "url = sqlite+aiosqlite:///:memory:" in testing_config
+        assert "level = WARNING" in testing_config
+
+        core_config = (target_path / "app" / "core" / "config.py").read_text()
+        assert "class LoggingConfig" in core_config
 
     def test_new_command_custom_package_name(self, cli_runner):
         """Test that new command can generate a custom import package name."""
@@ -265,7 +279,7 @@ class TestNewCommand:
         assert not (target_path / "app").exists()
 
         main_py = (target_path / "main.py").read_text()
-        assert f"from {package_name}.core.config import CacheConfig, DbConfig" in main_py
+        assert f"from {package_name}.core.config import CacheConfig, DbConfig, LoggingConfig" in main_py
         assert f"from {package_name}.api.router import api_router" in main_py
 
         pyproject = (target_path / "pyproject.toml").read_text()
@@ -354,8 +368,16 @@ class TestNewCommand:
         assert "repository or UserRepository()" not in user_service_py
         assert "repository: OrderRepository | None" not in order_service_py
         assert "repository or OrderRepository()" not in order_service_py
+        assert ".api.schemas" not in user_service_py
+        assert ".api.schemas" not in order_service_py
+        assert "name: str" in user_service_py
+        assert "name: str" in order_service_py
         assert "UserService()" not in user_api_router_py
         assert "OrderService()" not in order_api_router_py
+        user_resource_router_py = (target_path / "app" / "users" / "api" / "routers" / "user_router.py").read_text()
+        order_resource_router_py = (target_path / "app" / "orders" / "api" / "routers" / "order_router.py").read_text()
+        assert "service.create_user(payload.name)" in user_resource_router_py
+        assert "service.create_order(payload.name)" in order_resource_router_py
         assert '__tablename__ = "user_users"' in user_model_py
         assert '__tablename__ = "order_orders"' in order_model_py
 
@@ -935,6 +957,8 @@ class TestGeneratedProjectQuality:
             env=isolated_project_environment(),
         )
         assert test.returncode == 0, f"generated project pytest failed:\n{test.stdout}\n{test.stderr}"
+        assert not (generated_project_path / "data.db").exists()
+        assert "GET /api/v1/items" not in test.stdout + test.stderr
 
     @pytest.fixture(scope="class")
     def generated_sub_applications_path(self, tmp_path_factory):

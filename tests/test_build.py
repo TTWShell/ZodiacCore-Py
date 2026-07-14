@@ -10,7 +10,7 @@ class TestPackageBuild:
 
     # Intentionally manual: adding or removing packaged files requires review.
     EXPECTED_PACKAGE_FILE_COUNTS = {
-        "zodiac": 71,  # 6 Python files + 65 .jinja template files
+        "zodiac": 72,  # 6 Python files + 66 .jinja template files
         "zodiac_core": 20,  # Python files only
     }
 
