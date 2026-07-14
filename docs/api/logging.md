@@ -82,7 +82,7 @@ A typical JSON log entry produced by ZodiacCore looks like this:
 
 ```json
 {
-  "text": "2026-01-31 17:26:24.208 | INFO     | demo_r:read_item:23 - request: item_id=1\n",
+  "text": "",
   "record": {
     "elapsed": {
       "repr": "0:00:14.429585",
@@ -119,6 +119,28 @@ A typical JSON log entry produced by ZodiacCore looks like this:
       "repr": "2026-01-31 17:26:24.208560+08:00",
       "timestamp": 1769851584.20856
     }
+  }
+}
+```
+
+Normal JSON records keep `text` empty because the message is already available in
+`record.message`. Exception records preserve the same shape and add the complete
+traceback under `record.extra.exception_traceback`:
+
+```json
+{
+  "text": "",
+  "record": {
+    "exception": {
+      "type": "RuntimeError",
+      "value": "database connection failed",
+      "traceback": true
+    },
+    "extra": {
+      "service": "orders",
+      "exception_traceback": "Traceback (most recent call last):\n...\nRuntimeError: database connection failed\n"
+    },
+    "message": "Unhandled exception occurred accessing /orders/42"
   }
 }
 ```

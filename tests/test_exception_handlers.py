@@ -20,6 +20,7 @@ from zodiac_core.exceptions import (
     UpstreamRequestException,
     ZodiacException,
 )
+from zodiac_core.logging import setup_loguru
 
 
 class TestExceptionHandlers:
@@ -36,6 +37,46 @@ class TestExceptionHandlers:
         assert data["code"] == 500
         assert data["message"] == "Internal Server Error"
         assert data["data"] is None
+
+    @pytest.mark.parametrize("json_format", [True, False])
+    @pytest.mark.asyncio
+    async def test_global_exception_logs_supplied_exception_traceback(self, mock_request, json_format):
+        """The handler logs the traceback attached to an exception it receives."""
+
+        def build_exception_with_traceback():
+            try:
+                raise RuntimeError("unknown exception")
+            except RuntimeError as exc:
+                return exc
+
+        logs = []
+        setup_loguru(
+            level="ERROR",
+            json_format=json_format,
+            service_name="test-service",
+            console_options={"sink": logs.append, "enqueue": False},
+        )
+
+        try:
+            exc = build_exception_with_traceback()
+            await handler_global_exception(mock_request, exc)
+        finally:
+            logger.remove()
+
+        output = str(logs[-1])
+        if json_format:
+            log = json.loads(output)
+            assert log["text"] == ""
+            assert log["record"]["message"] == "Unhandled exception occurred accessing /api/test"
+            assert log["record"]["exception"] == {
+                "type": "RuntimeError",
+                "value": "unknown exception",
+                "traceback": True,
+            }
+            output = log["record"]["extra"]["exception_traceback"]
+
+        assert "Traceback (most recent call last)" in output
+        assert "RuntimeError: unknown exception" in output
 
     def build_request_validation_error(self):
         from pydantic import BaseModel, Field, ValidationError

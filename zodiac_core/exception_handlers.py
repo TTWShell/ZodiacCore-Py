@@ -75,7 +75,7 @@ async def handler_validation_exception(
 
 async def handler_global_exception(request: Request, exc: Exception) -> JSONResponse:
     """Handle 500 Global Uncaught Exceptions"""
-    logger.error(f"Unhandled exception occurred accessing {request.url.path}: {exc}", exc_info=True)
+    logger.opt(exception=exc).error("Unhandled exception occurred accessing {}", request.url.path)
     return response_server_error()
 
 

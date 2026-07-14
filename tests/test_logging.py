@@ -69,9 +69,11 @@ async def test_setup_loguru_json_file_output_with_options():
         # 3. Verify file exists and contains JSON
         assert os.path.exists(log_file)
         with open(log_file, "r", encoding="utf-8") as f:
-            line = f.readline()
-            assert test_msg in line
-            assert "json-service" in line
+            log = json.loads(f.readline())
+            assert log["text"] == ""
+            assert log["record"]["message"] == test_msg
+            assert log["record"]["extra"]["service"] == "json-service"
+            assert "exception_traceback" not in log["record"]["extra"]
 
 
 @pytest.mark.asyncio

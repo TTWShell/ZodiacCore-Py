@@ -70,6 +70,15 @@ uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
 
 ```bash
 uv sync --extra dev
+uv run uvicorn main:app --no-access-log
+```
+
+ZodiacCore records access logs through its own middleware, so Uvicorn's access
+logger is disabled to avoid duplicate request logs.
+
+For local development with automatic reload:
+
+```bash
 uv run uvicorn main:app --reload --no-access-log
 ```
 

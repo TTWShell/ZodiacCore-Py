@@ -233,6 +233,7 @@ class TestNewCommand:
         content = readme.read_text()
         assert project_name in content
         assert "APPLICATION_ENVIRONMENT" in content
+        assert "uv run uvicorn main:app --no-access-log" in content
 
         container_py = target_path / "app" / "core" / "container.py"
         assert container_py.exists()
@@ -374,6 +375,9 @@ class TestNewCommand:
         assert "ZodiacCore response envelope" in agents_md
         assert "Codex" in agents_md
         assert "Claude" not in agents_md
+
+        readme = (target_path / "README.md").read_text()
+        assert "uv run uvicorn main:app --no-access-log" in readme
 
     def test_add_sub_app_generates_sub_application_without_patching_main(self, cli_runner, monkeypatch):
         """Test adding a sub-application skeleton to an existing mounted services project."""
