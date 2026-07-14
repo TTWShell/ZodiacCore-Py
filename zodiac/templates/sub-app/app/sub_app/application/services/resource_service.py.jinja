@@ -1,8 +1,5 @@
 from zodiac_core.pagination import PagedResponse, PageSortParams
 
-from ...api.schemas.{{ resource_name }}_schema import (
-    {{ resource_class }}Create,
-)
 from ...infrastructure.database.models.{{ resource_name }}_model import (
     {{ resource_class }}Model,
 )
@@ -17,10 +14,10 @@ class {{ resource_class }}Service:
 
     async def create_{{ resource_name }}(
         self,
-        payload: {{ resource_class }}Create,
+        name: str,
     ) -> {{ resource_class }}Model:
         return await self.repository.create(
-            {{ resource_class }}Model(name=payload.name),
+            {{ resource_class }}Model(name=name),
         )
 
     async def list_{{ resource_plural }}(

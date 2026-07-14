@@ -9,3 +9,9 @@ class DbConfig(StrictConfig):
 class CacheConfig(StrictConfig):
     prefix: str
     default_ttl: int = 300
+
+
+class LoggingConfig(StrictConfig):
+    level: str = "INFO"
+    json_format: bool = True
+    service_name: str = "{{ project_name }}"

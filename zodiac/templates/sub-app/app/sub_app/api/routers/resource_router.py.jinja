@@ -42,5 +42,5 @@ async def create_{{ resource_name }}(
         Depends(Provide[Container.{{ resource_name }}_service]),
     ],
 ):
-    item = await service.create_{{ resource_name }}(payload)
+    item = await service.create_{{ resource_name }}(payload.name)
     return {{ resource_class }}Read.model_validate(item)

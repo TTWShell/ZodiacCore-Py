@@ -364,7 +364,7 @@ Configuration is managed through `.ini` files:
 
 - `config/app.ini` - Base configuration (all environments)
 - `config/app.develop.ini` - Development overrides
-- `config/app.testing.ini` - Test overrides for pytest or local integration runs
+- `config/app.testing.ini` - Test overrides for pytest and local integration runs
 - `config/app.production.ini` - Production overrides you can add when needed
 
 The generated template container loads configuration from `APPLICATION_ENVIRONMENT` and defaults to `develop`:
@@ -391,7 +391,8 @@ for path in config_files:
     container.config.from_ini(path, required=True)
 ```
 
-In tests, a common pattern is to set `APPLICATION_ENVIRONMENT=testing` and keep test-only values in `config/app.testing.ini`.
+Generated projects use `pytest-env` to set `APPLICATION_ENVIRONMENT=testing`
+automatically and load the test-only values from `config/app.testing.ini`.
 
 Access configuration in the container:
 
