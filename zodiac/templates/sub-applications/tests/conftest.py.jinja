@@ -1,12 +1,14 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
+from zodiac_core.db import db
 
 from main import create_app
 
 
 @pytest.fixture
 async def client():
-    """Create an async test client with shared app lifespan."""
+    """Create an async test client with an isolated in-memory database."""
+    await db.shutdown()
     app = create_app()
     async with app.router.lifespan_context(app):
         async with AsyncClient(
@@ -14,3 +16,4 @@ async def client():
             base_url="http://test",
         ) as ac:
             yield ac
+    await db.shutdown()

@@ -8,9 +8,11 @@ from pathlib import Path
 class TestPackageBuild:
     """Tests for verifying package build completeness."""
 
-    # Manually verified expected file counts
-    EXPECTED_ZODIAC_FILES = 92  # 4 Python files + 88 .jinja template files
-    EXPECTED_ZODIAC_CORE_FILES = 20  # Python files only
+    # Intentionally manual: adding or removing packaged files requires review.
+    EXPECTED_PACKAGE_FILE_COUNTS = {
+        "zodiac": 71,  # 6 Python files + 65 .jinja template files
+        "zodiac_core": 20,  # Python files only
+    }
 
     def test_build_includes_all_files(self, tmp_path):
         """Verify that built package includes all required files from zodiac and zodiac_core."""
@@ -35,37 +37,35 @@ class TestPackageBuild:
 
         wheel_path = wheel_files[0]
 
-        # 3. Extract and count files in the wheel (separately for each package)
-        actual_zodiac_files = self._count_wheel_files(wheel_path, "zodiac")
-        actual_zodiac_core_files = self._count_wheel_files(wheel_path, "zodiac_core")
+        # 3. Compare the exact source package files with the wheel contents.
+        for package_name in ("zodiac", "zodiac_core"):
+            source_files = self._source_package_files(project_root, package_name)
+            expected_count = self.EXPECTED_PACKAGE_FILE_COUNTS[package_name]
+            assert len(source_files) == expected_count, (
+                f"{package_name} source file count mismatch: "
+                f"expected={expected_count} (manually verified), actual={len(source_files)}"
+            )
 
-        # 4. Verify counts match manually verified expectations
-        assert actual_zodiac_files == self.EXPECTED_ZODIAC_FILES, (
-            f"zodiac file count mismatch: "
-            f"expected={self.EXPECTED_ZODIAC_FILES} (manually verified), "
-            f"actual={actual_zodiac_files}"
-        )
-        assert actual_zodiac_core_files == self.EXPECTED_ZODIAC_CORE_FILES, (
-            f"zodiac_core file count mismatch: "
-            f"expected={self.EXPECTED_ZODIAC_CORE_FILES} (manually verified), "
-            f"actual={actual_zodiac_core_files}"
-        )
+            wheel_files = self._wheel_package_files(wheel_path, package_name)
+            assert wheel_files == source_files, (
+                f"{package_name} wheel contents differ from source: "
+                f"missing={sorted(source_files - wheel_files)}, unexpected={sorted(wheel_files - source_files)}"
+            )
 
-    def _count_wheel_files(self, wheel_path: Path, package_name: str) -> int:
-        """Count files for a specific package in the wheel."""
-        count = 0
+    def _source_package_files(self, project_root: Path, package_name: str) -> set[str]:
+        """Return package files that must be present in the wheel."""
+        package_root = project_root / package_name
+        return {
+            path.relative_to(project_root).as_posix()
+            for path in package_root.rglob("*")
+            if path.is_file() and (path.suffix == ".py" or path.name.endswith(".jinja"))
+        }
+
+    def _wheel_package_files(self, wheel_path: Path, package_name: str) -> set[str]:
+        """Return files included for one package in the built wheel."""
         with zipfile.ZipFile(wheel_path, "r") as wheel:
-            for name in wheel.namelist():
-                # Count files in the package directory
-                if name.startswith(f"{package_name}/") and not name.endswith("/"):
-                    # Exclude metadata files and dist-info
-                    if not any(
-                        excluded in name
-                        for excluded in (
-                            ".egg-info/",
-                            ".dist-info/",
-                            "__pycache__/",
-                        )
-                    ):
-                        count += 1
-        return count
+            return {
+                name
+                for name in wheel.namelist()
+                if name.startswith(f"{package_name}/") and not name.endswith("/") and "__pycache__/" not in name
+            }

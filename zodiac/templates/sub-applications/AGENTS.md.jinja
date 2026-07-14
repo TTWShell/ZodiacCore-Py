@@ -64,8 +64,8 @@ project-level contract for Codex agent work.
   - `tests/test_health.py`
   - `tests/users/test_api.py`
   - `tests/orders/test_api.py`
-- Prefer class-based pytest tests for API contract groups, for example
-  `TestUsersApi` and `TestOrdersApi`.
+- Prefer class-based pytest tests for API contract groups, following the
+  generated `TestResourceApi` structure.
 - Tests should assert the ZodiacCore response envelope:
   `code`, `message`, and `data`.
 - For mounted routes, assert that `X-Request-ID` is not duplicated when changing
@@ -79,6 +79,18 @@ Use these commands before handing off changes:
 uv run ruff check .
 uv run pytest -q
 ```
+
+Create another mounted service with the project's development CLI:
+
+```bash
+uv run zodiac add sub-app billing
+```
+
+Resource plurals are inferred automatically. Use `--resource-plural` only when
+the API needs a domain-specific override, for example
+`--resource person --resource-plural persons`. The command intentionally does
+not edit `main.py`; apply its printed import, lifespan, and mount steps, then run
+the full checks above.
 
 When working on the template from the ZodiacCore repository, also generate a
 fresh project and verify it:

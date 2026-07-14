@@ -1,0 +1,35 @@
+from sqlalchemy import select
+from zodiac_core.db.repository import BaseSQLRepository
+from zodiac_core.pagination import PageSortParams, SortSpec
+
+from ..models.{{ resource_name }}_model import (
+    {{ resource_class }}Model,
+)
+
+
+class {{ resource_class }}Repository(BaseSQLRepository):
+    sort_spec = SortSpec(
+        columns={
+            "id": {{ resource_class }}Model.id,
+            "name": {{ resource_class }}Model.name,
+        },
+        default=["id:asc"],
+    )
+
+    async def create(
+        self,
+        item: {{ resource_class }}Model,
+    ) -> {{ resource_class }}Model:
+        async with self.session() as session:
+            session.add(item)
+            await session.commit()
+            await session.refresh(item)
+            return item
+
+    async def list(self, params: PageSortParams, keyword: str | None = None):
+        stmt = select({{ resource_class }}Model)
+        if keyword:
+            stmt = stmt.where(
+                {{ resource_class }}Model.name.ilike(f"%{keyword.strip()}%"),
+            )
+        return await self.paginate_query(stmt, params)

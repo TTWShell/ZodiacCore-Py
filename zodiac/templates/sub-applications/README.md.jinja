@@ -12,17 +12,15 @@ backend managed by the parent process.
 | `GET` | `/api/health` | parent |
 | `POST` | `/users/api/v1/users` | users |
 | `GET` | `/users/api/v1/users` | users |
-| `GET` | `/users/api/v1/info` | users |
 | `POST` | `/orders/api/v1/orders` | orders |
 | `GET` | `/orders/api/v1/orders` | orders |
-| `GET` | `/orders/api/v1/info` | orders |
 
 List endpoints support Zodiac pagination and sorting query parameters, plus a
 template-level `keyword` filter:
 
 ```bash
 GET /users/api/v1/users?page=1&size=20&sort=name:desc&keyword=ada
-GET /orders/api/v1/orders?page=1&size=20&sort=quantity:desc&keyword=book
+GET /orders/api/v1/orders?page=1&size=20&sort=name:desc&keyword=book
 ```
 
 ## Architecture
@@ -49,11 +47,30 @@ sub-application to avoid double-wrapping of requests.
 This project includes `AGENTS.md` so teams can use Codex with the project
 conventions for FastAPI, pytest, and ZodiacCore.
 
+## Add A Sub-Application
+
+Generate a new service skeleton from the project root:
+
+```bash
+uv sync --extra dev
+uv run zodiac add sub-app billing
+```
+
+The command does not edit `main.py`. Follow the printed import, lifespan, and
+mount instructions, or ask Codex to complete and test the integration.
+
+To use the CLI without installing development dependencies, run it as a
+one-shot tool instead:
+
+```bash
+uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
+```
+
 ## Run
 
 ```bash
 uv sync --extra dev
-uv run uvicorn main:app --reload
+uv run uvicorn main:app --reload --no-access-log
 ```
 
 ## Test

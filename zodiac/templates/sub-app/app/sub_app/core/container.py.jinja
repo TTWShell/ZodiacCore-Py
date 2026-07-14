@@ -1,0 +1,21 @@
+from dependency_injector import containers, providers
+
+from ..application.services.{{ resource_name }}_service import (
+    {{ resource_class }}Service,
+)
+from ..infrastructure.database.repositories.{{ resource_name }}_repository import (
+    {{ resource_class }}Repository,
+)
+
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Configuration(strict=True)
+
+    {{ resource_name }}_repository = providers.Singleton(
+        {{ resource_class }}Repository,
+    )
+
+    {{ resource_name }}_service = providers.Factory(
+        {{ resource_class }}Service,
+        repository={{ resource_name }}_repository,
+    )
