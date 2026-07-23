@@ -7,9 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-23
+
 ### Added
 
-- **Codex Skills**: Add the version-aware `zodiac-docs` skill for answering framework usage, API, CLI, template, migration, and troubleshooting questions from matching documentation, source, and tests.
+- **Cache**: Add a keyword-only `lease` option to `@cached` for overriding the default two-second RedLock lease.
+- **Codex Skills**: Add the repository-hosted `zodiac-docs` skill for version-aware framework guidance based on matching documentation, source code, tests, and generated templates.
+
+### Changed
+
+- **Standard Template**: Load logging level, JSON format, and service name from application configuration.
+- **Generated Tests**: Add an isolated testing profile with `pytest-env`, in-memory SQLite, a test-specific cache prefix, and reduced log output.
+- **Sub-applications**: Decouple application services from API schemas by passing validated resource fields from routers.
+- **Generated Projects**: Use `--no-access-log` in Uvicorn commands to prevent duplicate request logs from Uvicorn and ZodiacCore middleware.
+- **Codex Skills**: Document project-level skill installation under `.agents/skills/`.
+
+### Fixed
+
+- **Logging**: Preserve supplied exception tracebacks in text and JSON logs, including structured exception metadata and `record.extra.exception_traceback`.
+- **Templates**: Use receiver-aware cache keys for generated `GitHubService` instance methods so equivalent dependency-injection instances share cached results correctly.
 
 ## [0.11.1] - 2026-07-14
 

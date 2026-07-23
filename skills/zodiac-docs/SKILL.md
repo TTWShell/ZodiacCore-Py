@@ -15,7 +15,7 @@ Run the bundled resolver before researching unless the version and source
 context have already been verified:
 
 ```bash
-python <skill-directory>/scripts/resolve-zodiac-context.py --path <working-directory>
+python3 <skill-directory>/scripts/resolve-zodiac-context.py --path <working-directory>
 ```
 
 Use the result as follows:
