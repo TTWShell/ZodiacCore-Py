@@ -1,5 +1,9 @@
 """Contract tests for the generated API skeleton."""
 
+from unittest.mock import AsyncMock
+
+from {{ package_name }}.application.services.github_service import GitHubService
+
 
 async def test_health_endpoint_sets_request_id_header(client):
     """Health endpoint should include the standard request ID header."""
@@ -37,3 +41,18 @@ async def test_item_not_found_uses_standard_error_response(client):
         "message": "Item id '1' not found",
         "data": None,
     }
+
+
+async def test_cached_github_service_supports_equivalent_factory_instances(client):
+    """Equivalent service instances should share class-scoped cached results."""
+    github_client = AsyncMock()
+    github_client.fetch_homepage.return_value = {"status": "ok"}
+    first = GitHubService(github_client)
+    second = GitHubService(github_client)
+
+    assert await first.get_homepage_info() == {"status": "ok"}
+    assert await second.get_homepage_info() == {"status": "ok"}
+    github_client.fetch_homepage.assert_awaited_once()
+
+    assert await first.get_sync_demo("Ada") == "Hello, Ada!"
+    assert await second.get_sync_demo("Ada") == "Hello, Ada!"

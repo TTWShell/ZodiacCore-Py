@@ -128,7 +128,7 @@ If your process registers multiple named caches or shares the global manager acr
 
 **get_or_set:** `c = cache.cache` then `await c.get_or_set("key", producer, ttl=60)`.
 
-**@cached:** Key from `module:qualname:hash(args,kwargs)`. The default key builder only supports stable immutable parameters (`None`, `bool`, `int`, `float`, `str`, `bytes`, and tuples of those values). Supports both **async** and **sync** functions.
+**@cached:** Key from `module:qualname:hash(args,kwargs)`. The default key builder only supports stable immutable parameters (`None`, `bool`, `int`, `float`, `str`, `bytes`, and tuples of those values). Supports both **async** and **sync** functions. Use `lease=...` to override the default 2-second RedLock lease for slower producers.
 
 > **Important:** The decorated function **always becomes asynchronous**. If you decorate a sync function, you must still `await` the result. Avoid slow blocking work in sync functions to prevent blocking the event loop.
 
@@ -205,7 +205,7 @@ class UserSchema:
 
 ## 6. RedLock (best-effort)
 
-`get_or_set` uses aiocache RedLock: one producer per key while the lock is held; after `lease` (default 2s) expires, waiters may run producer too. Memory: per-process; Redis: distributed.
+`get_or_set` uses aiocache RedLock: one producer per key while the lock is held; after `lease` (default 2s) expires, waiters may run producer too. `@cached(lease=...)` forwards the same setting. Memory: per-process; Redis: distributed.
 
 ---
 
