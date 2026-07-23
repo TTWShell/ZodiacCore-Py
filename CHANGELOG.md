@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Codex Skills**: Add the version-aware `zodiac-docs` skill for answering framework usage, API, CLI, template, migration, and troubleshooting questions from matching documentation, source, and tests.
+
 ## [0.11.1] - 2026-07-14
 
 ### Added

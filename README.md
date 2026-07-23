@@ -98,16 +98,10 @@ app.include_router(router)
 
 - **Online**: [https://ttwshell.github.io/ZodiacCore-Py/](https://ttwshell.github.io/ZodiacCore-Py/) (multiple versions via release).
 - **Local**: `make docs-serve` (sources in `docs/`).
-- **Codex skills**: reusable developer skills live in `skills/`. To install one into a service project, download it into that project's `.codex/skills/` directory:
-
-```bash
-mkdir -p .codex/skills/zodiac-core-integration-summary
-curl -L \
-  https://raw.githubusercontent.com/TTWShell/ZodiacCore-Py/master/skills/zodiac-core-integration-summary/SKILL.md \
-  -o .codex/skills/zodiac-core-integration-summary/SKILL.md
-```
-
-Then ask Codex for a `zodiac-core-integration-summary` audit from that project.
+- **Codex skills**: reusable developer skills live in `skills/`. Install them
+  into a service project's `.agents/skills/` directory. Use `zodiac-docs` for
+  version-aware framework guidance and `zodiac-core-integration-summary` for
+  adoption audits. See the [Codex skills guide](https://ttwshell.github.io/ZodiacCore-Py/latest/user-guide/skills/).
 
 ## 🤝 Contributing
 
