@@ -10,13 +10,13 @@ class GitHubService:
     def __init__(self, github_client: GitHubClient) -> None:
         self.github_client = github_client
 
-    @cached(ttl=60)
+    @cached(ttl=60, include_self=True)
     async def get_homepage_info(self) -> dict:
         """Get GitHub homepage information (cached for 60s)."""
         logger.debug("Fetching GitHub homepage")
         return await self.github_client.fetch_homepage()
 
-    @cached(ttl=120)
+    @cached(ttl=120, include_self=True)
     def get_sync_demo(self, name: str) -> str:
         """Example of caching a sync function. Result must be awaited by caller."""
         logger.debug(f"Sync demo for {name}")
