@@ -72,6 +72,8 @@ def cached(
     skip_cache_func: Optional[Callable[[T], bool]] = None,
     include_cls: bool = False,
     include_self: bool = False,
+    *,
+    lease: Optional[float] = 2.0,
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
     Decorate an async or sync function to cache its return value with the configured cache.
@@ -82,6 +84,7 @@ def cached(
     Key is built from module, qualname, and supported immutable args/kwargs
     (or a custom key_builder).
     TTL comes from decorator, then from the cache instance default_ttl.
+    Lock lease defaults to 2 seconds and can be adjusted for slower producers.
 
     **Exception handling:** If the wrapped function raises, the exception
     propagates and nothing is written to the cache.
@@ -106,6 +109,7 @@ def cached(
             (`self.__class__.__module__` + `self.__class__.__qualname__`) in the
             default cache key. This is suitable only when instances of the same
             class are functionally equivalent for the cached method.
+        lease: RedLock lease in seconds for stampede protection. Defaults to 2 seconds.
     """
 
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
@@ -133,7 +137,13 @@ def cached(
                     return await fn(*args, **kwargs)
                 return fn(*args, **kwargs)
 
-            return await backend.get_or_set(key, producer, ttl=ttl, skip_cache_func=skip)
+            return await backend.get_or_set(
+                key,
+                producer,
+                ttl=ttl,
+                lease=lease,
+                skip_cache_func=skip,
+            )
 
         return wrapper
 

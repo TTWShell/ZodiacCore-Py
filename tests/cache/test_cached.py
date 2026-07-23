@@ -47,6 +47,30 @@ class TestCachedDecorator:
         assert calls == 2
 
     @pytest.mark.asyncio
+    async def test_cached_forwards_default_and_custom_lease(self, monkeypatch):
+        """@cached forwards its default or configured lease to get_or_set."""
+        cache.setup(prefix="deco_lease", default_ttl=300)
+        leases = []
+
+        async def fake_get_or_set(key, producer, **kwargs):
+            leases.append(kwargs["lease"])
+            return await producer()
+
+        monkeypatch.setattr(cache.cache, "get_or_set", fake_get_or_set)
+
+        @cached()
+        async def fetch_default():
+            return "default"
+
+        @cached(lease=5.0)
+        async def fetch_custom():
+            return "custom"
+
+        assert await fetch_default() == "default"
+        assert await fetch_custom() == "custom"
+        assert leases == [2.0, 5.0]
+
+    @pytest.mark.asyncio
     async def test_cached_without_setup_raises(self):
         """Calling a @cached function before cache.setup() raises RuntimeError."""
 
