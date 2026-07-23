@@ -10,17 +10,21 @@ Keep each skill as a top-level directory:
 
 ```text
 skills/
+  zodiac-docs/
+    SKILL.md
   zodiac-core-integration-summary/
     SKILL.md
 ```
 
-Use the `zodiac-core-` prefix for discoverability and keep one skill focused on
-one developer task. Avoid nesting skills under category directories because
-Codex skill installers commonly expect each skill package to live directly
-under `skills/`.
+Use a clear ZodiacCore-specific name and keep one skill focused on one
+developer task. Avoid nesting skills under category directories because Codex
+skill installers commonly expect each skill package to live directly under
+`skills/`.
 
 ## Recommended Skill Boundaries
 
+- `zodiac-docs`: answer version-aware framework usage, API, CLI, template,
+  migration, and troubleshooting questions.
 - `zodiac-core-integration-summary`: audit an existing service and produce a
   ZodiacCore adoption matrix.
 

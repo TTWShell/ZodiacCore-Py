@@ -8,50 +8,61 @@ dependencies. Install them into the service project where Codex will work.
 
 | Skill | Purpose |
 |-------|---------|
+| `zodiac-docs` | Answer version-aware ZodiacCore usage, API, CLI, template, migration, and troubleshooting questions. |
 | `zodiac-core-integration-summary` | Audit an existing service and produce a ZodiacCore adoption matrix. |
 
 ## Install Into A Project
 
-From the root of your service project, download the skill into
-`.codex/skills/`:
+Codex discovers project skills from `.agents/skills/`. If ZodiacCore-Py is
+already checked out locally, copy either skill from the repository:
 
 ```bash
-mkdir -p .codex/skills/zodiac-core-integration-summary
-curl -L \
-  https://raw.githubusercontent.com/TTWShell/ZodiacCore-Py/master/skills/zodiac-core-integration-summary/SKILL.md \
-  -o .codex/skills/zodiac-core-integration-summary/SKILL.md
+mkdir -p .agents/skills
+cp -R ~/open-source/ZodiacCore-Py/skills/zodiac-docs .agents/skills/
 ```
 
-If you already have ZodiacCore-Py checked out locally, copying the directory is
-also fine:
+To install from GitHub, first obtain a shallow checkout and then copy the skill
+directory:
 
 ```bash
-mkdir -p .codex/skills
-cp -R ~/open-source/ZodiacCore-Py/skills/zodiac-core-integration-summary .codex/skills/
+git clone --depth 1 https://github.com/TTWShell/ZodiacCore-Py.git /tmp/ZodiacCore-Py
+mkdir -p .agents/skills
+cp -R /tmp/ZodiacCore-Py/skills/zodiac-docs .agents/skills/
 ```
+
+Replace `zodiac-docs` with `zodiac-core-integration-summary` to install the
+audit skill.
 
 The target project should then contain:
 
 ```text
-.codex/
+.agents/
   skills/
-    zodiac-core-integration-summary/
+    zodiac-docs/
       SKILL.md
+      agents/
+      references/
+      scripts/
 ```
 
 Start a new Codex session in that project, or reload the session if your Codex
 client requires it, then ask for the skill by name:
 
 ```text
-$zodiac-core-integration-summary
+$zodiac-docs
 ```
 
 ## When To Use
+
+Use `zodiac-docs` for questions about ZodiacCore APIs, configuration, CLI,
+generated templates, upgrades, and runtime behavior. It resolves the local
+source revision or the downstream project's locked ZodiacCore version, then
+uses matching documentation, source, and tests as evidence.
 
 Use `zodiac-core-integration-summary` when you want Codex to inspect a service
 and produce a compact table showing whether it uses ZodiacCore routing,
 exception handling, middleware, logging, HTTP clients, pagination, cache,
 database, configuration, schema, and sub-application conventions.
 
-The skill is read-only by default: it should audit and summarize the project,
-not modify code, unless you explicitly ask Codex to fix the findings.
+Both skills are read-only by default. They should not modify code unless you
+explicitly ask Codex to implement or fix something.
