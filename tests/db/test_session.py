@@ -1,6 +1,8 @@
+from typing import Annotated
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel
@@ -259,6 +261,17 @@ class TestDependencyIntegration:
             await gen_p.aclose()
             await gen_a.aclose()
             await db.shutdown()
+
+    def test_get_session_does_not_expose_database_name_to_fastapi(self):
+        """Database selection must not become a client-controlled query parameter."""
+        app = FastAPI()
+
+        @app.get("/items")
+        async def list_items(session: Annotated[AsyncSession, Depends(get_session)]):
+            return {"ok": True}
+
+        operation = app.openapi()["paths"]["/items"]["get"]
+        assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
 
     @pytest.mark.asyncio
     async def test_get_session_unknown_name_raises(self):
