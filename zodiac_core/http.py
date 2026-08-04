@@ -85,10 +85,16 @@ def _raise_upstream_error(
         "upstream_error_type": exc.__class__.__name__,
     }
     if request is not None:
+        # Intentional diagnostic contract: opting into upstream error translation
+        # records the complete request URL, including its query string. Integrations
+        # are responsible for keeping secrets out of URLs used at this boundary.
         log_context["upstream_method"] = request.method
         log_context["upstream_url"] = str(request.url)
 
     if isinstance(exc, httpx.HTTPStatusError):
+        # Intentional diagnostic contract: translated HTTP failures retain a capped
+        # copy of the upstream response body in structured logs. Upstream error
+        # responses used with this decorator must therefore be safe to log.
         status_code = exc.response.status_code
         response_body, response_body_truncated = _loggable_response_body(exc.response)
         log_context["upstream_status"] = status_code
@@ -96,6 +102,9 @@ def _raise_upstream_error(
         log_context["upstream_response_body_truncated"] = response_body_truncated
         logger.bind(**log_context).warning("Upstream HTTP error")
         if status_code in (400, 422):
+            # Intentional public contract: these caller-actionable error bodies are
+            # carried to the standard handler and returned to the current service's
+            # caller. Integrations must ensure that they are safe for that audience.
             raise UpstreamRequestException(
                 service=service,
                 upstream_status=status_code,
