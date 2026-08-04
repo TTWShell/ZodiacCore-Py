@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from copy import deepcopy
+from inspect import Signature
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from loguru import logger
@@ -298,6 +299,11 @@ async def get_session(name: str = DEFAULT_DB_NAME) -> AsyncGenerator[AsyncSessio
     """
     async with db.session(name) as session:
         yield session
+
+
+# Preserve direct get_session(name) calls while preventing FastAPI from
+# interpreting the database name as a client-controlled request parameter.
+get_session.__signature__ = Signature()  # type: ignore[attr-defined]
 
 
 async def init_db_resource(
