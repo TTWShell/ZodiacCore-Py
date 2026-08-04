@@ -2,6 +2,7 @@ from http import HTTPStatus
 from typing import Union
 
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -69,8 +70,19 @@ async def handler_validation_exception(
     request: Request,
     exc: Union[RequestValidationError, ValidationError],
 ) -> JSONResponse:
-    """Handle 422 Validation Errors"""
-    return response_unprocessable_entity(data=exc.errors())
+    """Handle validation errors as JSON-safe 422 responses.
+
+    Pydantic preserves exceptions raised by custom validators in
+    ``ctx["error"]``. Encode the complete error list before it reaches the
+    response model, and render embedded exceptions as strings so their
+    messages remain available to clients.
+
+    References:
+        - https://docs.pydantic.dev/latest/errors/errors/
+        - https://fastapi.tiangolo.com/tutorial/handling-errors/#use-the-requestvalidationerror-body
+    """
+    errors = jsonable_encoder(exc.errors(), custom_encoder={Exception: str})
+    return response_unprocessable_entity(data=errors)
 
 
 async def handler_global_exception(request: Request, exc: Exception) -> JSONResponse:
