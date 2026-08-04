@@ -101,6 +101,11 @@ async def handler_upstream_service_exception(
     The upstream-call decorators are the opt-in boundary. Once an upstream
     error is translated into this exception family, it participates in the
     standard application exception registration.
+
+    All translated upstream failures intentionally return HTTP 400, including
+    upstream 5xx responses, connection failures, and timeouts. This keeps
+    dependency failures out of the current service's 5xx classification;
+    callers use ``service`` and ``error_code`` to identify the actual source.
     """
     logger.bind(
         upstream_service=exc.service,
