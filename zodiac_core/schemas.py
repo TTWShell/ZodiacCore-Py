@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 
 def ensure_utc(v: Any) -> Any:
@@ -19,7 +19,7 @@ def ensure_utc(v: Any) -> Any:
 
 
 # Reusable UTC Datetime type with automatic conversion
-UtcDatetime = Annotated[datetime, BeforeValidator(ensure_utc)]
+UtcDatetime = Annotated[datetime, AfterValidator(ensure_utc)]
 
 
 class CoreModel(BaseModel):
