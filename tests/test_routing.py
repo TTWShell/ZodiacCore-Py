@@ -216,9 +216,9 @@ class TestFastAPIRouterCompatibility:
             "data": {"id": 1, "name": "Unwrapped", "internal": "kept"},
             "message": "Success",
         }
-        response_ref = app.openapi()["paths"]["/unwrapped"]["get"]["responses"]["200"]["content"][
-            "application/json"
-        ]["schema"]["$ref"]
+        response_ref = app.openapi()["paths"]["/unwrapped"]["get"]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
         assert "Response_Any_" in response_ref
 
     def test_fastapi_response_return_annotation_disables_envelope_model(self):
@@ -240,6 +240,21 @@ class TestFastAPIRouterCompatibility:
             "schema"
         ]
         assert response_schema == {}
+
+    def test_explicit_none_preserves_annotated_fastapi_response_passthrough(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/raw", response_model=None)
+        async def get_raw_response() -> FastAPIResponse:
+            return FastAPIResponse("raw", media_type="text/plain")
+
+        app.include_router(router)
+        response = TestClient(app).get("/raw")
+
+        assert get_app_route(app, "/raw").response_model is None
+        assert response.content == b"raw"
+        assert response.headers["content-type"] == "text/plain; charset=utf-8"
 
     @pytest.mark.parametrize("status_code", [199, 204, 205, 304])
     def test_bodyless_status_code_skips_envelope(self, status_code):

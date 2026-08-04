@@ -1,12 +1,13 @@
 # Routing & Response Wrapping
 
-ZodiacCore enhances FastAPI's routing system to provide automatic response standardization. By using `APIRouter`, you ensure that every endpoint returns a consistent JSON structure without manual boilerplate.
+ZodiacCore enhances FastAPI's routing system with default response standardization. Body-bearing endpoints use a consistent JSON structure without manual boilerplate, while raw response objects and HTTP no-body response semantics remain available.
 
 ## 1. The Zodiac APIRouter
 
-The `APIRouter` in ZodiacCore is a drop-in replacement for `fastapi.APIRouter`. It uses a custom `ZodiacRoute` class that intercepts outgoing data and wraps it.
+The `APIRouter` in ZodiacCore accepts FastAPI-style route declarations while adding a mandatory envelope for ordinary response data. It uses a custom `ZodiacRoute` class to wrap response models and returned values.
 
 ### Automatic Wrapping
+
 When you return a dictionary, a Pydantic model, or a list from your route, Zodiac automatically wraps it in a `Response` model:
 
 ```python
@@ -20,6 +21,7 @@ async def get_status():
 ```
 
 **Resulting JSON:**
+
 ```json
 {
   "code": 0,
@@ -30,11 +32,28 @@ async def get_status():
 }
 ```
 
+When `response_model` is omitted, Zodiac infers the payload type from the endpoint's return annotation. An endpoint without a return annotation uses `Response[Any]`.
+
+### Response Model Semantics
+
+| Route declaration | Runtime behavior | OpenAPI response model |
+| :--- | :--- | :--- |
+| Omitted `response_model`, return type `T` | Automatically wrapped | `Response[T]` |
+| Omitted `response_model`, no return type | Automatically wrapped | `Response[Any]` |
+| `response_model=T` | Automatically wrapped | `Response[T]` |
+| `response_model=None`, ordinary return value | Automatically wrapped without constraining `data` | `Response[Any]` |
+| `response_model` omitted or set to `None`, return type is a FastAPI/Starlette `Response` | Raw response is passed through | No Zodiac envelope model |
+| Status code `<200`, `204`, `205`, or `304` | No response body or envelope | No response content |
+
+Declaring a non-empty response model for a status code that prohibits a body remains an error, matching FastAPI.
+
+Unlike FastAPI's native router, Zodiac intentionally treats `response_model=None` as an untyped payload rather than as an envelope opt-out. This preserves the `code`, `data`, and `message` contract. Runtime passthrough is based on the actual returned FastAPI/Starlette `Response` object; its return annotation keeps OpenAPI aligned with that raw response.
+
 ---
 
 ## 2. Standard Response Structure
 
-All Zodiac responses follow this schema:
+Body-bearing responses wrapped by Zodiac follow this schema:
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
@@ -43,21 +62,22 @@ All Zodiac responses follow this schema:
 | `data` | `any` | The actual payload (result of your function). |
 
 ### Manual Responses
-If you need to return a non-standard response (e.g., a FileResponse or a custom status code), you can still return raw FastAPI `Response` objects or Zodiac's `Response` class. If the return type is already a `Response`, Zodiac will **not** wrap it again.
+
+Raw FastAPI/Starlette `Response` objects, such as `FileResponse` and `StreamingResponse`, are passed through without runtime wrapping. Annotate the raw response return type so OpenAPI does not advertise a Zodiac envelope.
 
 ```python
-from zodiac_core.response import response_ok
+from fastapi import Response
 
 @router.get("/custom")
-async def manual():
-    return response_ok(message="Custom success", data={"id": 1})
+async def manual() -> Response:
+    return Response("custom", media_type="text/plain")
 ```
 
 ---
 
 ## 3. OpenAPI Integration
 
-ZodiacCore's `APIRouter` dynamically generates Pydantic models for your responses. This means your **Swagger UI** (`/docs`) will correctly display the wrapped structure, including the `code`, `message`, and `data` fields, mapped to your specific return type.
+ZodiacCore's `APIRouter` dynamically generates Pydantic models for wrapped responses. Swagger UI (`/docs`) displays the `code`, `message`, and `data` fields, with `data` mapped to an explicit response model or the endpoint's return annotation. `response_model=None` produces `Response[Any]`; annotated raw responses and no-body status codes do not generate a Zodiac envelope schema.
 
 ---
 
