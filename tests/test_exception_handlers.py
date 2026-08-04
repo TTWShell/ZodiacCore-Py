@@ -104,6 +104,40 @@ class TestExceptionHandlers:
         assert isinstance(data["data"], list)
         assert len(data["data"]) == 2
 
+    def test_custom_validator_value_error_returns_422(self):
+        """Custom Pydantic ValueError validation should remain a 422 response."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from pydantic import BaseModel, field_validator
+
+        from zodiac_core.exception_handlers import register_exception_handlers
+
+        class Payload(BaseModel):
+            value: str
+
+            @field_validator("value")
+            @classmethod
+            def reject_value(cls, value: str) -> str:
+                raise ValueError("custom validation failed")
+
+        app = FastAPI()
+        register_exception_handlers(app)
+
+        @app.post("/items")
+        async def create_item(payload: Payload):
+            return payload
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/items", json={"value": "bad"})
+
+        assert response.status_code == 422
+        body = response.json()
+        assert body["code"] == 422
+        assert body["message"] == "Unprocessable Entity"
+        assert body["data"][0]["type"] == "value_error"
+        assert body["data"][0]["loc"] == ["body", "value"]
+        assert body["data"][0]["ctx"]["error"] == "custom validation failed"
+
     def build_pydantic_validation_error(self):
         from pydantic import BaseModel, Field, ValidationError
 
