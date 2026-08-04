@@ -3,6 +3,7 @@ from typing import Union
 import pytest
 from fastapi import APIRouter as NativeAPIRouter
 from fastapi import FastAPI
+from fastapi import Response as FastAPIResponse
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
@@ -22,6 +23,11 @@ class ErrorMessage(BaseModel):
     """Mock error response model."""
 
     detail: str
+
+
+def get_app_route(app: FastAPI, path: str):
+    """Return the final route registered on the FastAPI application."""
+    return next(route for route in app.routes if getattr(route, "path", None) == path)
 
 
 class TestZodiacRouting:
@@ -147,6 +153,147 @@ class TestZodiacRouting:
         assert "409" in conflict_responses
         conflict_ref = conflict_responses["409"]["content"]["application/json"]["schema"]["$ref"]
         assert "Response" in conflict_ref and "ErrorMessage" in conflict_ref
+
+
+class TestFastAPIRouterCompatibility:
+    """Verify Zodiac routing preserves FastAPI response model semantics."""
+
+    def test_omitted_response_model_without_annotation_uses_any_envelope(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/untyped")
+        async def get_untyped_user():
+            return {"id": 1, "name": "Untyped", "internal": "kept"}
+
+        app.include_router(router)
+        response = TestClient(app).get("/untyped")
+
+        assert response.json() == {
+            "code": 0,
+            "data": {"id": 1, "name": "Untyped", "internal": "kept"},
+            "message": "Success",
+        }
+        response_ref = app.openapi()["paths"]["/untyped"]["get"]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        assert "Response_Any_" in response_ref
+
+    def test_omitted_response_model_uses_return_annotation(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/typed")
+        async def get_typed_user() -> User:
+            return {"id": 1, "name": "Typed", "internal": "filtered"}
+
+        app.include_router(router)
+        response = TestClient(app).get("/typed")
+
+        assert response.json() == {
+            "code": 0,
+            "data": {"id": 1, "name": "Typed"},
+            "message": "Success",
+        }
+        response_ref = app.openapi()["paths"]["/typed"]["get"]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        assert "Response" in response_ref and "User" in response_ref
+
+    def test_explicit_none_disables_response_model_and_automatic_wrapping(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/unwrapped", response_model=None)
+        async def get_unwrapped_user() -> User:
+            return {"id": 1, "name": "Unwrapped", "internal": "kept"}
+
+        app.include_router(router)
+        response = TestClient(app).get("/unwrapped")
+
+        assert get_app_route(app, "/unwrapped").response_model is None
+        assert response.json() == {"id": 1, "name": "Unwrapped", "internal": "kept"}
+        response_schema = app.openapi()["paths"]["/unwrapped"]["get"]["responses"]["200"]["content"][
+            "application/json"
+        ]["schema"]
+        assert response_schema == {}
+
+    def test_fastapi_response_return_annotation_disables_envelope_model(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/raw")
+        async def get_raw_response() -> FastAPIResponse:
+            return FastAPIResponse("raw", media_type="text/plain")
+
+        app.include_router(router)
+        response = TestClient(app).get("/raw")
+
+        assert get_app_route(app, "/raw").response_model is None
+        assert response.status_code == 200
+        assert response.content == b"raw"
+        assert response.headers["content-type"] == "text/plain; charset=utf-8"
+        response_schema = app.openapi()["paths"]["/raw"]["get"]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]
+        assert response_schema == {}
+
+    @pytest.mark.parametrize("status_code", [199, 204, 205, 304])
+    def test_bodyless_status_code_skips_envelope(self, status_code):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get(f"/{status_code}", status_code=status_code)
+        async def get_bodyless_response():
+            return FastAPIResponse(status_code=status_code)
+
+        app.include_router(router)
+
+        assert get_app_route(app, f"/{status_code}").response_model is None
+        documented_response = app.openapi()["paths"][f"/{status_code}"]["get"]["responses"][str(status_code)]
+        assert "content" not in documented_response
+
+        if status_code != 199:
+            response = TestClient(app).get(f"/{status_code}")
+            assert response.status_code == status_code
+            assert response.content == b""
+
+    def test_explicit_none_allows_bodyless_status_code(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.delete("/resource", status_code=204, response_model=None)
+        async def delete_resource():
+            return FastAPIResponse(status_code=204)
+
+        app.include_router(router)
+        response = TestClient(app).delete("/resource")
+
+        assert get_app_route(app, "/resource").response_model is None
+        assert response.status_code == 204
+        assert response.content == b""
+
+    def test_additional_bodyless_response_allows_none_model(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/resource", responses={204: {"model": None, "description": "No content"}})
+        async def get_resource():
+            return {"id": 1, "name": "Resource"}
+
+        app.include_router(router)
+        documented_response = app.openapi()["paths"]["/resource"]["get"]["responses"]["204"]
+
+        assert documented_response == {"description": "No content"}
+
+    def test_bodyless_status_code_rejects_explicit_response_model(self):
+        router = ZodiacAPIRouter()
+
+        with pytest.raises(AssertionError, match="Status code 204 must not have a response body"):
+
+            @router.delete("/resource", status_code=204, response_model=User)
+            async def delete_resource():
+                return FastAPIResponse(status_code=204)
 
 
 class TestRoutingInternalLogic:
