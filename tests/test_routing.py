@@ -200,7 +200,7 @@ class TestFastAPIRouterCompatibility:
         ]["$ref"]
         assert "Response" in response_ref and "User" in response_ref
 
-    def test_explicit_none_disables_response_model_and_automatic_wrapping(self):
+    def test_explicit_none_keeps_untyped_automatic_envelope(self):
         app = FastAPI()
         router = ZodiacAPIRouter()
 
@@ -211,12 +211,15 @@ class TestFastAPIRouterCompatibility:
         app.include_router(router)
         response = TestClient(app).get("/unwrapped")
 
-        assert get_app_route(app, "/unwrapped").response_model is None
-        assert response.json() == {"id": 1, "name": "Unwrapped", "internal": "kept"}
-        response_schema = app.openapi()["paths"]["/unwrapped"]["get"]["responses"]["200"]["content"][
+        assert response.json() == {
+            "code": 0,
+            "data": {"id": 1, "name": "Unwrapped", "internal": "kept"},
+            "message": "Success",
+        }
+        response_ref = app.openapi()["paths"]["/unwrapped"]["get"]["responses"]["200"]["content"][
             "application/json"
-        ]["schema"]
-        assert response_schema == {}
+        ]["schema"]["$ref"]
+        assert "Response_Any_" in response_ref
 
     def test_fastapi_response_return_annotation_disables_envelope_model(self):
         app = FastAPI()
@@ -295,6 +298,15 @@ class TestFastAPIRouterCompatibility:
             async def delete_resource():
                 return FastAPIResponse(status_code=204)
 
+    def test_bodyless_status_code_rejects_inferred_response_model(self):
+        router = ZodiacAPIRouter()
+
+        with pytest.raises(AssertionError, match="Status code 204 must not have a response body"):
+
+            @router.delete("/resource", status_code=204)
+            async def delete_resource() -> User:
+                return User(id=1, name="Unexpected")
+
 
 class TestRoutingInternalLogic:
     """Unit tests for internal routing logic to ensure 100% code coverage."""
@@ -307,7 +319,7 @@ class TestRoutingInternalLogic:
 
         # 1. Standard types
         assert ZodiacRoute._should_wrap(User) is True
-        assert ZodiacRoute._should_wrap(None) is True
+        assert ZodiacRoute._should_wrap(None) is False
 
         # 2. Response subclasses
         assert ZodiacRoute._should_wrap(Response) is False
