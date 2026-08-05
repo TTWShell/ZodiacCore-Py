@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import Depends, FastAPI
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel
@@ -264,16 +265,31 @@ class TestDependencyIntegration:
             await gen_a.aclose()
             await db.shutdown()
 
-    def test_get_session_does_not_expose_database_name_to_fastapi(self):
+    @pytest.mark.asyncio
+    async def test_get_session_does_not_expose_database_name_to_fastapi(self):
         """Database selection must not become a client-controlled query parameter."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:")
+        db.setup("sqlite+aiosqlite:///:memory:", name="analytics")
         app = FastAPI()
 
         @app.get("/items")
         async def list_items(session: Annotated[AsyncSession, Depends(get_session)]):
-            return {"ok": True}
+            return {"uses_default": session.bind is db.engine}
 
-        operation = app.openapi()["paths"]["/items"]["get"]
-        assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
+        try:
+            operation = app.openapi()["paths"]["/items"]["get"]
+            assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get("/items", params={"name": "analytics"})
+
+            assert response.status_code == 200
+            assert response.json() == {"uses_default": True}
+        finally:
+            await db.shutdown()
 
     def test_named_get_session_dependency_preserves_introspection(self):
         """Named session dependencies remain composable with standard callables."""
