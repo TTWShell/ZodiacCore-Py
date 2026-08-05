@@ -1,8 +1,8 @@
 from contextlib import asynccontextmanager
 from copy import deepcopy
-from inspect import Signature
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Annotated, Any, AsyncGenerator, Dict, Optional
 
+from fastapi import Depends
 from loguru import logger
 
 try:
@@ -270,7 +270,14 @@ class DatabaseManager:
 db = DatabaseManager()
 
 
-async def get_session(name: str = DEFAULT_DB_NAME) -> AsyncGenerator[AsyncSession, None]:
+def _default_database_name() -> str:
+    """Provide the server-controlled default database name to FastAPI."""
+    return DEFAULT_DB_NAME
+
+
+async def get_session(
+    name: Annotated[str, Depends(_default_database_name)] = DEFAULT_DB_NAME,
+) -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI Dependency for obtaining a database session.
 
@@ -299,11 +306,6 @@ async def get_session(name: str = DEFAULT_DB_NAME) -> AsyncGenerator[AsyncSessio
     """
     async with db.session(name) as session:
         yield session
-
-
-# Preserve direct get_session(name) calls while preventing FastAPI from
-# interpreting the database name as a client-controlled request parameter.
-get_session.__signature__ = Signature()  # type: ignore[attr-defined]
 
 
 async def init_db_resource(
