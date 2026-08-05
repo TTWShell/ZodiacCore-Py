@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Annotated, Union
 
 import pytest
 from fastapi import APIRouter as NativeAPIRouter
@@ -255,6 +255,30 @@ class TestFastAPIRouterCompatibility:
         assert get_app_route(app, "/raw").response_model is None
         assert response.content == b"raw"
         assert response.headers["content-type"] == "text/plain; charset=utf-8"
+
+    @pytest.mark.parametrize(
+        "route_options",
+        [{}, {"response_model": None}],
+        ids=["omitted", "explicit-none"],
+    )
+    def test_typing_annotated_fastapi_response_disables_envelope_model(self, route_options):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/raw", **route_options)
+        async def get_raw_response() -> Annotated[FastAPIResponse, "raw"]:
+            return FastAPIResponse("raw", media_type="text/plain")
+
+        app.include_router(router)
+        response = TestClient(app).get("/raw")
+
+        assert get_app_route(app, "/raw").response_model is None
+        assert response.content == b"raw"
+        assert response.headers["content-type"] == "text/plain; charset=utf-8"
+        response_schema = app.openapi()["paths"]["/raw"]["get"]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]
+        assert response_schema == {}
 
     @pytest.mark.parametrize("status_code", [199, 204, 205, 304])
     def test_bodyless_status_code_skips_envelope(self, status_code):
