@@ -1,6 +1,6 @@
 import inspect
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Union, get_origin
+from typing import Annotated, Any, Callable, Dict, Optional, Union, get_args, get_origin
 
 from fastapi import APIRouter as FastAPIRouter
 from fastapi import Response as FastAPIResponse
@@ -13,6 +13,13 @@ from fastapi.utils import is_body_allowed_for_status_code
 from zodiac_core.response import Response
 
 _DEFAULT_RESPONSE_MODEL = Default(None)
+
+
+def _unwrap_annotated(annotation: Any) -> Any:
+    """Return the underlying type while ignoring Annotated metadata."""
+    while get_origin(annotation) is Annotated:
+        annotation, *_ = get_args(annotation)
+    return annotation
 
 
 class ZodiacRoute(APIRoute):
@@ -38,7 +45,8 @@ class ZodiacRoute(APIRoute):
         response_model_is_default = isinstance(response_model, DefaultPlaceholder)
         body_allowed = is_body_allowed_for_status_code(kwargs.get("status_code"))
         return_annotation = get_typed_return_annotation(endpoint)
-        returns_raw_response = lenient_issubclass(return_annotation, FastAPIResponse)
+        raw_return_annotation = _unwrap_annotated(return_annotation)
+        returns_raw_response = lenient_issubclass(raw_return_annotation, FastAPIResponse)
 
         if response_model_is_default:
             if returns_raw_response:
