@@ -308,6 +308,30 @@ class TestDependencyIntegration:
         assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
 
     @pytest.mark.asyncio
+    async def test_named_session_dependency_uses_bound_database(self):
+        """FastAPI must not override the database bound by a named dependency."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:")
+        db.setup("sqlite+aiosqlite:///:memory:", name="analytics")
+        analytics_session = partial(get_session, name="analytics")
+        app = FastAPI()
+
+        @app.get("/reports")
+        async def list_reports(session: Annotated[AsyncSession, Depends(analytics_session)]):
+            return {"uses_analytics": session.bind is db.get_engine("analytics")}
+
+        try:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get("/reports")
+
+            assert response.status_code == 200
+            assert response.json() == {"uses_analytics": True}
+        finally:
+            await db.shutdown()
+
+    @pytest.mark.asyncio
     async def test_get_session_unknown_name_raises(self):
         """Verify get_session with an unconfigured name raises RuntimeError."""
         if db._engines:
