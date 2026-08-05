@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 from aiocache import Cache
+from aiocache.serializers import JsonSerializer
 
 from zodiac_core.cache import ZodiacCache
 from zodiac_core.cache import manager as cache_manager_module
@@ -173,6 +174,23 @@ class TestZodiacCacheGetOrSet:
         out2 = await zc.get_or_set("k", producer_none)
         assert out2 is None
         assert call_count == 1  # from cache
+
+    @pytest.mark.asyncio
+    async def test_get_or_set_caches_none_with_json_serializer(self):
+        """None should remain cacheable when the backend uses JSON serialization."""
+        backend = Cache(namespace="cached_none_json", serializer=JsonSerializer())
+        zc = ZodiacCache(backend)
+        call_count = 0
+
+        async def producer_none():
+            nonlocal call_count
+            call_count += 1
+            return None
+
+        assert await zc.get_or_set("k", producer_none) is None
+        assert await zc.get_or_set("k", producer_none) is None
+        assert call_count == 1
+        assert await zc.get("k") is None
 
     @pytest.mark.asyncio
     async def test_get_returns_none_after_cached_none(self):
