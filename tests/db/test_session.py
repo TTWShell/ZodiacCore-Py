@@ -1,3 +1,5 @@
+from functools import partial
+from inspect import signature
 from typing import Annotated
 from unittest.mock import AsyncMock, MagicMock
 
@@ -271,6 +273,22 @@ class TestDependencyIntegration:
             return {"ok": True}
 
         operation = app.openapi()["paths"]["/items"]["get"]
+        assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
+
+    def test_named_get_session_dependency_preserves_introspection(self):
+        """Named session dependencies remain composable with standard callables."""
+        analytics_session = partial(get_session, "analytics")
+
+        assert not signature(analytics_session).parameters
+        assert list(signature(get_session).parameters) == ["name"]
+
+        app = FastAPI()
+
+        @app.get("/reports")
+        async def list_reports(session: Annotated[AsyncSession, Depends(analytics_session)]):
+            return {"ok": True}
+
+        operation = app.openapi()["paths"]["/reports"]["get"]
         assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
 
     @pytest.mark.asyncio
