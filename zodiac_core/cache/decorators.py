@@ -92,9 +92,10 @@ def cached(
     **None and skip_cache_func:** By default, a return value of ``None`` is
     *not* stored (so the next call will run the function again). This avoids
     ambiguity with cache miss. To cache ``None``, pass
-    ``skip_cache_func=lambda r: False``. To skip caching other values (e.g.
-    empty list), pass a callable that returns True for values that must not
-    be cached.
+    ``skip_cache_func=lambda r: False`` and use a serializer that restores
+    ``None`` losslessly; ``StringSerializer`` is not compatible with this
+    option. To skip caching other values (e.g. empty list), pass a callable
+    that returns True for values that must not be cached.
 
     Args:
         ttl: TTL in seconds for this function's entries. If None, uses cache default_ttl.
