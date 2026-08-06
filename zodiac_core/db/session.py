@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
 from copy import deepcopy
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Annotated, Any, AsyncGenerator, Callable, Dict, NoReturn, Optional
 
+from fastapi.exceptions import FastAPIError
+from fastapi.params import Depends as DependsParameter
 from loguru import logger
 
 try:
@@ -203,8 +205,22 @@ class DatabaseManager:
 
     @asynccontextmanager
     async def session(self, name: str = DEFAULT_DB_NAME) -> AsyncGenerator[AsyncSession, None]:
-        """
-        Context Manager for obtaining a NEW database session from a specific engine.
+        """Open a managed session for code that owns a unit of work.
+
+        This is the general lifecycle API for background jobs, CLI commands,
+        startup tasks, and services or repositories that own their unit of
+        work. At the FastAPI boundary, ``get_session`` or a dependency returned
+        by ``session_dependency`` may instead make the endpoint own the unit of
+        work. Lower layers must never call those FastAPI dependency callables.
+        If the endpoint owns the unit of work, pass the concrete
+        ``AsyncSession`` to participating services and repositories; otherwise
+        let the service or repository use this context manager or
+        ``BaseSQLRepository.session()``.
+
+        Each context creates a new ``AsyncSession`` and always closes it. The
+        session borrows a connection lazily from the selected engine's pool;
+        closing the session returns that connection to the pool. Exceptions
+        trigger a rollback. Successful exit does not commit automatically.
 
         Note:
             This context manager does NOT auto-commit. You must explicitly call
@@ -269,9 +285,78 @@ class DatabaseManager:
 db = DatabaseManager()
 
 
-async def get_session(name: str = DEFAULT_DB_NAME) -> AsyncGenerator[AsyncSession, None]:
+def _default_database_name() -> str:
+    """Return the server-controlled database name used by ``Depends(get_session)``."""
+    return DEFAULT_DB_NAME
+
+
+class _RejectDatabaseNameRequestBinding:
+    """Reject attempts to model the server-controlled name as request data.
+
+    FastAPI skips Pydantic field creation while the parameter default is a
+    ``Depends`` instance. A keyword-bound ``partial`` replaces that default,
+    which makes FastAPI build a request field and deliberately reaches this
+    guard during route registration.
     """
-    FastAPI Dependency for obtaining a database session.
+
+    def __get_pydantic_core_schema__(self, _source_type: Any, _handler: Any) -> NoReturn:
+        raise FastAPIError(
+            "partial(get_session, ...) is unsupported for FastAPI dependencies; use session_dependency(name) instead"
+        )
+
+    def __repr__(self) -> str:
+        return "ServerControlledDatabaseName()"
+
+
+class _DefaultDatabaseName(str, DependsParameter):
+    """Act as ``'default'`` to callers and a private dependency to FastAPI.
+
+    The dual role preserves the published direct-call signature and behavior
+    while keeping ``Depends(get_session)`` free of request-controlled input.
+    """
+
+    def __new__(cls, _value: str = DEFAULT_DB_NAME) -> "_DefaultDatabaseName":
+        # ``copy``, ``deepcopy``, and pickle reconstruct ``str`` subclasses by
+        # passing their string value back to ``__new__``.
+        return str.__new__(cls, DEFAULT_DB_NAME)
+
+    def __init__(self, _value: str = DEFAULT_DB_NAME) -> None:
+        DependsParameter.__init__(self, dependency=_default_database_name)
+
+
+_DEFAULT_DATABASE_NAME_PARAMETER = _DefaultDatabaseName()
+_ServerControlledDatabaseName = Annotated[str, _RejectDatabaseNameRequestBinding()]
+
+
+async def get_session(
+    name: _ServerControlledDatabaseName = _DEFAULT_DATABASE_NAME_PARAMETER,
+) -> AsyncGenerator[AsyncSession, None]:
+    """Yield a managed session while preserving the public named-call API.
+
+    At the FastAPI API/DI boundary, use ``Depends(get_session)`` only for the
+    default database. FastAPI resolves ``name`` through a private dependency,
+    so it is not exposed as request input.
+
+    The optional ``name`` argument remains source- and call-compatible with the
+    public API introduced in ZodiacCore 0.7.0, including existing server-side
+    wrapper dependencies that iterate ``get_session("analytics")``. New named
+    FastAPI wiring should use ``session_dependency(name)`` so FastAPI directly
+    manages exception propagation and cleanup. Never use
+    ``partial(get_session, ...)``. Keyword-bound partials are rejected during
+    route registration because FastAPI would otherwise override the bound
+    database name while resolving dependencies.
+
+    Services, repositories, jobs, and CLI commands should not treat this
+    FastAPI-oriented generator as their general session API. If the endpoint
+    owns a unit of work, pass its concrete ``AsyncSession`` to participating
+    lower layers. Otherwise use ``db.session(...)`` or
+    ``BaseSQLRepository.session()`` at the layer that owns the unit of work.
+
+    By default, FastAPI resolves this dependency callable once per request, so
+    repeated uses in that request share one ``AsyncSession``; a later request
+    gets a new session. The session is not a pooled connection: it borrows a
+    connection lazily from the selected engine's pool and returns it during
+    cleanup.
 
     Note:
         This dependency does NOT auto-commit. You must explicitly call
@@ -285,19 +370,72 @@ async def get_session(name: str = DEFAULT_DB_NAME) -> AsyncGenerator[AsyncSessio
             session.add(User(name="test"))
             await session.commit()
             return user
-
-        # Named database — wrap in a thin dependency
-        async def analytics_session():
-            async for s in get_session("analytics"):
-                yield s
-
-        @app.get("/reports")
-        async def get_reports(session: AsyncSession = Depends(analytics_session)):
-            ...
         ```
     """
     async with db.session(name) as session:
         yield session
+
+
+def session_dependency(name: str) -> Callable[[], AsyncGenerator[AsyncSession, None]]:
+    """Create a request-parameter-free dependency bound to a named database.
+
+    This is a FastAPI dependency factory, not a session factory or context
+    manager. Call it once while defining API wiring, then pass the returned
+    callable to ``Depends``. Calling this factory creates neither an
+    ``AsyncSession`` nor a database connection. FastAPI creates the
+    ``AsyncSession`` when it resolves the returned dependency; a pooled
+    connection is normally checked out only when database work begins.
+
+    The database name must be fixed by server-side application code. Never
+    derive it from a query parameter, path parameter, header, request body, or
+    any other request data.
+
+    Do not pass ``session_dependency`` itself to ``Depends``: FastAPI would
+    treat ``name`` as a required request parameter and, if supplied, inject the
+    returned callable instead of an ``AsyncSession``. Do not use
+    ``partial(get_session, ...)``; keyword-bound partials fail during route
+    registration instead of risking a silent connection to the wrong database.
+    Existing server-side wrapper dependencies that iterate
+    ``get_session(name)`` remain source-compatible, but new named FastAPI routes
+    should use this factory for direct exception propagation and cleanup. Do not
+    manually call or iterate the returned dependency from business code; lower
+    layers that own a unit of work use ``db.session(name)`` or
+    ``BaseSQLRepository.session()`` instead.
+
+    Create and store one named dependency at module or router scope. FastAPI
+    dependency caching and ``app.dependency_overrides`` identify dependencies
+    by callable identity, so pass the stored callable everywhere instead of
+    repeatedly calling this factory.
+
+    Args:
+        name: Database name registered with ``db.setup(..., name=name)``.
+
+    Returns:
+        A FastAPI-safe async-generator dependency. By default, FastAPI creates
+        one ``AsyncSession`` for this callable per request; repeated uses of the
+        stored callable share that session. Named dependencies are zero-argument
+        closures. Passing ``DEFAULT_DB_NAME`` returns ``get_session`` itself so
+        default-database dependency caching and overrides remain unified.
+
+    Example:
+        ```python
+        get_analytics_session = session_dependency("analytics")
+
+        @app.get("/reports")
+        async def get_reports(
+            session: AsyncSession = Depends(get_analytics_session),
+        ):
+            ...
+        ```
+    """
+    if name == DEFAULT_DB_NAME:
+        return get_session
+
+    async def get_named_session() -> AsyncGenerator[AsyncSession, None]:
+        async with db.session(name) as session:
+            yield session
+
+    return get_named_session
 
 
 async def init_db_resource(

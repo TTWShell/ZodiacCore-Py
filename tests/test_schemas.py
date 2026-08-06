@@ -1,6 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
-from zodiac_core.schemas import ensure_utc
+import pytest
+from pydantic import BaseModel
+
+from zodiac_core.schemas import UtcDatetime, ensure_utc
+
+
+class UtcDatetimeModel(BaseModel):
+    value: UtcDatetime
 
 
 class TestEnsureUtc:
@@ -26,3 +33,18 @@ class TestEnsureUtc:
         assert ensure_utc(None) is None
         assert ensure_utc(42) == 42
         assert ensure_utc("hello") == "hello"
+
+
+class TestUtcDatetime:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("2026-08-03T12:00:00+09:00", datetime(2026, 8, 3, 3, tzinfo=timezone.utc)),
+            ("2026-08-03T12:00:00", datetime(2026, 8, 3, 12, tzinfo=timezone.utc)),
+        ],
+    )
+    def test_string_input_is_normalized_to_aware_utc(self, value, expected):
+        result = UtcDatetimeModel(value=value).value
+
+        assert result.tzinfo == timezone.utc
+        assert result == expected

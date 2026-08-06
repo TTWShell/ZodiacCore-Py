@@ -27,6 +27,10 @@ class BadRequestException(ZodiacException):
     http_code = status.HTTP_400_BAD_REQUEST
 
 
+# Intentional protocol boundary: translated dependency failures belong to the
+# handled HTTP 400 family so they are not attributed to the current service's
+# 5xx availability. Callers distinguish the upstream source via the structured
+# ``service`` and ``error_code`` fields instead of the HTTP status class.
 class UpstreamServiceException(BadRequestException):
     """Exception raised when an upstream service is unavailable or fails unexpectedly."""
 

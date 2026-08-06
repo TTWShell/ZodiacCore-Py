@@ -6,6 +6,7 @@ from zodiac_core.db.session import (
     get_session,
     init_db_resource,
     manage_session,
+    session_dependency,
 )
 from zodiac_core.db.sql import (
     IntIDMixin,
@@ -25,6 +26,7 @@ __all__ = [
     "get_session",
     "init_db_resource",
     "manage_session",
+    "session_dependency",
     # repository
     "BaseSQLRepository",
     # sql models

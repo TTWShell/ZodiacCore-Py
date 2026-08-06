@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 from aiocache import Cache
+from aiocache.serializers import JsonSerializer, NullSerializer, PickleSerializer, StringSerializer
 
 from zodiac_core.cache import ZodiacCache
 from zodiac_core.cache import manager as cache_manager_module
@@ -173,6 +174,52 @@ class TestZodiacCacheGetOrSet:
         out2 = await zc.get_or_set("k", producer_none)
         assert out2 is None
         assert call_count == 1  # from cache
+
+    @pytest.mark.parametrize(
+        "serializer",
+        [PickleSerializer(), JsonSerializer(), NullSerializer()],
+        ids=["pickle", "json", "null"],
+    )
+    @pytest.mark.asyncio
+    async def test_get_or_set_caches_none_with_supported_serializer(self, serializer):
+        """None should remain cacheable with serializers that Zodiac can preserve."""
+        backend = Cache(namespace=f"cached_none_{type(serializer).__name__}", serializer=serializer)
+        zc = ZodiacCache(backend)
+        call_count = 0
+
+        async def producer_none():
+            nonlocal call_count
+            call_count += 1
+            return None
+
+        assert await zc.get_or_set("k", producer_none) is None
+        assert await zc.get_or_set("k", producer_none) is None
+        assert call_count == 1
+        assert await zc.get("k") is None
+
+    @pytest.mark.asyncio
+    async def test_get_or_set_rejects_cached_none_with_string_serializer(self):
+        """Lossy serializers must fail instead of returning a string for cached None."""
+        backend = Cache(namespace="cached_none_string", serializer=StringSerializer())
+        zc = ZodiacCache(backend)
+
+        async def producer_none():
+            return None
+
+        with pytest.raises(TypeError, match="StringSerializer cannot cache None losslessly"):
+            await zc.get_or_set("k", producer_none)
+
+        assert await zc.exists("k") is False
+
+    @pytest.mark.asyncio
+    async def test_string_serializer_preserves_literal_none(self):
+        """The literal string 'None' must not be treated as a cached None sentinel."""
+        backend = Cache(namespace="literal_none_string", serializer=StringSerializer())
+        zc = ZodiacCache(backend)
+
+        await zc.set("k", "None")
+
+        assert await zc.get("k") == "None"
 
     @pytest.mark.asyncio
     async def test_get_returns_none_after_cached_none(self):

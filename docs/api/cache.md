@@ -199,7 +199,7 @@ class UserSchema:
 ## 5. Exceptions and None
 
 - **Exceptions:** Propagate; nothing is written to the cache.
-- **None:** `@cached` does not store `None` by default; use `skip_cache_func=lambda r: False` to cache it. `get_or_set` without `skip_cache_func` stores all values (including None via internal sentinel).
+- **None:** `@cached` skips `None` by default; pass `skip_cache_func=lambda r: False` only with a serializer that restores `None` losslessly. `StringSerializer` intentionally converts every value to `str`, so `ZodiacCache` rejects caching `None` with it. Use `PickleSerializer`, `JsonSerializer`, or skip `None` with `skip_cache_func=lambda r: r is None`.
 
 ---
 

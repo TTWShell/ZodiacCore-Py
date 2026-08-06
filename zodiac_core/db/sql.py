@@ -27,7 +27,7 @@ class utcnow(expression.FunctionElement):
 
 @compiles(utcnow, "postgresql")
 def pg_utcnow(element, compiler, **kw):
-    return "timezone('utc', now())"
+    return "now()"
 
 
 @compiles(utcnow, "mysql")

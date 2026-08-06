@@ -52,9 +52,25 @@ class ZodiacCache:
         """The underlying aiocache backend instance."""
         return self._backend
 
+    def _loads_cache_value(self, raw_value: Any) -> Any:
+        """Deserialize a backend value while preserving a cached None."""
+        if raw_value is None:
+            return None
+
+        value = self._backend.serializer.loads(raw_value)
+        return _CACHED_NONE if value is None else value
+
+    def _dumps_cached_none(self, value: Any) -> Any:
+        """Serialize None only when the serializer can restore it losslessly."""
+        serializer = self._backend.serializer
+        serialized = serializer.dumps(value)
+        if serialized is not None and serializer.loads(serialized) is not None:
+            raise TypeError(f"{type(serializer).__name__} cannot cache None losslessly")
+        return _CACHED_NONE if serialized is None else serialized
+
     async def _get_raw(self, key: str) -> Any:
-        """Retrieve the raw backend value, including internal sentinels."""
-        return await self._backend.get(key)
+        """Retrieve a value while preserving the internal cached-None sentinel."""
+        return await self._backend.get(key, loads_fn=self._loads_cache_value)
 
     async def get(self, key: str) -> Any:
         """Retrieve a value from the cache."""
@@ -64,8 +80,15 @@ class ZodiacCache:
         return value
 
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
-        """Store a value in the cache with an optional TTL."""
+        """Store a value, rejecting serializers that cannot preserve None."""
         ttl = ttl if ttl is not None else self._default_ttl
+        if value is None:
+            return await self._backend.set(
+                key,
+                value,
+                ttl=ttl,
+                dumps_fn=self._dumps_cached_none,
+            )
         return await self._backend.set(key, value, ttl=ttl)
 
     async def delete(self, key: str) -> bool:
@@ -86,6 +109,8 @@ class ZodiacCache:
     ) -> T:
         """
         Get from cache, or call producer and set on miss with RedLock protection.
+
+        Caching None requires a serializer that can restore it losslessly.
 
         Args:
             key: Cache key.
@@ -112,8 +137,7 @@ class ZodiacCache:
             if skip_cache_func is not None and skip_cache_func(fresh):
                 return fresh
 
-            to_store = _CACHED_NONE if fresh is None else fresh
-            await self.set(key, to_store, ttl=ttl)
+            await self.set(key, fresh, ttl=ttl)
             return fresh
 
     async def close(self) -> None:

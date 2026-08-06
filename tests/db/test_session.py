@@ -1,10 +1,19 @@
+from contextlib import asynccontextmanager
+from copy import deepcopy
+from functools import partial
+from inspect import signature
+from typing import Annotated
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import Depends, FastAPI
+from fastapi.exceptions import FastAPIError
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel
 
+from zodiac_core.db import session_dependency
 from zodiac_core.db.session import (
     DEFAULT_DB_NAME,
     DatabaseManager,
@@ -223,7 +232,7 @@ class TestDependencyIntegration:
     @pytest.mark.parametrize("name, url, connect_args", DB_URLS)
     @pytest.mark.asyncio
     async def test_get_session_fastapi_dependency(self, name, url, connect_args):
-        """Verify FastAPI get_session dependency works across different DBs."""
+        """Verify the default dependency works across supported backends."""
         if db._engines:
             await db.shutdown()
 
@@ -238,21 +247,27 @@ class TestDependencyIntegration:
             await db.shutdown()
 
     @pytest.mark.asyncio
-    async def test_get_session_named(self):
-        """Verify get_session(name) returns sessions from the correct named engine."""
+    async def test_named_session_dependencies_use_their_named_engines(self):
+        """Named dependencies resolve only against their server-bound engines."""
         if db._engines:
             await db.shutdown()
 
+        primary_dependency = session_dependency("primary")
+        analytics_dependency = session_dependency("analytics")
+
+        # Dependencies may be declared while routes are imported, before the
+        # application lifespan configures its engines.
         db.setup("sqlite+aiosqlite:///:memory:", name="primary")
         db.setup("sqlite+aiosqlite:///:memory:", name="analytics")
 
-        gen_p = get_session("primary")
-        gen_a = get_session("analytics")
+        gen_p = primary_dependency()
+        gen_a = analytics_dependency()
         try:
             session_p = await anext(gen_p)
             session_a = await anext(gen_a)
             assert isinstance(session_p, AsyncSession)
             assert isinstance(session_a, AsyncSession)
+            assert session_p is not session_a
             assert session_p.bind is db.get_engine("primary")
             assert session_a.bind is db.get_engine("analytics")
         finally:
@@ -261,8 +276,228 @@ class TestDependencyIntegration:
             await db.shutdown()
 
     @pytest.mark.asyncio
-    async def test_get_session_unknown_name_raises(self):
-        """Verify get_session with an unconfigured name raises RuntimeError."""
+    async def test_get_session_named_calls_remain_compatible(self):
+        """The public get_session(name) API must keep selecting named engines."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:", name="primary")
+        db.setup("sqlite+aiosqlite:///:memory:", name="analytics")
+
+        primary_generator = get_session("primary")
+        analytics_generator = get_session(name="analytics")
+        try:
+            primary_session = await anext(primary_generator)
+            analytics_session = await anext(analytics_generator)
+            assert primary_session.bind is db.get_engine("primary")
+            assert analytics_session.bind is db.get_engine("analytics")
+        finally:
+            await primary_generator.aclose()
+            await analytics_generator.aclose()
+            await db.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_get_session_does_not_expose_database_name_to_fastapi(self):
+        """Database selection must not become a client-controlled query parameter."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:")
+        db.setup("sqlite+aiosqlite:///:memory:", name="analytics")
+        app = FastAPI()
+
+        @app.get("/items")
+        async def list_items(session: Annotated[AsyncSession, Depends(get_session)]):
+            return {"uses_default": session.bind is db.engine}
+
+        try:
+            operation = app.openapi()["paths"]["/items"]["get"]
+            assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get("/items", params={"name": "analytics"})
+
+            assert response.status_code == 200
+            assert response.json() == {"uses_default": True}
+        finally:
+            await db.shutdown()
+
+    def test_session_dependency_signatures_preserve_the_public_api(self):
+        """Introspection stays truthful without exposing a request selector."""
+        analytics_session = session_dependency("analytics")
+
+        assert not signature(analytics_session).parameters
+        get_session_parameters = signature(get_session).parameters
+        assert list(get_session_parameters) == ["name"]
+        assert get_session_parameters["name"].default == DEFAULT_DB_NAME
+        copied_default = deepcopy(get_session_parameters["name"].default)
+        assert copied_default == DEFAULT_DB_NAME
+        assert copied_default.dependency() == DEFAULT_DB_NAME
+        assert "ServerControlledDatabaseName()" in repr(get_session_parameters["name"].annotation)
+        assert "__signature__" not in vars(get_session)
+        assert session_dependency(DEFAULT_DB_NAME) is get_session
+
+        assert not signature(partial(get_session, "analytics")).parameters
+        keyword_partial_parameters = signature(partial(get_session, name="analytics")).parameters
+        assert keyword_partial_parameters["name"].default == "analytics"
+
+        app = FastAPI()
+
+        @app.get("/reports")
+        async def list_reports(session: Annotated[AsyncSession, Depends(analytics_session)]):
+            return {"ok": True}
+
+        operation = app.openapi()["paths"]["/reports"]["get"]
+        assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
+
+    def test_keyword_partial_get_session_fails_during_route_registration(self):
+        """An unsupported keyword partial must never silently select default."""
+        analytics_session = partial(get_session, name="analytics")
+        app = FastAPI()
+
+        with pytest.raises(FastAPIError, match=r"partial\(get_session, \.\.\.\).*session_dependency"):
+
+            @app.get("/partial-reports")
+            async def list_reports(session: Annotated[AsyncSession, Depends(analytics_session)]):
+                return {"session": session}
+
+    @pytest.mark.asyncio
+    async def test_legacy_named_wrapper_remains_server_controlled(self):
+        """The documented 0.7.0 wrapper stays compatible and request-safe."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:")
+        db.setup("sqlite+aiosqlite:///:memory:", name="analytics")
+
+        async def legacy_analytics_session():
+            async for session in get_session("analytics"):
+                yield session
+
+        app = FastAPI()
+
+        @app.get("/legacy-reports")
+        async def list_reports(session: Annotated[AsyncSession, Depends(legacy_analytics_session)]):
+            return {"uses_analytics": session.bind is db.get_engine("analytics")}
+
+        try:
+            operation = app.openapi()["paths"]["/legacy-reports"]["get"]
+            assert all(parameter["name"] != "name" for parameter in operation.get("parameters", []))
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get("/legacy-reports", params={"name": "default"})
+
+            assert response.status_code == 200
+            assert response.json() == {"uses_analytics": True}
+        finally:
+            await db.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_named_session_dependency_supports_stored_callable_overrides(self):
+        """Overrides target the same callable stored by route wiring."""
+        analytics_session = session_dependency("analytics")
+        override_session = MagicMock(spec=AsyncSession)
+
+        async def override_analytics_session():
+            yield override_session
+
+        app = FastAPI()
+
+        @app.get("/overridden-reports")
+        async def list_reports(session: Annotated[AsyncSession, Depends(analytics_session)]):
+            return {"overridden": session is override_session}
+
+        app.dependency_overrides[analytics_session] = override_analytics_session
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/overridden-reports")
+
+        assert response.status_code == 200
+        assert response.json() == {"overridden": True}
+
+    @pytest.mark.asyncio
+    async def test_named_session_dependency_cleans_up_endpoint_errors(self, monkeypatch):
+        """Endpoint exceptions pass through the dependency before response end."""
+        events: list[str] = []
+
+        @asynccontextmanager
+        async def tracked_session(name=DEFAULT_DB_NAME):
+            assert name == "analytics"
+            events.append("open")
+            try:
+                yield MagicMock(spec=AsyncSession)
+            except RuntimeError:
+                events.append("rollback")
+                raise
+            finally:
+                events.append("close")
+
+        monkeypatch.setattr(db, "session", tracked_session)
+        analytics_session = session_dependency("analytics")
+        app = FastAPI()
+
+        @app.get("/failing-reports")
+        async def failing_reports(_session: Annotated[AsyncSession, Depends(analytics_session)]):
+            raise RuntimeError("endpoint failed")
+
+        transport = ASGITransport(app=app, raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/failing-reports")
+
+        assert response.status_code == 500
+        assert events == ["open", "rollback", "close"]
+
+    @pytest.mark.asyncio
+    async def test_named_session_dependency_uses_bound_database(self):
+        """FastAPI must not override the database bound by a named dependency."""
+        if db._engines:
+            await db.shutdown()
+
+        db.setup("sqlite+aiosqlite:///:memory:")
+        db.setup("sqlite+aiosqlite:///:memory:", name="analytics")
+        analytics_session = session_dependency("analytics")
+        resolved_sessions: list[AsyncSession] = []
+        app = FastAPI()
+
+        @app.get("/reports")
+        async def list_reports(
+            session: Annotated[AsyncSession, Depends(analytics_session)],
+            same_session: Annotated[AsyncSession, Depends(analytics_session)],
+        ):
+            resolved_sessions.append(session)
+            return {
+                "uses_analytics": session.bind is db.get_engine("analytics"),
+                "reused_in_request": session is same_session,
+            }
+
+        try:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                first = await client.get("/reports", params={"name": "default"})
+                second = await client.get("/reports", params={"name": "default"})
+
+            assert first.status_code == 200
+            assert first.json() == {"uses_analytics": True, "reused_in_request": True}
+            assert second.status_code == 200
+            assert second.json() == {"uses_analytics": True, "reused_in_request": True}
+            assert resolved_sessions[0] is not resolved_sessions[1]
+        finally:
+            await db.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_session_dependency_unknown_name_raises_on_resolution(self):
+        """A named dependency looks up its engine only when it is resolved."""
+        if db._engines:
+            await db.shutdown()
+
+        dependency = session_dependency("nonexistent")
+        gen = dependency()
+        with pytest.raises(RuntimeError, match="not initialized"):
+            await anext(gen)
+        await gen.aclose()
+
+    @pytest.mark.asyncio
+    async def test_get_session_unknown_name_compatibility_raises_on_resolution(self):
+        """The compatible named-call API keeps its unknown-database error."""
         if db._engines:
             await db.shutdown()
 

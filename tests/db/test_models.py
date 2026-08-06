@@ -82,3 +82,28 @@ class TestModelPersistence:
             assert user.id is not None
             assert user.created_at is not None
             assert user.updated_at is not None
+
+    @pytest.mark.asyncio
+    async def test_postgresql_server_defaults_preserve_current_instant_in_non_utc_session(self):
+        """PostgreSQL timestamptz defaults must not reinterpret UTC wall time as local time."""
+        from sqlalchemy import text
+
+        url, connect_args = next((url, connect_args) for name, url, connect_args in DB_URLS if name == "postgresql")
+
+        async with managed_db_session(url, connect_args) as (_, session):
+            await session.execute(text("SET LOCAL TIME ZONE 'Asia/Tokyo'"))
+            result = await session.execute(
+                text(
+                    """
+                    INSERT INTO test_concrete_int_user (name)
+                    VALUES ('Non-UTC Raw SQL User')
+                    RETURNING
+                        EXTRACT(EPOCH FROM (created_at - CURRENT_TIMESTAMP)),
+                        EXTRACT(EPOCH FROM (updated_at - CURRENT_TIMESTAMP))
+                    """
+                )
+            )
+            created_at_offset, updated_at_offset = result.one()
+
+            assert abs(created_at_offset) < 1
+            assert abs(updated_at_offset) < 1

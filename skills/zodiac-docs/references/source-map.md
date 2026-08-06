@@ -10,7 +10,7 @@ show observable contracts, and templates show generated output.
 | Configuration and environments | `docs/api/config.md` | `zodiac_core/config.py` | `tests/test_config.py`; `load_config`, `APPLICATION_ENVIRONMENT` |
 | Request context and HTTP clients | `docs/api/context.md` | `zodiac_core/context.py`, `zodiac_core/http.py` | `tests/test_http.py`, `tests/test_middleware.py`; `request_id`, `ZodiacClient` |
 | Cache and `@cached` | `docs/api/cache.md` | `zodiac_core/cache/decorators.py`, `zodiac_core/cache/manager.py` | `tests/cache/test_cached.py`, `tests/cache/test_manager.py`; `lease`, `include_self`, `key_builder` |
-| Database and repositories | `docs/api/db.md` | `zodiac_core/db/` | `tests/db/`; `DatabaseManager`, `Repository`, `paginate_query` |
+| Database and repositories | `docs/api/db.md` | `zodiac_core/db/` | `tests/db/`; `DatabaseManager`, `get_session`, `session_dependency`, `db.session`, `Repository`, `paginate_query` |
 | Exceptions and upstream errors | `docs/api/exceptions.md` | `zodiac_core/exceptions.py`, `zodiac_core/exception_handlers.py` | `tests/test_exceptions.py`, `tests/test_exception_handlers.py`; `translate_upstream_errors` |
 | Logging | `docs/api/logging.md` | `zodiac_core/logging.py` | `tests/test_logging.py`; `setup_loguru`, `json_format`, `exception` |
 | Middleware | `docs/api/middleware.md` | `zodiac_core/middleware.py` | `tests/test_middleware.py`, `tests/multi_app/`; `register_middleware`, `exclude_paths` |

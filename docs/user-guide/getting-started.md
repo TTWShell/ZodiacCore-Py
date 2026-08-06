@@ -203,7 +203,7 @@ does not create a local `data.db` file.
 
 ## 5. Standard Response Wrapper
 
-When you use Zodiac's `APIRouter`, **all** successful responses are automatically wrapped in a standard structure:
+When you use Zodiac's `APIRouter`, successful responses with a body are wrapped in a standard structure by default:
 
 ```python
 @router.get("/items/{item_id}")
@@ -222,6 +222,8 @@ The resulting JSON will be:
   }
 }
 ```
+
+`response_model=None` keeps the standard envelope and uses an unconstrained `data` field. Return an actual FastAPI/Starlette response object to bypass wrapping. Status codes without a response body (`1xx`, `204`, `205`, and `304`) also bypass the envelope. See [Routing & Response Wrapping](../api/routing.md) for the complete behavior.
 
 ## 6. Handling Exceptions
 
