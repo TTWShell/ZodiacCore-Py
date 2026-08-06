@@ -289,6 +289,23 @@ class TestFastAPIRouterCompatibility:
         ]
         assert response_schema == {}
 
+    def test_annotated_zodiac_response_model_is_not_double_wrapped(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/wrapped", response_model=Annotated[Response[User], "metadata"])
+        async def get_wrapped_user():
+            return Response(data=User(id=1, name="Wrapped"))
+
+        app.include_router(router)
+        response = TestClient(app).get("/wrapped")
+
+        assert response.json() == {
+            "code": 0,
+            "data": {"id": 1, "name": "Wrapped"},
+            "message": "Success",
+        }
+
     @pytest.mark.parametrize("status_code", [199, 204, 205, 304])
     def test_bodyless_status_code_skips_envelope(self, status_code):
         app = FastAPI()
@@ -552,6 +569,28 @@ class TestFastAPIStreamingCompatibility:
             {"id": 2, "name": "Second"},
         ]
 
+    def test_generator_with_non_generator_wrapped_metadata_uses_fastapi_jsonl_streaming(self):
+        def metadata_source() -> Iterator[User]:
+            return iter(())
+
+        @wraps(metadata_source)
+        def stream_users() -> Iterator[User]:
+            yield User(id=1, name="First")
+            yield User(id=2, name="Second")
+
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+        router.add_api_route("/users", partial(stream_users), methods=["GET"])
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("application/jsonl")
+        assert [json.loads(line) for line in response.content.splitlines()] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
     @pytest.mark.skipif(EventSourceResponse is None, reason="installed FastAPI has no SSE support")
     def test_sync_generator_uses_fastapi_sse_streaming(self):
         app = FastAPI()
@@ -595,7 +634,7 @@ class TestRoutingInternalLogic:
     """Unit tests for internal routing logic to ensure 100% code coverage."""
 
     def test_should_wrap_logic(self):
-        """Covers lines 65, 69-70 in zodiac_core/routing.py."""
+        """Response envelopes, including Annotated models, are not wrapped twice."""
 
         class MyResponse(Response):
             pass
@@ -608,8 +647,12 @@ class TestRoutingInternalLogic:
         assert ZodiacRoute._should_wrap(Response) is False
         assert ZodiacRoute._should_wrap(MyResponse) is False
 
-        # 3. Response[T] generic (Line 65)
+        # 3. Generic and Annotated response envelopes
         assert ZodiacRoute._should_wrap(Response[User]) is False
+        assert ZodiacRoute._should_wrap(Annotated[Response[User], "metadata"]) is False
 
-        # 4. Union types (Lines 69-70: TypeError in issubclass)
+        # 4. Union types
         assert ZodiacRoute._should_wrap(Union[User, None]) is True
+
+        # Callable classes are not generator endpoints until instantiated.
+        assert ZodiacRoute._is_generator_callable(User) is False

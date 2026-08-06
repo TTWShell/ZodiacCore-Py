@@ -91,19 +91,8 @@ class ZodiacRoute(APIRoute):
     @staticmethod
     def _should_wrap(model: Any) -> bool:
         """Check if a model needs to be wrapped with Response[T]."""
-        if model is None:
-            return False
-        if model is Any:
-            return True
-        origin = get_origin(model)
-        if origin is Response:
-            return False
-        try:
-            if isinstance(model, type) and issubclass(model, Response):
-                return False
-        except TypeError:
-            pass
-        return True
+        model = _unwrap_annotated(model)
+        return model is not None and not lenient_issubclass(model, Response)
 
     @staticmethod
     def _wrap_response_model(model: Any) -> type[Response]:
@@ -112,30 +101,29 @@ class ZodiacRoute(APIRoute):
 
     @staticmethod
     def _unwrap_callable(endpoint: Callable[..., Any]) -> Callable[..., Any]:
-        """Strip nested partials and decorators from a callable."""
-        previous = None
-        while endpoint is not previous:
-            previous = endpoint
-            while isinstance(endpoint, partial):
-                endpoint = endpoint.func
-            endpoint = inspect.unwrap(endpoint)
-        return endpoint
+        """Strip partial application and decorator metadata from a callable."""
+        while isinstance(endpoint, partial):
+            endpoint = endpoint.func
+        return inspect.unwrap(endpoint)
 
     @staticmethod
     def _is_generator_callable(endpoint: Callable[..., Any]) -> bool:
         """Return whether a function or callable object produces a generator."""
+
+        def is_generator(candidate: Any) -> bool:
+            return inspect.isgeneratorfunction(candidate) or inspect.isasyncgenfunction(candidate)
+
         unwrapped_endpoint = ZodiacRoute._unwrap_callable(endpoint)
-        if inspect.isgeneratorfunction(unwrapped_endpoint) or inspect.isasyncgenfunction(unwrapped_endpoint):
+        candidates = (endpoint, unwrapped_endpoint)
+        if any(is_generator(candidate) for candidate in candidates):
             return True
         if inspect.isclass(unwrapped_endpoint):
             return False
-        for candidate in (endpoint, unwrapped_endpoint):
-            if not callable(candidate):
-                continue
-            call = candidate.__call__
-            unwrapped_call = ZodiacRoute._unwrap_callable(call)
-            if inspect.isgeneratorfunction(unwrapped_call) or inspect.isasyncgenfunction(unwrapped_call):
-                return True
+        for candidate in candidates:
+            if callable(candidate):
+                call = candidate.__call__
+                if is_generator(call) or is_generator(ZodiacRoute._unwrap_callable(call)):
+                    return True
         return False
 
     @staticmethod
