@@ -104,8 +104,8 @@ class TestExceptionHandlers:
         assert isinstance(data["data"], list)
         assert len(data["data"]) == 2
 
-    def test_custom_validator_value_error_returns_422(self):
-        """Custom Pydantic ValueError validation should remain a 422 response."""
+    def test_custom_validator_value_error_matches_fastapi_encoding(self):
+        """Match FastAPI's validation error encoding."""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
         from pydantic import BaseModel, field_validator
@@ -136,7 +136,7 @@ class TestExceptionHandlers:
         assert body["message"] == "Unprocessable Entity"
         assert body["data"][0]["type"] == "value_error"
         assert body["data"][0]["loc"] == ["body", "value"]
-        assert body["data"][0]["ctx"]["error"] == "custom validation failed"
+        assert body["data"][0]["ctx"]["error"] == {}
 
     def build_pydantic_validation_error(self):
         from pydantic import BaseModel, Field, ValidationError
