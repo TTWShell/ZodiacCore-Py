@@ -264,6 +264,8 @@ Search for:
 - `db.setup`
 - `BaseSQLRepository`
 - `get_session`
+- `session_dependency`
+- `db.session`
 - `init_db_resource`
 - `IntIDModel`, `UUIDModel`
 
@@ -281,6 +283,37 @@ Best practices:
 - Initialize `db.setup(...)` in application lifecycle.
 - Explicitly `await session.commit()`; sessions do not auto-commit.
 - Use named databases only when a service truly needs more than one DB.
+- Do not add a route session dependency merely because a route eventually
+  calls a repository. `BaseSQLRepository` already owns its sessions by
+  default. Only when the route deliberately owns a shared unit of work or
+  performs database work directly, use `Depends(get_session)` for the default
+  database or bind a named database once at module or router scope with
+  `get_analytics_session = session_dependency("analytics")` and pass that
+  stored zero-argument callable to `Depends`.
+- Treat database names as trusted application wiring. Never derive them from
+  query, path, header, body, or other request data.
+- Treat a server-controlled `get_session(name)` call inside an existing
+  zero-argument wrapper dependency as source-compatible behavior. Do not break
+  it merely because it is old; recommend migrating touched routes and writing
+  new named route wiring with `session_dependency(name)` so FastAPI directly
+  manages rollback and cleanup.
+- Flag every `partial(get_session, ...)` form and
+  `Depends(session_dependency)` as incorrect. Replace partials with
+  `session_dependency(name)`; keyword-bound partials fail during route
+  registration because FastAPI would otherwise override their database name.
+  Passing the factory itself treats `name` as a required client parameter and,
+  if supplied, injects a dependency callable instead of an `AsyncSession`.
+- FastAPI dependencies are API/DI-boundary APIs, not general-purpose session
+  APIs. Lower layers must never call dependency callables. If the API owns the
+  unit of work, pass the concrete injected `AsyncSession` to participating
+  services and repositories. Otherwise preserve repository-owned
+  `self.session()` or use `db.session(name)` in the service, job, CLI command,
+  startup task, or other unit-of-work owner.
+- By default, FastAPI creates one `AsyncSession` per stored dependency callable
+  per request; repeated uses of the callable in that request share the session,
+  and a later request gets a new one. Every `db.session(...)` context creates
+  its own session. Engines and pools are shared per registered database name.
+  Never share a session across requests or concurrent tasks.
 - Use Alembic for production migrations; keep `db.create_all()` for development
   or generated-project smoke tests.
 

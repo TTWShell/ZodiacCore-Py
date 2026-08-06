@@ -50,6 +50,32 @@ project-level contract for Codex agent work.
 - Shared resources use the default database/cache names. If a sub-application
   adds its own resource, register it with an explicit `name` and bind
   repositories or cache calls to that same name.
+- Do not add a route session dependency merely because a route eventually
+  calls a repository. Generated repositories already own their sessions via
+  `BaseSQLRepository.session()` and bind named databases with `db_name`.
+- Only when a FastAPI route deliberately owns a shared unit of work or performs
+  database work directly, use `Depends(get_session)` for the default database
+  or create one module-level callable with `session_dependency("name")` for a
+  named database and pass that stored callable to `Depends`.
+- `get_session(name)` remains source-compatible for existing server-side
+  wrapper dependencies. Do not break a fixed-name wrapper merely because it is
+  old, but migrate touched routes and generate new named route wiring with
+  `session_dependency(name)` so FastAPI directly manages rollback and cleanup.
+- Treat every `partial(get_session, ...)` form as unsupported and replace it
+  with `session_dependency(name)`. Keyword-bound partials fail during route
+  registration instead of silently selecting the wrong database. Never pass
+  `session_dependency` itself to `Depends`. Never choose a database name from
+  query, path, header, body, or other request data.
+- FastAPI session dependency callables belong only in API wiring; lower layers
+  must never call them. If the route owns the unit of work, pass the concrete
+  injected `AsyncSession` to participating lower layers. Otherwise preserve
+  the repository-owned `self.session()` pattern. Jobs, CLI commands, startup
+  tasks, and other owners outside FastAPI should use `db.session(name)`.
+- By default, FastAPI creates one `AsyncSession` per stored dependency callable
+  per request; repeated uses of that callable in one request share the session,
+  while a later request gets a new one. Every `db.session(...)` context creates
+  its own session. Named engines and connection pools are shared. Never share
+  a session across requests or concurrent tasks.
 - Do not use bare `db.shutdown()` or `cache.shutdown()` inside sub-applications.
   Use `db.shutdown(name="...")` and `cache.shutdown(name="...")` only for
   resources created by that sub-application.

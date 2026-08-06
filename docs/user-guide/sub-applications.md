@@ -112,6 +112,48 @@ class OrderRepository(BaseSQLRepository):
         super().__init__(db_name="orders")
 ```
 
+Generated repositories already own their sessions through
+`BaseSQLRepository.session()` and bind them with `db_name`, so their routes do
+not need a session dependency. Only when a route deliberately owns a shared
+unit of work or performs database work directly should it bind a named session
+once in server-side router wiring:
+
+```python
+from typing import Annotated
+
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from zodiac_core.db import session_dependency
+
+
+get_orders_session = session_dependency("orders")
+
+
+@router.get("/")
+async def list_orders(
+    session: Annotated[AsyncSession, Depends(get_orders_session)],
+):
+    ...
+```
+
+All `partial(get_session, ...)` forms are unsupported; keyword-bound partials
+fail during route registration instead of silently selecting the wrong
+database. Use `session_dependency("orders")` instead. Do not pass
+`session_dependency` itself to `Depends` or derive a database name from request
+data. Lower layers must never call a FastAPI dependency. If the route owns a
+unit of work, it may pass the concrete `AsyncSession` to participating services
+and repositories; otherwise the existing repository-owned `self.session()`
+pattern remains correct. Jobs and other non-FastAPI unit-of-work owners should
+use `async with db.session("orders")`. See
+[Choosing a Session API](../api/db.md#4-choosing-a-session-api) for the full
+boundary.
+
+Existing server-side wrapper dependencies that call `get_session("orders")`
+remain source-compatible. Preserve them when compatibility requires it, but
+migrate touched routes and generate new named route dependencies with
+`session_dependency("orders")` so FastAPI directly manages rollback and
+cleanup.
+
 !!! info "Idempotent"
     Calling `db.setup()` again with the same `name` and identical configuration
     is harmless.  Different configuration for an existing name raises
@@ -161,5 +203,6 @@ they created, rather than relying on a bare `shutdown()`.
 | Middleware (trace / access log) | `register_middleware(app)` | Each sub-app |
 | Database (shared) | `db.setup(url)` | Entry point or lifespan |
 | Database (per-app) | `db.setup(url, name="...")` | Sub-app lifespan or entry point |
+| Route session (named DB) | `get_named_session = session_dependency("...")` | Module or router wiring |
 | Cache (shared) | `cache.setup(prefix="...")` | Entry point or lifespan |
 | Cache (per-app) | `cache.setup(prefix="...", name="...")` | Sub-app lifespan or entry point |

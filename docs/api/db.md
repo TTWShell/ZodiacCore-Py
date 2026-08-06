@@ -86,7 +86,141 @@ If you register multiple named databases or share the global `db` across multipl
 
 ---
 
-## 4. Working with Repositories
+## 4. Choosing a Session API
+
+The session APIs are intentionally not interchangeable. Choose the API from
+the call site that owns the session lifecycle:
+
+| Call site | Use |
+| :--- | :--- |
+| FastAPI endpoint owns a unit of work on the default database | `Depends(get_session)` |
+| FastAPI endpoint owns a unit of work on a named database | A module-level dependency created by `session_dependency(name)` |
+| Lower layer participates in an endpoint-owned unit of work | Accept the concrete `AsyncSession` from its caller |
+| Service, repository, job, CLI, or startup task owns the unit of work | `BaseSQLRepository.session()` or `async with db.session(name)` |
+
+!!! warning "FastAPI dependencies are not general session APIs"
+    `get_session` retains its optional `name` argument for compatibility with
+    ZodiacCore 0.7.0. When FastAPI resolves `Depends(get_session)`, however,
+    the name comes from private server-side wiring and always selects the
+    default database; it is never read from the request.
+
+    For new named routes, call `session_dependency(name)` once at module or
+    router scope and pass the stored callable to `Depends`. Existing
+    server-side wrapper dependencies that iterate `get_session(name)` remain
+    source-compatible. Migrate them when touched so FastAPI can propagate
+    endpoint exceptions directly through rollback and cleanup. All
+    `partial(get_session, ...)` forms are unsupported; replace them with
+    `session_dependency(name)`. In particular, a keyword-bound partial is
+    rejected while the route is registered instead of silently selecting the
+    wrong database. Never pass `session_dependency` itself to `Depends`;
+    FastAPI would treat its `name` as a required request parameter and, if
+    supplied, inject a callable instead of an `AsyncSession`.
+
+    A database name is trusted application wiring. Never derive it from a
+    query parameter, path parameter, header, request body, or other request
+    data.
+
+    FastAPI dependencies are needed only when the endpoint deliberately owns
+    the unit of work or performs database work directly. If it owns the unit of
+    work, pass the concrete injected session to participating lower layers. If
+    a service or repository owns the unit of work, it should use
+    `db.session(name)` or `BaseSQLRepository.session()` instead.
+
+### Default Database in FastAPI
+
+```python
+from typing import Annotated
+
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from zodiac_core.db import get_session
+
+
+@app.get("/users")
+async def list_users(
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ...
+```
+
+### Named Database in FastAPI
+
+Create the dependency while defining the router. This only binds a trusted
+name; it does not create a session or acquire a connection. The engine may be
+registered later during application lifespan. Store and reuse the returned
+callable: FastAPI's dependency cache and `app.dependency_overrides` identify it
+by callable identity. By default, repeated uses of that stored callable within
+one request share one session; a later request receives a new session. Passing
+`DEFAULT_DB_NAME` returns `get_session`; ordinary default-database routes should
+use `get_session` directly.
+
+```python
+from typing import Annotated
+
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from zodiac_core.db import session_dependency
+
+
+get_analytics_session = session_dependency("analytics")
+
+
+@app.get("/reports")
+async def list_reports(
+    session: Annotated[AsyncSession, Depends(get_analytics_session)],
+):
+    ...
+```
+
+### Compatibility with `get_session(name)`
+
+The named-call API published in ZodiacCore 0.7.0 remains source- and
+call-compatible, including existing zero-argument wrapper dependencies:
+
+```python
+async def legacy_analytics_session():
+    async for session in get_session("analytics"):
+        yield session
+```
+
+The name in this example is fixed by server code and cannot be replaced by a
+request parameter. Preserve the wrapper when compatibility requires it, but
+migrate touched routes and write new routes with
+`session_dependency("analytics")`; the returned dependency lets FastAPI
+propagate endpoint exceptions directly through session rollback and cleanup.
+Do not replace the wrapper with `partial(get_session, ...)`; every partial form
+is unsupported. A keyword-bound partial is rejected during route registration
+because FastAPI dependency resolution would otherwise override its database
+name. Use `session_dependency("analytics")` instead.
+
+For code outside FastAPI that owns a unit of work, use the context manager
+directly:
+
+```python
+from zodiac_core.db import db
+
+
+async def rebuild_reports() -> None:
+    async with db.session("analytics") as session:
+        ...
+        await session.commit()
+```
+
+Do not add a route session dependency merely because the route eventually
+calls a repository. A `BaseSQLRepository` already owns its sessions by default;
+use a route dependency only when the route intentionally owns a shared unit of
+work or performs database work directly.
+
+`db.setup()` creates one long-lived engine, connection pool, and
+`async_sessionmaker` for each named database. An `AsyncSession` is not kept in
+the connection pool: every dependency execution or `db.session(...)` context
+creates a new session. It normally borrows a connection lazily and returns it
+when the session closes. Never share an `AsyncSession` across requests or
+concurrent tasks.
+
+---
+
+## 5. Working with Repositories
 
 Inherit from `BaseSQLRepository` to create your data access layer.
 
@@ -114,7 +248,7 @@ class UserRepository(BaseSQLRepository):
 
 ---
 
-## 5. Multi-Database Support
+## 6. Multi-Database Support
 
 ZodiacCore supports multiple database connections simultaneously. This is essential for architectures involving:
 
@@ -169,7 +303,7 @@ class ReadOnlyUserRepository(BaseSQLRepository):
 
 ---
 
-## 6. API Reference
+## 7. API Reference
 
 ### Session & Lifecycle
 ::: zodiac_core.db.session
@@ -181,6 +315,7 @@ class ReadOnlyUserRepository(BaseSQLRepository):
         - DEFAULT_DB_NAME
         - db
         - get_session
+        - session_dependency
         - init_db_resource
 
 ### Repository Base
