@@ -1,18 +1,21 @@
 import inspect
-from functools import wraps
+from functools import partial, wraps
 from typing import Annotated, Any, Callable, Dict, Optional, Union, get_args, get_origin
 
 from fastapi import APIRouter as FastAPIRouter
 from fastapi import Response as FastAPIResponse
 from fastapi._compat import lenient_issubclass
 from fastapi.datastructures import Default, DefaultPlaceholder  # FastAPI internal, requires >=0.128.0
+from fastapi.dependencies import utils as fastapi_dependency_utils
 from fastapi.dependencies.utils import get_typed_return_annotation
+from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
 from fastapi.utils import is_body_allowed_for_status_code
 
 from zodiac_core.response import Response
 
 _DEFAULT_RESPONSE_MODEL = Default(None)
+_SUPPORTS_YIELD_STREAMING = hasattr(fastapi_dependency_utils, "get_stream_item_type")
 
 
 def _unwrap_annotated(annotation: Any) -> Any:
@@ -47,19 +50,21 @@ class ZodiacRoute(APIRoute):
         return_annotation = get_typed_return_annotation(endpoint)
         raw_return_annotation = _unwrap_annotated(return_annotation)
         returns_raw_response = lenient_issubclass(raw_return_annotation, FastAPIResponse)
+        is_streaming_endpoint = self._is_streaming_endpoint(endpoint, kwargs.get("response_class"))
 
-        if response_model_is_default:
-            if returns_raw_response:
-                response_model = None
-            elif return_annotation is None:
-                response_model = Any if body_allowed else None
-            else:
-                response_model = return_annotation
-        elif response_model is None and body_allowed and not returns_raw_response:
-            response_model = Any
+        if not is_streaming_endpoint:
+            if response_model_is_default:
+                if returns_raw_response:
+                    response_model = None
+                elif return_annotation is None:
+                    response_model = Any if body_allowed else None
+                else:
+                    response_model = return_annotation
+            elif response_model is None and body_allowed and not returns_raw_response:
+                response_model = Any
 
         # 1. Wrap the inferred or explicit main response model.
-        if self._should_wrap(response_model):
+        if not is_streaming_endpoint and self._should_wrap(response_model):
             response_model = self._wrap_response_model(response_model)
 
         # 2. Wrap additional responses (e.g. 400, 404 models)
@@ -70,9 +75,9 @@ class ZodiacRoute(APIRoute):
                 if "model" in res and self._should_wrap(res["model"]):
                     res["model"] = self._wrap_response_model(res["model"])
 
-        # 3. Body-bearing endpoints always apply the runtime wrapper. The result
-        # check passes actual FastAPI/Starlette Response objects through unchanged.
-        if body_allowed:
+        # 3. Non-streaming body-bearing endpoints apply the runtime wrapper. The
+        # result check passes actual FastAPI/Starlette Response objects through.
+        if body_allowed and not is_streaming_endpoint:
             endpoint = self._wrap_endpoint(endpoint)
 
         super().__init__(
@@ -104,6 +109,43 @@ class ZodiacRoute(APIRoute):
     def _wrap_response_model(model: Any) -> type[Response]:
         """Wrap a model type with Response[T] using Pydantic's native generics."""
         return Response[model]
+
+    @staticmethod
+    def _unwrap_callable(endpoint: Callable[..., Any]) -> Callable[..., Any]:
+        """Strip nested partials and decorators from a callable."""
+        previous = None
+        while endpoint is not previous:
+            previous = endpoint
+            while isinstance(endpoint, partial):
+                endpoint = endpoint.func
+            endpoint = inspect.unwrap(endpoint)
+        return endpoint
+
+    @staticmethod
+    def _is_generator_callable(endpoint: Callable[..., Any]) -> bool:
+        """Return whether a function or callable object produces a generator."""
+        unwrapped_endpoint = ZodiacRoute._unwrap_callable(endpoint)
+        if inspect.isgeneratorfunction(unwrapped_endpoint) or inspect.isasyncgenfunction(unwrapped_endpoint):
+            return True
+        if inspect.isclass(unwrapped_endpoint):
+            return False
+        for candidate in (endpoint, unwrapped_endpoint):
+            if not callable(candidate):
+                continue
+            call = candidate.__call__
+            unwrapped_call = ZodiacRoute._unwrap_callable(call)
+            if inspect.isgeneratorfunction(unwrapped_call) or inspect.isasyncgenfunction(unwrapped_call):
+                return True
+        return False
+
+    @staticmethod
+    def _is_streaming_endpoint(endpoint: Callable[..., Any], response_class: Any) -> bool:
+        """Return whether FastAPI must retain control of the endpoint's stream."""
+        if _SUPPORTS_YIELD_STREAMING and ZodiacRoute._is_generator_callable(endpoint):
+            return True
+        if isinstance(response_class, DefaultPlaceholder):
+            response_class = response_class.value
+        return lenient_issubclass(response_class, StreamingResponse)
 
     @staticmethod
     def _maybe_wrap_result(result: Any) -> Any:
@@ -140,6 +182,8 @@ class APIRouter(FastAPIRouter):
 
     response_model=None keeps the envelope with an unconstrained Any payload.
     Return a FastAPI/Starlette Response object to bypass runtime wrapping.
+    Generator endpoints and StreamingResponse classes retain FastAPI's native
+    streaming behavior and are not wrapped in the Response structure.
     """
 
     def __init__(self, *args, **kwargs):

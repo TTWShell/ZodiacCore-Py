@@ -1,15 +1,24 @@
+import json
+from collections.abc import AsyncIterable, Iterator
+from functools import partial, wraps
 from typing import Annotated, Union
 
 import pytest
 from fastapi import APIRouter as NativeAPIRouter
 from fastapi import FastAPI
 from fastapi import Response as FastAPIResponse
+from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from zodiac_core import APIRouter as ZodiacAPIRouter
 from zodiac_core import Response, response_ok
-from zodiac_core.routing import ZodiacRoute
+from zodiac_core.routing import _SUPPORTS_YIELD_STREAMING, ZodiacRoute
+
+try:
+    from fastapi.sse import EventSourceResponse
+except ImportError:
+    EventSourceResponse = None
 
 
 class User(BaseModel):
@@ -25,9 +34,9 @@ class ErrorMessage(BaseModel):
     detail: str
 
 
-def get_app_route(app: FastAPI, path: str):
-    """Return the final route registered on the FastAPI application."""
-    return next(route for route in app.routes if getattr(route, "path", None) == path)
+def get_router_route(router: ZodiacAPIRouter, path: str):
+    """Return a route registered directly on a Zodiac router."""
+    return next(route for route in router.routes if getattr(route, "path", None) == path)
 
 
 class TestZodiacRouting:
@@ -232,7 +241,7 @@ class TestFastAPIRouterCompatibility:
         app.include_router(router)
         response = TestClient(app).get("/raw")
 
-        assert get_app_route(app, "/raw").response_model is None
+        assert get_router_route(router, "/raw").response_model is None
         assert response.status_code == 200
         assert response.content == b"raw"
         assert response.headers["content-type"] == "text/plain; charset=utf-8"
@@ -252,7 +261,7 @@ class TestFastAPIRouterCompatibility:
         app.include_router(router)
         response = TestClient(app).get("/raw")
 
-        assert get_app_route(app, "/raw").response_model is None
+        assert get_router_route(router, "/raw").response_model is None
         assert response.content == b"raw"
         assert response.headers["content-type"] == "text/plain; charset=utf-8"
 
@@ -272,7 +281,7 @@ class TestFastAPIRouterCompatibility:
         app.include_router(router)
         response = TestClient(app).get("/raw")
 
-        assert get_app_route(app, "/raw").response_model is None
+        assert get_router_route(router, "/raw").response_model is None
         assert response.content == b"raw"
         assert response.headers["content-type"] == "text/plain; charset=utf-8"
         response_schema = app.openapi()["paths"]["/raw"]["get"]["responses"]["200"]["content"]["application/json"][
@@ -291,7 +300,7 @@ class TestFastAPIRouterCompatibility:
 
         app.include_router(router)
 
-        assert get_app_route(app, f"/{status_code}").response_model is None
+        assert get_router_route(router, f"/{status_code}").response_model is None
         documented_response = app.openapi()["paths"][f"/{status_code}"]["get"]["responses"][str(status_code)]
         assert "content" not in documented_response
 
@@ -311,7 +320,7 @@ class TestFastAPIRouterCompatibility:
         app.include_router(router)
         response = TestClient(app).delete("/resource")
 
-        assert get_app_route(app, "/resource").response_model is None
+        assert get_router_route(router, "/resource").response_model is None
         assert response.status_code == 204
         assert response.content == b""
 
@@ -345,6 +354,241 @@ class TestFastAPIRouterCompatibility:
             @router.delete("/resource", status_code=204)
             async def delete_resource() -> User:
                 return User(id=1, name="Unexpected")
+
+    @pytest.mark.skipif(_SUPPORTS_YIELD_STREAMING, reason="requires FastAPI without yield streaming support")
+    def test_legacy_generator_keeps_automatic_envelope(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/users")
+        def stream_users():
+            yield {"id": 1, "name": "First"}
+            yield {"id": 2, "name": "Second"}
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.json() == {
+            "code": 0,
+            "data": [
+                {"id": 1, "name": "First"},
+                {"id": 2, "name": "Second"},
+            ],
+            "message": "Success",
+        }
+
+
+@pytest.mark.skipif(not _SUPPORTS_YIELD_STREAMING, reason="installed FastAPI has no yield streaming support")
+class TestFastAPIStreamingCompatibility:
+    """Verify stream endpoints retain FastAPI's native generator semantics."""
+
+    def test_sync_binary_generator_streams_without_response_model_override(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/binary", response_class=StreamingResponse)
+        def stream_binary() -> Iterator[bytes]:
+            yield b"a"
+            yield b"b"
+
+        app.include_router(router)
+        response = TestClient(app).get("/binary")
+
+        assert get_router_route(router, "/binary").response_model is None
+        assert response.status_code == 200
+        assert response.content == b"ab"
+
+    def test_async_binary_generator_streams_with_explicit_none_response_model(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/binary", response_class=StreamingResponse, response_model=None)
+        async def stream_binary() -> AsyncIterable[bytes]:
+            yield b"a"
+            yield b"b"
+
+        app.include_router(router)
+        response = TestClient(app).get("/binary")
+
+        assert get_router_route(router, "/binary").response_model is None
+        assert response.status_code == 200
+        assert response.content == b"ab"
+
+    def test_sync_generator_uses_fastapi_jsonl_streaming(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/users")
+        def stream_users() -> Iterator[User]:
+            yield User(id=1, name="First")
+            yield User(id=2, name="Second")
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("application/jsonl")
+        assert [json.loads(line) for line in response.content.splitlines()] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
+    def test_async_generator_uses_fastapi_jsonl_streaming(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/users")
+        async def stream_users() -> AsyncIterable[User]:
+            yield User(id=1, name="First")
+            yield User(id=2, name="Second")
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("application/jsonl")
+        assert [json.loads(line) for line in response.content.splitlines()] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
+    def test_sync_callable_object_uses_fastapi_jsonl_streaming(self):
+        class StreamUsers:
+            def __call__(self) -> Iterator[User]:
+                yield User(id=1, name="First")
+                yield User(id=2, name="Second")
+
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+        router.add_api_route("/users", StreamUsers(), methods=["GET"])
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("application/jsonl")
+        assert [json.loads(line) for line in response.content.splitlines()] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
+    def test_async_callable_object_uses_fastapi_jsonl_streaming(self):
+        class StreamUsers:
+            async def __call__(self) -> AsyncIterable[User]:
+                yield User(id=1, name="First")
+                yield User(id=2, name="Second")
+
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+        router.add_api_route("/users", StreamUsers(), methods=["GET"])
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("application/jsonl")
+        assert [json.loads(line) for line in response.content.splitlines()] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
+    def test_partial_sync_callable_object_uses_fastapi_jsonl_streaming(self):
+        class StreamUsers:
+            def __call__(self) -> Iterator[User]:
+                yield User(id=1, name="First")
+                yield User(id=2, name="Second")
+
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+        router.add_api_route("/users", partial(partial(StreamUsers())), methods=["GET"])
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("application/jsonl")
+        assert [json.loads(line) for line in response.content.splitlines()] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
+    def test_partial_async_callable_object_uses_fastapi_jsonl_streaming(self):
+        class StreamUsers:
+            async def __call__(self) -> AsyncIterable[User]:
+                yield User(id=1, name="First")
+                yield User(id=2, name="Second")
+
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+        router.add_api_route("/users", partial(partial(StreamUsers())), methods=["GET"])
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("application/jsonl")
+        assert [json.loads(line) for line in response.content.splitlines()] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
+    def test_partial_decorated_generator_uses_fastapi_jsonl_streaming(self):
+        def decorator(endpoint):
+            @wraps(endpoint)
+            def wrapper(*args, **kwargs):
+                return endpoint(*args, **kwargs)
+
+            return wrapper
+
+        @decorator
+        def stream_users() -> Iterator[User]:
+            yield User(id=1, name="First")
+            yield User(id=2, name="Second")
+
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+        router.add_api_route("/users", partial(stream_users), methods=["GET"])
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("application/jsonl")
+        assert [json.loads(line) for line in response.content.splitlines()] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
+    @pytest.mark.skipif(EventSourceResponse is None, reason="installed FastAPI has no SSE support")
+    def test_sync_generator_uses_fastapi_sse_streaming(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/users", response_class=EventSourceResponse)
+        def stream_users() -> Iterator[User]:
+            yield User(id=1, name="First")
+            yield User(id=2, name="Second")
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("text/event-stream")
+        assert [json.loads(line.removeprefix("data: ")) for line in response.text.splitlines() if line] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
+
+    @pytest.mark.skipif(EventSourceResponse is None, reason="installed FastAPI has no SSE support")
+    def test_async_generator_uses_fastapi_sse_streaming(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/users", response_class=EventSourceResponse)
+        async def stream_users() -> AsyncIterable[User]:
+            yield User(id=1, name="First")
+            yield User(id=2, name="Second")
+
+        app.include_router(router)
+        response = TestClient(app).get("/users")
+
+        assert response.headers["content-type"].startswith("text/event-stream")
+        assert [json.loads(line.removeprefix("data: ")) for line in response.text.splitlines() if line] == [
+            {"id": 1, "name": "First"},
+            {"id": 2, "name": "Second"},
+        ]
 
 
 class TestRoutingInternalLogic:

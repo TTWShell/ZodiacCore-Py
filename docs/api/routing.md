@@ -73,6 +73,52 @@ async def manual() -> Response:
     return Response("custom", media_type="text/plain")
 ```
 
+### Yield-Based Streaming
+
+When the installed FastAPI provides native yield-based streaming, Zodiac leaves synchronous and asynchronous generator endpoints unchanged. Streamed chunks are not wrapped in the Zodiac `Response` envelope.
+
+FastAPI 0.134.0 added yield-based JSON Lines (JSONL) and binary streaming. A generator using the default response class produces JSONL, while `response_class=StreamingResponse` sends raw strings or bytes:
+
+```python
+from collections.abc import AsyncIterable, Iterator
+
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+
+class User(BaseModel):
+    id: int
+    name: str
+
+
+@router.get("/users/stream")
+async def stream_users() -> AsyncIterable[User]:
+    yield User(id=1, name="First")
+    yield User(id=2, name="Second")
+
+
+@router.get("/download", response_class=StreamingResponse)
+def stream_download() -> Iterator[bytes]:
+    yield b"first chunk\n"
+    yield b"second chunk\n"
+```
+
+FastAPI 0.135.0 added native Server-Sent Events (SSE). `EventSourceResponse` is a `StreamingResponse` subclass, so it receives the same passthrough behavior:
+
+```python
+from collections.abc import AsyncIterable
+
+from fastapi.sse import EventSourceResponse
+
+
+@router.get("/events", response_class=EventSourceResponse)
+async def stream_events() -> AsyncIterable[dict[str, str]]:
+    yield {"event": "ready"}
+    yield {"event": "complete"}
+```
+
+FastAPI versions before 0.134.0 do not provide native yield-based streaming, so Zodiac does not opt generator endpoints into passthrough on those versions. Unannotated generators retain the ordinary response-envelope behavior; iterator return annotations are still subject to the older FastAPI/Pydantic response-model limitations and may fail during route registration. For streaming that must also work on older FastAPI versions, explicitly return a `StreamingResponse` object instead. See FastAPI's guides for [JSONL streaming](https://fastapi.tiangolo.com/tutorial/stream-json-lines/), [raw stream data](https://fastapi.tiangolo.com/advanced/stream-data/), and [SSE](https://fastapi.tiangolo.com/tutorial/server-sent-events/).
+
 ---
 
 ## 3. OpenAPI Integration
