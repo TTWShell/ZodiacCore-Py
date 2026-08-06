@@ -209,6 +209,23 @@ class TestFastAPIRouterCompatibility:
         ]["$ref"]
         assert "Response" in response_ref and "User" in response_ref
 
+    def test_sync_endpoint_uses_automatic_envelope(self):
+        app = FastAPI()
+        router = ZodiacAPIRouter()
+
+        @router.get("/sync")
+        def get_sync_user() -> User:
+            return User(id=1, name="Sync")
+
+        app.include_router(router)
+        response = TestClient(app).get("/sync")
+
+        assert response.json() == {
+            "code": 0,
+            "data": {"id": 1, "name": "Sync"},
+            "message": "Success",
+        }
+
     def test_explicit_none_keeps_untyped_automatic_envelope(self):
         app = FastAPI()
         router = ZodiacAPIRouter()
@@ -505,15 +522,19 @@ class TestFastAPIStreamingCompatibility:
             {"id": 2, "name": "Second"},
         ]
 
-    def test_partial_sync_callable_object_uses_fastapi_jsonl_streaming(self):
+    def test_partial_wrapped_sync_callable_object_uses_fastapi_jsonl_streaming(self):
         class StreamUsers:
             def __call__(self) -> Iterator[User]:
                 yield User(id=1, name="First")
                 yield User(id=2, name="Second")
 
+        def metadata_source() -> Iterator[User]:
+            return iter(())
+
         app = FastAPI()
         router = ZodiacAPIRouter()
-        router.add_api_route("/users", partial(partial(StreamUsers())), methods=["GET"])
+        stream_users = wraps(metadata_source)(StreamUsers())
+        router.add_api_route("/users", partial(partial(stream_users)), methods=["GET"])
 
         app.include_router(router)
         response = TestClient(app).get("/users")
@@ -524,15 +545,19 @@ class TestFastAPIStreamingCompatibility:
             {"id": 2, "name": "Second"},
         ]
 
-    def test_partial_async_callable_object_uses_fastapi_jsonl_streaming(self):
+    def test_partial_wrapped_async_callable_object_uses_fastapi_jsonl_streaming(self):
         class StreamUsers:
             async def __call__(self) -> AsyncIterable[User]:
                 yield User(id=1, name="First")
                 yield User(id=2, name="Second")
 
+        def metadata_source() -> AsyncIterable[User]:
+            raise NotImplementedError
+
         app = FastAPI()
         router = ZodiacAPIRouter()
-        router.add_api_route("/users", partial(partial(StreamUsers())), methods=["GET"])
+        stream_users = wraps(metadata_source)(StreamUsers())
+        router.add_api_route("/users", partial(partial(stream_users)), methods=["GET"])
 
         app.include_router(router)
         response = TestClient(app).get("/users")

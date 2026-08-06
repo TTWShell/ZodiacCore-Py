@@ -100,11 +100,13 @@ class ZodiacRoute(APIRoute):
         return Response[model]
 
     @staticmethod
-    def _unwrap_callable(endpoint: Callable[..., Any]) -> Callable[..., Any]:
-        """Strip partial application and decorator metadata from a callable."""
+    def _callable_candidates(
+        endpoint: Callable[..., Any],
+    ) -> tuple[Callable[..., Any], Callable[..., Any]]:
+        """Return callable variants before and after decorator unwrapping."""
         while isinstance(endpoint, partial):
             endpoint = endpoint.func
-        return inspect.unwrap(endpoint)
+        return endpoint, inspect.unwrap(endpoint)
 
     @staticmethod
     def _is_generator_callable(endpoint: Callable[..., Any]) -> bool:
@@ -113,16 +115,15 @@ class ZodiacRoute(APIRoute):
         def is_generator(candidate: Any) -> bool:
             return inspect.isgeneratorfunction(candidate) or inspect.isasyncgenfunction(candidate)
 
-        unwrapped_endpoint = ZodiacRoute._unwrap_callable(endpoint)
-        candidates = (endpoint, unwrapped_endpoint)
+        candidates = ZodiacRoute._callable_candidates(endpoint)
         if any(is_generator(candidate) for candidate in candidates):
             return True
-        if inspect.isclass(unwrapped_endpoint):
+        if inspect.isclass(candidates[-1]):
             return False
         for candidate in candidates:
             if callable(candidate):
-                call = candidate.__call__
-                if is_generator(call) or is_generator(ZodiacRoute._unwrap_callable(call)):
+                calls = ZodiacRoute._callable_candidates(candidate.__call__)
+                if any(is_generator(call) for call in calls):
                     return True
         return False
 
