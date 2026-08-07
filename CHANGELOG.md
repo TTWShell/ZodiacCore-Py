@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-07
+
+### Added
+
+- **Database**: Add `session_dependency(name)` for FastAPI dependencies that are bound to a named database without exposing the database name as a request parameter.
+- **Routing**: Support FastAPI-native synchronous and asynchronous yield streaming, including JSONL, binary streams, SSE, callable objects, and wrapped generator endpoints when supported by the installed FastAPI version.
+
+### Changed
+
+- **Routing**: Infer omitted response models from endpoint return annotations, preserve an untyped Zodiac envelope for unannotated payloads, and leave raw responses and bodyless status codes outside the envelope.
+- **Cache**: Require serializers used with cached `None` values to restore `None` losslessly and reject incompatible serializers during decorator setup.
+- **Documentation**: Define database-session ownership for dependencies, repositories, services, jobs, and mounted sub-applications, and clarify the existing upstream HTTP error translation contract.
+
+### Fixed
+
+- **Database**: Prevent request input and unsafe partial dependencies from overriding server-selected database names while preserving dependency overrides, caching, cleanup, and introspection.
+- **Cache**: Preserve cached `None` values across JSON and other compatible serializer boundaries without leaking the internal sentinel.
+- **Validation**: Encode validation errors with FastAPI's native `jsonable_encoder` behavior before placing them in Zodiac's HTTP 422 envelope.
+- **Routing**: Avoid invalid response models and runtime wrapping for raw, `Annotated`, bodyless, and streaming endpoints across supported FastAPI versions.
+- **Datetimes**: Preserve PostgreSQL `timestamptz` defaults in non-UTC sessions and normalize parsed datetime strings to aware UTC values.
+
 ## [0.12.0] - 2026-07-23
 
 ### Added
