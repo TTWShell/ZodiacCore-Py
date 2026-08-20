@@ -23,6 +23,9 @@ zodiac new my_app --tpl standard-3tier -o .. --force
 # Add FastAPI CLI for running the app
 uv add "fastapi[standard]" --dev
 
+# Verify the generated project against the ZodiacCore contract
+uv run zodiac check
+
 # Run the application
 uv run fastapi run --reload
 ```
@@ -284,4 +287,4 @@ You now have a fully functional application with:
 
 - [Architecture Guide](architecture.md) — Layered design, DI container, and project structure
 - [API Reference](../api/config.md) — Config, database, pagination, routing, schemas, and more
-- [CLI Documentation](cli.md) — Scaffold new projects and modules with `zodiac new`
+- [CLI Documentation](cli.md) — Scaffold new projects with `zodiac new` and verify wiring with `zodiac check`

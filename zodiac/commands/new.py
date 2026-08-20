@@ -127,4 +127,6 @@ def new_cmd(project_name: str, template: str, output_dir: str, force: bool, pack
     click.echo(f"✅ Project created at: {target_path.absolute()}")
     click.echo("\nTo get started:")
     click.echo(f"  cd {target_path}")
-    click.echo("  uv sync  # or pip install -e .")
+    click.echo("  uv sync --extra dev")
+    click.echo("  uv run zodiac check")
+    click.echo("  uv run pytest -q")

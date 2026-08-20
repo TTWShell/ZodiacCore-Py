@@ -15,6 +15,7 @@ uv add "zodiac-core[zodiac]"
 - `zodiac --help` — show top-level help and subcommands.
 - `zodiac new PROJECT_NAME --tpl TEMPLATE_ID -o OUTPUT_DIR` — generate a new project from a template.
 - `zodiac add sub-app NAME` — add a new sub-application skeleton to an existing `sub-applications` project.
+- `zodiac check [PATH]` — verify a ZodiacCore service against the wiring contract.
 
 ## Options (zodiac new)
 
@@ -92,6 +93,44 @@ To customize the generated Python package name:
 ```bash
 zodiac new my_app --tpl standard-3tier -o ./projects --package-name my_service
 ```
+
+## zodiac check
+
+`zodiac check` verifies a service that depends on `zodiac-core`. Layout (`standard-3tier`, `sub-applications`, or a generic service) is classified afterwards so specialized rules can apply; a different package shape is still checked. The application entry may be `main.py` or `<package>/main.py`. It parses Python with the AST, so it looks at imports and calls rather than scanning source as text.
+
+It is intentionally a linter for **wrong core wiring**, not a full adoption audit. It flags known anti-patterns and missing bootstrap calls, and each finding includes the contract that was broken plus the required change. It does not rewrite files.
+
+Run it from a generated project root, from a subdirectory inside that project, or pass PATH:
+
+```bash
+uv sync --extra dev
+uv run zodiac check
+uv run zodiac check --format json
+uvx --from "zodiac-core[zodiac]" zodiac check /path/to/project
+```
+
+Generated `standard-3tier` and `sub-applications` projects include `zodiac-core[zodiac]` in the development extra so `uv run zodiac check` works after `uv sync --extra dev`. A freshly generated project must pass. Virtualenvs (including directories with `pyvenv.cfg`) and `alembic/` trees are skipped.
+
+Exit codes:
+
+| Code | Meaning |
+|------|---------|
+| `0` | No contract errors |
+| `1` | One or more errors, or PATH is not a ZodiacCore service project |
+
+Output is grouped by rule. `contract`, `change`, and `docs` appear once per rule; each hit is a path, line, and the matching source. `--format json` uses the same grouping (`rules[].count` plus `rules[].hits`) so tools can tally violations without repeating the rule text.
+
+Current checks:
+
+- Envelope routes must use `zodiac_core.routing.APIRouter`, not FastAPI's router.
+- Business errors must raise `ZodiacException` subclasses, not `HTTPException`.
+- Named database dependencies must not wrap `get_session` with `functools.partial`, and must not pass the `session_dependency` factory itself to `Depends`.
+- Downstream HTTP clients must use `ZodiacClient` / `ZodiacSyncClient` rather than raw `httpx`.
+- API routers must not import infrastructure; application services must not import API schemas.
+- Process setup must call `setup_loguru()` and `register_exception_handlers(app)`.
+- `standard-3tier` must register middleware on the process app; mounted sub-applications register middleware themselves and must not call `setup_loguru()`.
+
+It does **not** decide whether pagination, cache, or a custom config layout should exist. Those remain project choices.
 
 ## Templates
 

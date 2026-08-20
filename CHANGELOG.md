@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CLI**: Add `zodiac check` to AST-scan generated `standard-3tier` and `sub-applications` projects for high-confidence ZodiacCore wiring mistakes. Reports group hits by rule so `contract` / `change` / `docs` are printed once, with `--format json` exposing per-rule counts for tools.
+
+### Changed
+
+- **Templates**: Include `zodiac-core[zodiac]` in the `standard-3tier` development extra so generated projects can run `uv run zodiac check`.
+- **CLI**: Print `uv run zodiac check` in `zodiac new` next steps.
+
+### Fixed
+
+- **CLI**: `zodiac check` discovers the generated project from a subdirectory, skips virtualenvs and Alembic trees, treats same-file bootstrap helpers as satisfying factory setup, and does not treat comments as sub-application mounts.
+- **CLI**: Recognize downstream ZodiacCore services whose entry is `<package>/main.py` rather than a repo-root `main.py`, and count `setup_loguru()` anywhere in the process.
+- **CLI**: Treat a `zodiac-core` dependency as the definition of a Zodiac service. 3-tier directories classify layout; they are no longer required to run the checker.
+
 ## [0.13.0] - 2026-08-07
 
 ### Added

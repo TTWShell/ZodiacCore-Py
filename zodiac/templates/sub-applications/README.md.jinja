@@ -70,6 +70,7 @@ uvx --from "zodiac-core[zodiac]" zodiac add sub-app billing
 
 ```bash
 uv sync --extra dev
+uv run zodiac check
 uv run uvicorn main:app --no-access-log
 ```
 
