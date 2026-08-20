@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import tomllib
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -102,6 +103,31 @@ def _contains_zodiac_core(value: object) -> bool:
     return False
 
 
+_SKIP_PACKAGE_NAMES = frozenset(
+    {
+        "tests",
+        "unit_tests",
+        "integration_tests",
+        "test",
+        "docs",
+        "config",
+        "outputs",
+        "build",
+        "dist",
+        "site",
+        "alembic",
+        "migrations",
+    }
+)
+
+
+def _iter_package_dirs(root: Path) -> Iterator[Path]:
+    for child in sorted(root.iterdir(), key=lambda path: path.name):
+        if not child.is_dir() or child.name.startswith(".") or child.name in _SKIP_PACKAGE_NAMES:
+            continue
+        yield child
+
+
 def _read_package_name(root: Path, pyproject: dict) -> str:
     include = pyproject.get("tool", {}).get("setuptools", {}).get("packages", {}).get("find", {}).get("include", [])
     for pattern in include:
@@ -109,9 +135,12 @@ def _read_package_name(root: Path, pyproject: dict) -> str:
             package_name = pattern[:-1]
             if package_name and (root / package_name).is_dir():
                 return package_name
-
-    if (root / "app").is_dir():
-        return "app"
+    for child in _iter_package_dirs(root):
+        if all((child / name).is_dir() for name in ("api", "application", "infrastructure")):
+            return child.name
+    for child in _iter_package_dirs(root):
+        if (child / "main.py").is_file():
+            return child.name
     return "app"
 
 

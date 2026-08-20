@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+Severity = Literal["error", "warning"]
 
 
 @dataclass(frozen=True)
@@ -11,7 +14,7 @@ class Finding:
     """One contract violation and the change that restores the contract."""
 
     rule_id: str
-    severity: str
+    severity: Severity
     path: Path
     line: int
     column: int
@@ -23,7 +26,7 @@ class Finding:
 
 @dataclass(frozen=True)
 class CheckResult:
-    """Outcome of checking one generated project."""
+    """Outcome of checking a ZodiacCore service."""
 
     project_root: Path
     layout: str

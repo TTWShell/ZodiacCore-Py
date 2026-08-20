@@ -122,10 +122,10 @@ Output is grouped by rule. `contract`, `change`, and `docs` appear once per rule
 
 Current checks:
 
-- Envelope routes must use `zodiac_core.routing.APIRouter`, not FastAPI's router.
+- Envelope routes must use `zodiac_core.routing.APIRouter`, not FastAPI's router. Actually constructing a router with FastAPI's `APIRouter` is an error; an unused FastAPI `APIRouter` import is a warning.
 - Business errors must raise `ZodiacException` subclasses, not `HTTPException`.
 - Named database dependencies must not wrap `get_session` with `functools.partial`, and must not pass the `session_dependency` factory itself to `Depends`.
-- Downstream HTTP clients must use `ZodiacClient` / `ZodiacSyncClient` rather than raw `httpx`.
+- Downstream HTTP clients must use `ZodiacClient` / `ZodiacSyncClient` rather than raw `httpx`, including module-qualified and imported shortcuts such as `httpx.get(...)` or `from httpx import get; get(...)`.
 - API routers must not import infrastructure; application services must not import API schemas.
 - Process setup must call `setup_loguru()` and `register_exception_handlers(app)`.
 - `standard-3tier` must register middleware on the process app; mounted sub-applications register middleware themselves and must not call `setup_loguru()`.

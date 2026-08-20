@@ -14,11 +14,11 @@ def render_report(result: CheckResult, output_format: str = "text") -> str:
     return _render_text(result)
 
 
-def group_findings(findings: tuple[Finding, ...]) -> list[tuple[Finding, tuple[Finding, ...]]]:
+def group_findings(findings: tuple[Finding, ...]) -> list[tuple[str, tuple[Finding, ...]]]:
     grouped: dict[str, list[Finding]] = {}
     for finding in findings:
         grouped.setdefault(finding.rule_id, []).append(finding)
-    return [(items[0], tuple(items)) for _, items in sorted(grouped.items())]
+    return [(rule_id, tuple(items)) for rule_id, items in sorted(grouped.items())]
 
 
 def _render_text(result: CheckResult) -> str:
@@ -30,8 +30,9 @@ def _render_text(result: CheckResult) -> str:
         f"{header}: {result.error_count} error(s), {result.warning_count} warning(s), {result.rule_count} rule(s)",
         "",
     ]
-    for sample, hits in group_findings(result.findings):
-        lines.append(f"{sample.rule_id}  ({len(hits)})")
+    for rule_id, hits in group_findings(result.findings):
+        sample = hits[0]
+        lines.append(f"{rule_id}  ({len(hits)})")
         lines.append(f"  contract: {sample.contract}")
         lines.append(f"  change:   {sample.change}")
         lines.append(f"  docs:     {sample.docs}")
@@ -54,12 +55,12 @@ def _render_json(result: CheckResult) -> str:
         "rule_count": result.rule_count,
         "rules": [
             {
-                "rule_id": sample.rule_id,
-                "severity": sample.severity,
+                "rule_id": rule_id,
+                "severity": hits[0].severity,
                 "count": len(hits),
-                "contract": sample.contract,
-                "change": sample.change,
-                "docs": sample.docs,
+                "contract": hits[0].contract,
+                "change": hits[0].change,
+                "docs": hits[0].docs,
                 "hits": [
                     {
                         "path": finding.path.as_posix(),
@@ -70,7 +71,7 @@ def _render_json(result: CheckResult) -> str:
                     for finding in hits
                 ],
             }
-            for sample, hits in group_findings(result.findings)
+            for rule_id, hits in group_findings(result.findings)
         ],
     }
     return json.dumps(payload, indent=2) + "\n"

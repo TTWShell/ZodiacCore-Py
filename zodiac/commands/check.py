@@ -8,6 +8,7 @@ from zodiac.check import ProjectError, check_project, render_report
 
 
 @click.command("check")
+@click.pass_context
 @click.argument(
     "path",
     required=False,
@@ -21,7 +22,7 @@ from zodiac.check import ProjectError, check_project, render_report
     show_default=True,
     help="text for humans; json for tools and later agent skills.",
 )
-def check_cmd(path: Path | None, output_format: str) -> None:
+def check_cmd(ctx: click.Context, path: Path | None, output_format: str) -> None:
     """Check a ZodiacCore service against the wiring contract.
 
     PATH  Service root with pyproject.toml. Defaults to the current directory.
@@ -38,4 +39,4 @@ def check_cmd(path: Path | None, output_format: str) -> None:
 
     click.echo(render_report(result, output_format), nl=False)
     if not result.ok:
-        raise SystemExit(1)
+        ctx.exit(1)

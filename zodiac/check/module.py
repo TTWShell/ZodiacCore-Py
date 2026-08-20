@@ -40,14 +40,26 @@ class ModuleView:
     aliases: dict[str, str] = field(default_factory=dict)
     imported_modules: list[ImportedModule] = field(default_factory=list)
     imported_symbols: list[ImportedSymbol] = field(default_factory=list)
+    call_names: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         self.lines = self.source.splitlines()
         _ImportCollector(self).visit(self.tree)
+        for call in ast.walk(self.tree):
+            if isinstance(call, ast.Call):
+                qualified = self.resolve(call.func)
+                if qualified:
+                    self.call_names.add(qualified)
 
     @classmethod
-    def parse(cls, project: Project, file_path: Path) -> ModuleView:
-        source = file_path.read_text(encoding="utf-8")
+    def parse(
+        cls,
+        project: Project,
+        file_path: Path,
+        source: str | None = None,
+    ) -> ModuleView:
+        if source is None:
+            source = file_path.read_text(encoding="utf-8")
         rel_path = file_path.relative_to(project.root)
         tree = ast.parse(source, filename=str(rel_path))
         return cls(project=project, rel_path=rel_path, source=source, tree=tree)
@@ -62,13 +74,10 @@ class ModuleView:
 
     @property
     def is_sub_app_factory(self) -> bool:
+        if self.project.layout != LAYOUT_SUB_APPLICATIONS or self.is_app_entry:
+            return False
         parts = self.rel_path.parts
-        return (
-            self.project.layout == LAYOUT_SUB_APPLICATIONS
-            and len(parts) == 3
-            and parts[0] == self.project.package_name
-            and parts[2] == "app.py"
-        )
+        return self.rel_path.name == "app.py" and len(parts) >= 2 and parts[0] == self.project.package_name
 
     @property
     def layer(self) -> str | None:
@@ -113,7 +122,12 @@ class ModuleView:
             if _is_app_factory(function.name) and self.calls_name(function, "fastapi.FastAPI"):
                 yield function
 
+    def has_call(self, qualified: str) -> bool:
+        return qualified in self.call_names
+
     def calls_name(self, node: ast.AST | None, qualified: str) -> bool:
+        if node is None:
+            return self.has_call(qualified)
         return any(self.resolve(call.func) == qualified for call in self.calls(node))
 
     def first_call(self, qualified: str, node: ast.AST | None = None) -> ast.Call | None:

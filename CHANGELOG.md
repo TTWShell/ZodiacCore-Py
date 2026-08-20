@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Templates**: Include `zodiac-core[zodiac]` in the `standard-3tier` development extra so generated projects can run `uv run zodiac check`.
 - **CLI**: Print `uv run zodiac check` in `zodiac new` next steps.
+- **CLI**: `zodiac check` reports unused `fastapi.APIRouter` imports as warnings while keeping actual FastAPI router construction an error, and flags bare httpx shortcuts imported with `from httpx import get`.
+- **CLI**: `zodiac check` now catches `Depends(db.session_dependency)` attribute access in addition to a bare `Depends(session_dependency)`.
 
 ### Fixed
 

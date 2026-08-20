@@ -1,4 +1,4 @@
-"""Walk a generated project and run ZodiacCore contract rules."""
+"""Walk a ZodiacCore service and run wiring contract rules."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ __all__ = ["check_project"]
 
 
 def check_project(path: Path) -> CheckResult:
-    """Check a generated Zodiac project and return machine-readable findings."""
+    """Check a ZodiacCore service and return machine-readable findings."""
     project = discover_project(path)
     files = list(_iter_python_files(project.root))
     findings: list[Finding] = []
@@ -85,14 +85,14 @@ def _skip_directory(path: Path) -> bool:
 
 def _check_file(project: Project, file_path: Path) -> tuple[list[Finding], bool, bool]:
     rel_path = file_path.relative_to(project.root)
+    source = file_path.read_text(encoding="utf-8")
     try:
-        module = ModuleView.parse(project, file_path)
+        module = ModuleView.parse(project, file_path, source=source)
     except SyntaxError as exc:
-        source = file_path.read_text(encoding="utf-8")
         found = (exc.text or (source.splitlines() or [""])[0]).strip()
         return [parse_error(rel_path, exc.lineno or 1, exc.offset or 1, found)], False, False
     return (
         check_module(module),
-        module.calls_name(None, SETUP_LOGURU),
-        module.calls_name(None, FASTAPI_APP),
+        module.has_call(SETUP_LOGURU),
+        module.has_call(FASTAPI_APP),
     )

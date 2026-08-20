@@ -6,7 +6,7 @@ import ast
 from collections.abc import Callable
 from pathlib import Path
 
-from zodiac.check.models import Finding
+from zodiac.check.models import Finding, Severity
 from zodiac.check.module import FunctionNode, ModuleView
 from zodiac.check.project import LAYOUT_STANDARD, LAYOUT_SUB_APPLICATIONS, Project
 
@@ -48,11 +48,40 @@ RuleFn = Callable[[ModuleView], list[Finding]]
 class Rule:
     """Shared contract text for one check."""
 
-    def __init__(self, rule_id: str, contract: str, change: str, docs: str) -> None:
+    def __init__(
+        self,
+        rule_id: str,
+        contract: str,
+        change: str,
+        docs: str,
+        severity: Severity = "error",
+    ) -> None:
         self.rule_id = rule_id
+        self.severity = severity
         self.contract = contract
         self.change = change
         self.docs = f"{DOCS}{docs}"
+
+    def finding(
+        self,
+        *,
+        path: Path,
+        line: int = 1,
+        column: int = 1,
+        found: str = "",
+        change: str | None = None,
+    ) -> Finding:
+        return Finding(
+            rule_id=self.rule_id,
+            severity=self.severity,
+            path=path,
+            line=line,
+            column=column,
+            found=found,
+            contract=self.contract,
+            change=change or self.change,
+            docs=self.docs,
+        )
 
     def hit(
         self,
@@ -65,20 +94,18 @@ class Rule:
         change: str | None = None,
     ) -> Finding:
         if node is not None:
-            line = getattr(node, "lineno", 1) if line is None else line
-            column = getattr(node, "col_offset", 0) + 1 if column is None else column
+            if line is None:
+                line = getattr(node, "lineno", 1)
+            if column is None:
+                column = getattr(node, "col_offset", 0) + 1
             if found is None:
                 found = module.source_line(node)
-        return Finding(
-            rule_id=self.rule_id,
-            severity="error",
+        return self.finding(
             path=module.rel_path,
-            line=line or 1,
-            column=column or 1,
+            line=1 if line is None else line,
+            column=1 if column is None else column,
             found=found or "",
-            contract=self.contract,
-            change=change or self.change,
-            docs=self.docs,
+            change=change,
         )
 
 
@@ -93,6 +120,13 @@ USE_ZODIAC_API_ROUTER = Rule(
     "Envelope routes must use `zodiac_core.routing.APIRouter`, not FastAPI's router.",
     "Import `APIRouter` from `zodiac_core.routing` so responses wrap as code/data/message.",
     "/api/routing/",
+)
+FASTAPI_API_ROUTER_IMPORT = Rule(
+    "routing.fastapi_api_router_import",
+    "Unused FastAPI `APIRouter` imports make it easy to build routes that bypass the Zodiac envelope.",
+    "Remove the FastAPI import or replace it with `APIRouter` from `zodiac_core.routing`.",
+    "/api/routing/",
+    severity="warning",
 )
 USE_ZODIAC_EXCEPTION = Rule(
     "exceptions.use_zodiac_exception",
@@ -133,7 +167,7 @@ SERVICE_NO_API_SCHEMAS = Rule(
 SETUP_LOGURU_ONCE = Rule(
     "bootstrap.setup_loguru",
     "The process entry point must call `setup_loguru()` once.",
-    "Call `setup_loguru(...)` in `main.py` before serving requests. Do not configure sinks from sub-applications.",
+    "Call `setup_loguru(...)` once during process startup. Do not configure sinks from sub-applications.",
     "/api/logging/",
 )
 SUBAPP_NO_SETUP_LOGURU = Rule(
@@ -170,35 +204,26 @@ SUBAPP_REGISTER_MIDDLEWARE = Rule(
 
 
 def parse_error(module_path: Path, line: int, column: int, found: str) -> Finding:
-    return Finding(
-        rule_id=PARSE_ERROR.rule_id,
-        severity="error",
-        path=module_path,
-        line=line,
-        column=column,
-        found=found,
-        contract=PARSE_ERROR.contract,
-        change=PARSE_ERROR.change,
-        docs=PARSE_ERROR.docs,
-    )
+    return PARSE_ERROR.finding(path=module_path, line=line, column=column, found=found)
 
 
 def check_api_router(module: ModuleView) -> list[Finding]:
     findings = [
-        USE_ZODIAC_API_ROUTER.hit(module, line=symbol.line, column=symbol.column, found=symbol.found)
-        for symbol in module.imported_symbols
-        if symbol.qualified in FASTAPI_API_ROUTERS
+        USE_ZODIAC_API_ROUTER.hit(module, call)
+        for call in module.calls()
+        if module.resolve(call.func) in FASTAPI_API_ROUTERS
     ]
     if findings:
         return findings
     return [
-        USE_ZODIAC_API_ROUTER.hit(
+        FASTAPI_API_ROUTER_IMPORT.hit(
             module,
-            call,
-            change="Construct the router with `zodiac_core.routing.APIRouter`.",
+            line=symbol.line,
+            column=symbol.column,
+            found=symbol.found,
         )
-        for call in module.calls()
-        if module.resolve(call.func) in FASTAPI_API_ROUTERS
+        for symbol in module.imported_symbols
+        if symbol.qualified in FASTAPI_API_ROUTERS
     ]
 
 
@@ -228,7 +253,7 @@ def check_bare_session_dependency(module: ModuleView) -> list[Finding]:
     for call in module.calls():
         if module.resolve(call.func) not in {"fastapi.Depends", "fastapi.params.Depends"}:
             continue
-        if not call.args or not isinstance(call.args[0], ast.Name):
+        if not call.args:
             continue
         if module.resolve(call.args[0]) in SESSION_DEPENDENCY:
             findings.append(NO_BARE_SESSION_DEPENDENCY.hit(module, call))
@@ -239,7 +264,7 @@ def check_httpx_clients(module: ModuleView) -> list[Finding]:
     findings: list[Finding] = []
     for call in module.calls():
         qualified = module.resolve(call.func)
-        if qualified in HTTPX_CLIENTS or (qualified in HTTPX_SHORTCUTS and isinstance(call.func, ast.Attribute)):
+        if qualified in HTTPX_CLIENTS or qualified in HTTPX_SHORTCUTS:
             findings.append(USE_ZODIAC_CLIENT.hit(module, call))
     return findings
 
@@ -273,17 +298,7 @@ def check_setup_loguru(module: ModuleView) -> list[Finding]:
 
 def missing_process_setup_loguru(project: Project) -> Finding:
     path = project.entry_relpath or Path("main.py")
-    return Finding(
-        rule_id=SETUP_LOGURU_ONCE.rule_id,
-        severity="error",
-        path=path,
-        line=1,
-        column=1,
-        found=path.as_posix(),
-        contract=SETUP_LOGURU_ONCE.contract,
-        change=SETUP_LOGURU_ONCE.change,
-        docs=SETUP_LOGURU_ONCE.docs,
-    )
+    return SETUP_LOGURU_ONCE.finding(path=path, found=path.as_posix())
 
 
 def check_app_factory_wiring(module: ModuleView) -> list[Finding]:

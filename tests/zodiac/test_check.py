@@ -70,7 +70,7 @@ class TestCheckCommand:
         rule = payload["rules"][0]
         assert rule["rule_id"] == "routing.use_zodiac_api_router"
         assert rule["count"] == 1
-        assert "fastapi" in rule["hits"][0]["found"]
+        assert "APIRouter" in rule["hits"][0]["found"]
         assert "zodiac_core.routing" in rule["change"]
         assert rule["docs"].startswith("https://ttwshell.github.io/ZodiacCore-Py/")
 
@@ -117,6 +117,18 @@ class TestCheckCommand:
         result = check_project(tmp_path)
         assert result.layout == "service"
         assert result.ok, render_report(result)
+
+    def test_detects_non_app_package_directory(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "iam"\ndependencies = ["zodiac-core"]\n',
+            encoding="utf-8",
+        )
+        for name in ("api", "application", "infrastructure"):
+            (tmp_path / "iam" / name).mkdir(parents=True)
+        (tmp_path / "iam" / "main.py").write_text("print('ok')\n", encoding="utf-8")
+        result = check_project(tmp_path)
+        assert result.package_name == "iam"
+        assert result.layout == "standard-3tier"
 
     def test_rejects_project_without_zodiac_core(self, cli_runner, tmp_path):
         (tmp_path / "pyproject.toml").write_text(
@@ -190,6 +202,19 @@ class TestCheckRules:
         result = check_project(project)
         assert "db.no_bare_session_dependency" in rule_ids(result)
 
+    def test_bare_session_dependency_attribute_access(self, cli_runner, tmp_path):
+        project = generate_project(cli_runner, tmp_path)
+        router = project / "app" / "api" / "routers" / "item_router.py"
+        content = router.read_text(encoding="utf-8")
+        router.write_text("import zodiac_core.db as db\n" + content, encoding="utf-8")
+        replace_once(
+            router,
+            "service: Annotated[ItemService, Depends(Provide[Container.item_service])],",
+            "service: Annotated[ItemService, Depends(db.session_dependency)],",
+        )
+        result = check_project(project)
+        assert "db.no_bare_session_dependency" in rule_ids(result)
+
     def test_called_session_dependency_is_allowed(self, cli_runner, tmp_path):
         project = generate_project(cli_runner, tmp_path)
         router = project / "app" / "api" / "routers" / "item_router.py"
@@ -209,6 +234,17 @@ class TestCheckRules:
         replace_once(client, "from zodiac_core.http import ZodiacClient, translate_upstream_errors", "import httpx")
         replace_once(client, "def __init__(self, client: ZodiacClient) -> None:", "def __init__(self) -> None:")
         replace_once(client, "self.client = client", "self.client = httpx.AsyncClient()")
+        result = check_project(project)
+        assert "http.use_zodiac_client" in rule_ids(result)
+
+    def test_httpx_imported_get_is_flagged(self, cli_runner, tmp_path):
+        project = generate_project(cli_runner, tmp_path)
+        client = project / "app" / "infrastructure" / "external" / "github_client.py"
+        client.write_text(
+            client.read_text(encoding="utf-8")
+            + '\nfrom httpx import get\n\n\ndef _fetch() -> str:\n    return get("https://example.com")\n',
+            encoding="utf-8",
+        )
         result = check_project(project)
         assert "http.use_zodiac_client" in rule_ids(result)
 
@@ -251,6 +287,43 @@ class TestCheckRules:
         result = check_project(project)
         assert "bootstrap.setup_loguru" in rule_ids(result)
 
+    def test_standard_entry_must_register_middleware(self, cli_runner, tmp_path):
+        project = generate_project(cli_runner, tmp_path)
+        replace_once(
+            project / "main.py",
+            "    register_middleware(\n        app,\n        service_name=logging_cfg.service_name,\n"
+            '        exclude_paths=["/api/v1/health"],\n    )\n',
+            "",
+        )
+        result = check_project(project)
+        assert "bootstrap.register_middleware" in rule_ids(result)
+
+    def test_subapp_must_not_call_setup_loguru(self, cli_runner, tmp_path):
+        project = generate_project(cli_runner, tmp_path, template="sub-applications")
+        app_py = project / "app" / "users" / "app.py"
+        replace_once(
+            app_py,
+            "from fastapi import FastAPI",
+            "from fastapi import FastAPI\nfrom zodiac_core.logging import setup_loguru",
+        )
+        replace_once(
+            app_py,
+            '    register_middleware(app, service_name="users")\n',
+            '    setup_loguru(level="INFO")\n    register_middleware(app, service_name="users")\n',
+        )
+        result = check_project(project)
+        assert "bootstrap.subapp_no_setup_loguru" in rule_ids(result)
+
+    def test_subapp_must_register_middleware(self, cli_runner, tmp_path):
+        project = generate_project(cli_runner, tmp_path, template="sub-applications")
+        replace_once(
+            project / "app" / "users" / "app.py",
+            '    register_middleware(app, service_name="users")\n',
+            "",
+        )
+        result = check_project(project)
+        assert "bootstrap.subapp_register_middleware" in rule_ids(result)
+
     def test_parent_must_not_register_middleware(self, cli_runner, tmp_path):
         project = generate_project(cli_runner, tmp_path, template="sub-applications")
         replace_once(
@@ -282,7 +355,7 @@ class TestCheckRules:
         assert "contract:" in report
         assert "change:" in report
         assert "routing.use_zodiac_api_router" in report
-        assert "from fastapi import APIRouter" in report
+        assert "router = APIRouter()" in report
 
     def test_same_rule_hits_are_grouped(self, cli_runner, tmp_path):
         project = generate_project(cli_runner, tmp_path)
@@ -306,7 +379,7 @@ class TestCheckRules:
         assert "app/api/routers/item_router.py" in report
         assert "app/api/router.py" in report
 
-    def test_shadowed_fastapi_api_router_import_is_still_flagged(self, cli_runner, tmp_path):
+    def test_unused_fastapi_api_router_import_is_warning(self, cli_runner, tmp_path):
         project = generate_project(cli_runner, tmp_path)
         replace_once(
             project / "app" / "api" / "routers" / "item_router.py",
@@ -314,7 +387,10 @@ class TestCheckRules:
             "from fastapi import APIRouter\nfrom zodiac_core.routing import APIRouter",
         )
         result = check_project(project)
-        assert "routing.use_zodiac_api_router" in rule_ids(result)
+        assert result.ok, render_report(result)
+        assert "routing.fastapi_api_router_import" in rule_ids(result)
+        assert "routing.use_zodiac_api_router" not in rule_ids(result)
+        assert result.warning_count == 1
 
     def test_same_file_bootstrap_helper_counts(self, cli_runner, tmp_path):
         project = generate_project(cli_runner, tmp_path)
