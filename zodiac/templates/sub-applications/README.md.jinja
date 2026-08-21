@@ -44,8 +44,8 @@ sub-application to avoid double-wrapping of requests.
 
 ## Agent Workflow
 
-This project includes `AGENTS.md` so teams can use Codex with the project
-conventions for FastAPI, pytest, and ZodiacCore.
+This project includes `AGENTS.md` as the contract for coding agents.
+Mechanical wiring is verified with `uv run zodiac check`.
 
 ## Add A Sub-Application
 
@@ -57,7 +57,7 @@ uv run zodiac add sub-app billing
 ```
 
 The command does not edit `main.py`. Follow the printed import, lifespan, and
-mount instructions, or ask Codex to complete and test the integration.
+mount instructions, or ask a coding agent to complete and test the integration.
 
 To use the CLI without installing development dependencies, run it as a
 one-shot tool instead:

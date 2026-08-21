@@ -1,6 +1,6 @@
 ---
 name: zodiac-docs
-description: Answer version-aware ZodiacCore usage, API, configuration, template, CLI, migration, and troubleshooting questions from official documentation, source, and tests. Use when users ask how to use ZodiacCore, why an API behaves a certain way, how to integrate or upgrade it, or whether code matches its documented contract. Do not use for adoption matrices; use zodiac-core-integration-summary instead.
+description: Answer version-aware ZodiacCore usage, API, configuration, template, CLI, migration, and troubleshooting questions from official documentation, source, and tests. Use when users ask how to use ZodiacCore, why an API behaves a certain way, how to integrate or upgrade it, or whether code matches its documented contract. Do not use for adoption matrices or mechanical wiring fixes; use zodiac-core-integration-summary (it runs `zodiac check`).
 ---
 
 # Zodiac Docs
@@ -93,6 +93,10 @@ For an implementation request:
 - Use APIs available in that version.
 - Do not upgrade ZodiacCore or rewrite project architecture unless requested.
 - Make the requested change and run focused verification.
+- After wiring, envelope, exception, session, HTTP client, or bootstrap
+  changes, run `uv run zodiac check --format json` when the project's version
+  supports it; otherwise suggest upgrading `zodiac-core` and installing
+  `zodiac-core[zodiac]` into dev dependencies.
 
 Remain read-only for questions, diagnoses, and reviews unless the user also
 asks for code changes.
@@ -100,6 +104,6 @@ asks for code changes.
 ## Keep The Boundary Clear
 
 Use `zodiac-core-integration-summary` instead when the requested output is a
-service adoption matrix, feature checklist, 对接表, or ✅/❌ integration audit.
-Use this skill to explain individual ZodiacCore capabilities or help apply
-them.
+service adoption matrix, feature checklist, 对接表, ✅/❌ integration audit,
+or a fix loop driven by `zodiac check --format json`. Use this skill to
+explain individual ZodiacCore capabilities or help apply them.

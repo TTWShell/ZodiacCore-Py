@@ -100,7 +100,7 @@ zodiac new my_app --tpl standard-3tier -o ./projects --package-name my_service
 
 It is intentionally a linter for **wrong core wiring**, not a full adoption audit. It flags known anti-patterns and missing bootstrap calls, and each finding includes the contract that was broken plus the required change. It does not rewrite files.
 
-Run it from a generated project root, from a subdirectory inside that project, or pass PATH:
+Run it from a service root, from a subdirectory inside that project, or pass PATH:
 
 ```bash
 uv sync --extra dev

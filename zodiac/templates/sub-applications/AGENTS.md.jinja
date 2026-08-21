@@ -1,7 +1,6 @@
 # Agent Guide for {{ project_name }}
 
-This project is designed to be maintained with Codex. Treat this file as the
-project-level contract for Codex agent work.
+Treat this file as the project-level contract for coding agents.
 
 ## Project Shape
 
@@ -16,90 +15,54 @@ project-level contract for Codex agent work.
   - `infrastructure/database/`: SQLModel models and repositories
   - `core/container.py`: dependency-injector composition root
 
-## FastAPI and ZodiacCore Rules
+## Wiring Contract
 
-- Use `zodiac_core.routing.APIRouter`, not FastAPI's plain router, for API
-  routes that should return the standard ZodiacCore response envelope.
+Mechanical wiring is enforced by `uv run zodiac check`. After editing routers,
+exceptions, HTTP clients, sessions, middleware, or logging, run:
+
+```bash
+uv run zodiac check
+```
+
+Treat each error rule's `change` as the required fix. Do not invent a different
+envelope, exception, session, or bootstrap pattern.
+
+Project rules that `zodiac check` does not fully own:
+
 - Keep parent server routes in `main.py`; keep service routes inside the
   owning sub-application.
-- The parent health endpoint is `/api/health`.
-- Do not add `/api/v1/health` to sub-applications unless the product explicitly
-  requires per-service health endpoints.
-- Register ZodiacCore middleware on sub-applications with their service names:
-  `users` and `orders`.
-- Call `setup_loguru()` once in the process entry point. Do not configure log
-  sinks from sub-applications; per-app log identity comes from
-  `register_middleware(app, service_name=...)`.
-- Do not call `register_middleware()` on the parent app for all routes. Parent
-  middleware is intentionally scoped to parent endpoints to avoid duplicate
-  access logs and duplicate `X-Request-ID` headers on mounted routes.
+- The parent health endpoint is `/api/health`. Do not add `/api/v1/health` to
+  sub-applications unless the product explicitly requires it.
 - Mounted sub-application lifespans are not entered automatically. If a
   sub-application adds lifespan-managed resources, enter them from the parent
-  lifespan in `main.py`.
-
-## Database and Cache Rules
-
-- The parent process owns the shared database and cache lifecycle.
-- Keep shared setup and shutdown in `main.py`.
-- Use SQLModel models under each sub-application's
-  `infrastructure/database/models/` package.
-- Use repositories under each sub-application's
-  `infrastructure/database/repositories/` package.
-- Prefer `BaseSQLRepository.paginate_query()` with `PageSortParams` and
+  lifespan in `main.py` after shared db/cache setup.
+- The parent process owns shared database and cache lifecycle. Do not call
+  bare `db.shutdown()` or `cache.shutdown()` inside a sub-application.
+- Prefer `BaseSQLRepository.paginate_query()` with `PageSortParams` and an
   explicit `SortSpec` for list endpoints.
-- Shared resources use the default database/cache names. If a sub-application
-  adds its own resource, register it with an explicit `name` and bind
-  repositories or cache calls to that same name.
 - Do not add a route session dependency merely because a route eventually
-  calls a repository. Generated repositories already own their sessions via
-  `BaseSQLRepository.session()` and bind named databases with `db_name`.
-- Only when a FastAPI route deliberately owns a shared unit of work or performs
-  database work directly, use `Depends(get_session)` for the default database
-  or create one module-level callable with `session_dependency("name")` for a
-  named database and pass that stored callable to `Depends`.
-- `get_session(name)` remains source-compatible for existing server-side
-  wrapper dependencies. Do not break a fixed-name wrapper merely because it is
-  old, but migrate touched routes and generate new named route wiring with
-  `session_dependency(name)` so FastAPI directly manages rollback and cleanup.
-- Treat every `partial(get_session, ...)` form as unsupported and replace it
-  with `session_dependency(name)`. Keyword-bound partials fail during route
-  registration instead of silently selecting the wrong database. Never pass
-  `session_dependency` itself to `Depends`. Never choose a database name from
-  query, path, header, body, or other request data.
-- FastAPI session dependency callables belong only in API wiring; lower layers
-  must never call them. If the route owns the unit of work, pass the concrete
-  injected `AsyncSession` to participating lower layers. Otherwise preserve
-  the repository-owned `self.session()` pattern. Jobs, CLI commands, startup
-  tasks, and other owners outside FastAPI should use `db.session(name)`.
-- By default, FastAPI creates one `AsyncSession` per stored dependency callable
-  per request; repeated uses of that callable in one request share the session,
-  while a later request gets a new one. Every `db.session(...)` context creates
-  its own session. Named engines and connection pools are shared. Never share
-  a session across requests or concurrent tasks.
-- Do not use bare `db.shutdown()` or `cache.shutdown()` inside sub-applications.
-  Use `db.shutdown(name="...")` and `cache.shutdown(name="...")` only for
-  resources created by that sub-application.
+  calls a repository.
+- FastAPI session dependency callables (`get_session`, `session_dependency`)
+  belong only in API wiring. Lower layers must never call them; jobs, CLI
+  commands, and startup tasks use `db.session(name)`.
+- Never derive a database name from request data (query, path, header, body).
+- If a sub-application registers its own resource, use an explicit `name` and
+  bind repositories or cache calls to that same name. Shut down only its own
+  resources with `db.shutdown(name=...)` / `cache.shutdown(name=...)`.
 
-## Testing Rules
+## Testing
 
 - Generated project tests run with `APPLICATION_ENVIRONMENT=testing` through
   `pytest-env`.
 - `config/app.testing.ini` must stay isolated and use in-memory SQLite unless a
   test explicitly needs a persistent database.
-- Organize tests by API boundary:
-  - `tests/test_health.py`
-  - `tests/users/test_api.py`
-  - `tests/orders/test_api.py`
-- Prefer class-based pytest tests for API contract groups, following the
-  generated `TestResourceApi` structure.
-- Tests should assert the ZodiacCore response envelope:
-  `code`, `message`, and `data`.
+- Organize tests by API boundary: `tests/test_health.py`, `tests/users/`,
+  `tests/orders/`.
+- Assert the ZodiacCore response envelope: `code`, `message`, and `data`.
 - For mounted routes, assert that `X-Request-ID` is not duplicated when changing
   middleware behavior.
 
 ## Commands
-
-Use these commands before handing off changes:
 
 ```bash
 uv run ruff check .
@@ -107,28 +70,14 @@ uv run zodiac check
 uv run pytest -q
 ```
 
-Create another mounted service with the project's development CLI:
+Create another mounted service:
 
 ```bash
 uv run zodiac add sub-app billing
 ```
 
-Resource plurals are inferred automatically. Use `--resource-plural` only when
-the API needs a domain-specific override, for example
-`--resource person --resource-plural persons`. The command intentionally does
-not edit `main.py`; apply its printed import, lifespan, and mount steps, then run
-the full checks above.
-
-When working on the template from the ZodiacCore repository, also generate a
-fresh project and verify it:
-
-```bash
-zodiac new review-subapp --tpl sub-applications -o /tmp/zodiac-subapp-check
-cd /tmp/zodiac-subapp-check/review-subapp
-uv sync --extra dev
-uv run ruff check .
-uv run pytest -q
-```
+The command does not edit `main.py`. Apply its printed import, lifespan, and
+mount steps, then run the checks above.
 
 ## Change Discipline
 
