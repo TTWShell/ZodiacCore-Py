@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 
-from zodiac.check import check_project, render_report
+import pytest
+
+from zodiac.check import ProjectError, check_project, discover_project, render_report
+from zodiac.check.module import ModuleView
+from zodiac.check.project import load_project
 from zodiac.main import cli
 
 
@@ -26,6 +31,10 @@ def replace_once(path: Path, old: str, new: str) -> None:
 
 def rule_ids(result) -> set[str]:
     return {finding.rule_id for finding in result.findings}
+
+
+def write_core_pyproject(root: Path, body: str = '[project]\nname = "demo"\ndependencies = ["zodiac-core"]\n') -> None:
+    (root / "pyproject.toml").write_text(body, encoding="utf-8")
 
 
 class TestCheckCommand:
@@ -441,3 +450,119 @@ class TestCheckRules:
         )
         result = check_project(project)
         assert "http.use_zodiac_client" not in rule_ids(result)
+
+
+class TestCheckDiscovery:
+    def test_requirements_txt_is_enough_when_pyproject_has_no_core(self, tmp_path):
+        write_core_pyproject(
+            tmp_path,
+            "[project]\n"
+            'name = "demo"\n'
+            'dependencies = ["fastapi"]\n'
+            "\n"
+            "[tool.poetry.dependencies]\n"
+            'python = "^3.12"\n'
+            "retries = 3\n",
+        )
+        (tmp_path / "requirements.txt").write_text("zodiac-core==0.9.1\n", encoding="utf-8")
+        (tmp_path / "main.py").write_text("print('ok')\n", encoding="utf-8")
+        result = check_project(tmp_path)
+        assert result.layout == "service"
+        assert result.ok, render_report(result)
+
+    def test_package_name_comes_from_directory_with_main(self, tmp_path):
+        write_core_pyproject(tmp_path)
+        (tmp_path / "svc").mkdir()
+        (tmp_path / "svc" / "main.py").write_text("print('ok')\n", encoding="utf-8")
+        result = check_project(tmp_path)
+        assert result.package_name == "svc"
+        assert result.layout == "service"
+        assert result.ok, render_report(result)
+
+    def test_layout_without_application_entry(self, tmp_path):
+        write_core_pyproject(tmp_path)
+        for name in ("api", "application", "infrastructure"):
+            (tmp_path / "app" / name).mkdir(parents=True)
+        result = check_project(tmp_path)
+        assert result.package_name == "app"
+        assert result.layout == "standard-3tier"
+        assert result.ok, render_report(result)
+
+    def test_syntax_error_in_main_is_not_sub_applications(self, tmp_path):
+        write_core_pyproject(tmp_path)
+        (tmp_path / "main.py").write_text("def broken(\n", encoding="utf-8")
+        result = check_project(tmp_path)
+        assert result.layout == "service"
+        assert "parse.syntax_error" in rule_ids(result)
+        finding = next(item for item in result.findings if item.rule_id == "parse.syntax_error")
+        assert "def broken(" in finding.found
+        assert "Fix the syntax error" in finding.change
+
+    def test_rejects_file_path(self, tmp_path):
+        target = tmp_path / "notes.txt"
+        target.write_text("not a project\n", encoding="utf-8")
+        with pytest.raises(ProjectError, match="Not a directory"):
+            discover_project(target)
+        with pytest.raises(ProjectError, match="Not a directory"):
+            load_project(target)
+
+    def test_load_project_requires_pyproject(self, tmp_path):
+        with pytest.raises(ProjectError, match="Could not find a ZodiacCore service project"):
+            load_project(tmp_path)
+
+
+class TestCheckParseAndImports:
+    def test_type_checking_imports_are_ignored(self, tmp_path):
+        write_core_pyproject(tmp_path)
+        (tmp_path / "main.py").write_text(
+            "from typing import TYPE_CHECKING\n"
+            "import typing\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    import httpx\n"
+            "    from httpx import AsyncClient\n"
+            "\n"
+            "if typing.TYPE_CHECKING:\n"
+            "    from fastapi import APIRouter\n",
+            encoding="utf-8",
+        )
+        result = check_project(tmp_path)
+        assert result.ok, render_report(result)
+        assert "http.use_zodiac_client" not in rule_ids(result)
+        assert "routing.fastapi_api_router_import" not in rule_ids(result)
+
+    def test_star_and_unresolved_relative_imports(self, tmp_path):
+        write_core_pyproject(tmp_path)
+        pkg = tmp_path / "svc"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+        (pkg / "util.py").write_text("from . import helpers\nfrom .helpers import VALUE\n", encoding="utf-8")
+        (tmp_path / "main.py").write_text(
+            "from os import *\nfrom . import helpers\nfrom ...outside import ghost\nprint('ok')\n",
+            encoding="utf-8",
+        )
+        result = check_project(tmp_path)
+        assert result.ok, render_report(result)
+
+    def test_empty_depends_is_not_bare_session_dependency(self, tmp_path):
+        write_core_pyproject(tmp_path)
+        (tmp_path / "main.py").write_text(
+            "from fastapi import Depends\n\n\ndef endpoint(dep=Depends()):\n    return dep\n",
+            encoding="utf-8",
+        )
+        result = check_project(tmp_path)
+        assert "db.no_bare_session_dependency" not in rule_ids(result)
+        assert result.ok, render_report(result)
+
+    def test_module_view_helpers(self, tmp_path):
+        write_core_pyproject(tmp_path)
+        source_path = tmp_path / "main.py"
+        source_path.write_text("import os\nprint(os.getcwd())\n", encoding="utf-8")
+        project = discover_project(tmp_path)
+        module = ModuleView.parse(project, source_path)
+        assert module.resolve(None) is None
+        assert module.first_call("missing.fn") is None
+        assert module.source_line(ast.Constant(value=1, lineno=99, col_offset=0)) == ""
+        call = ast.parse("gone()").body[0].value
+        assert module.resolve(ast.Attribute(value=call, attr="name", ctx=ast.Load())) == "name"
