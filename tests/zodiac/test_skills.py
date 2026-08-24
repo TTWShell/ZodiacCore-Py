@@ -1,15 +1,20 @@
-"""Tests for `zodiac skills install`."""
+"""Tests for `zodiac skills install` and `zodiac skills uninstall`."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+from click import ClickException
 
 from zodiac.commands.skills import (
     AGENT_SKILL_DIRS,
     GITIGNORE_HEADER,
+    _already_linked,
     _is_link,
     gitignore_pattern,
     packaged_skills_root,
+    resolve_agents,
 )
 from zodiac.main import cli
 
@@ -176,6 +181,58 @@ class TestSkillsInstall:
         assert "junction" in result.output.lower()
         assert "Developer Mode" in result.output
 
+    def test_windows_leftover_directory_falls_back_to_symlink(self, cli_runner, project_path, monkeypatch):
+        from types import SimpleNamespace
+
+        calls = {"n": 0}
+
+        def create_junction(src, dst):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                Path(dst).symlink_to(src, target_is_directory=True)
+                return
+            Path(dst).mkdir(parents=True, exist_ok=True)
+            raise OSError(1, "failed after creating the destination")
+
+        monkeypatch.setattr("zodiac.commands.skills.sys.platform", "win32")
+        monkeypatch.setitem(__import__("sys").modules, "_winapi", SimpleNamespace(CreateJunction=create_junction))
+        result = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
+        assert result.exit_code == 0, result.output
+        assert "junction" in result.output
+        assert "symlink" in result.output
+        assert _is_link(project_path / ".agents" / "skills" / "zodiac-docs")
+
+    @pytest.mark.parametrize(
+        ("create_empty", "needle"),
+        [
+            (False, "Packaged skills were not found"),
+            (True, "No SKILL.md"),
+        ],
+    )
+    def test_packaged_skills_unavailable(self, cli_runner, project_path, tmp_path, monkeypatch, create_empty, needle):
+        root = tmp_path / "skills-root"
+        if create_empty:
+            root.mkdir()
+        monkeypatch.setattr("zodiac.commands.skills.packaged_skills_root", lambda: root)
+        result = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
+        assert result.exit_code != 0
+        assert needle in result.output
+
+    def test_unknown_agent_and_unreadable_link(self, tmp_path, monkeypatch):
+        with pytest.raises(ClickException, match="Unknown agent"):
+            resolve_agents(("nope",))
+
+        source = tmp_path / "src"
+        source.mkdir()
+        dest = tmp_path / "dest"
+        dest.symlink_to(source, target_is_directory=True)
+
+        def fail(self, *_args, **_kwargs):
+            raise OSError(1, "fail")
+
+        monkeypatch.setattr(Path, "resolve", fail)
+        assert _already_linked(dest, source) is False
+
 
 class TestSkillsUninstall:
     def test_help(self, cli_runner):
@@ -240,15 +297,19 @@ class TestSkillsUninstall:
         dest = project_path / ".agents" / "skills" / "zodiac-docs"
         dest.mkdir(parents=True)
         (dest / "SKILL.md").write_text("copied\n", encoding="utf-8")
+        copied_file = project_path / ".agents" / "skills" / "zodiac-core-integration-summary"
+        copied_file.write_text("copied file\n", encoding="utf-8")
 
         blocked = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
         assert blocked.exit_code != 0
         assert "--force" in blocked.output
         assert (dest / "SKILL.md").read_text(encoding="utf-8") == "copied\n"
+        assert copied_file.read_text(encoding="utf-8") == "copied file\n"
 
         removed = cli_runner.invoke(cli, ["skills", "uninstall", "--force", str(project_path)])
         assert removed.exit_code == 0, removed.output
         assert not dest.exists()
+        assert not copied_file.exists()
 
     def test_second_uninstall_is_absent(self, cli_runner, project_path):
         installed = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
@@ -272,3 +333,15 @@ class TestSkillsUninstall:
         result = cli_runner.invoke(cli, ["skills", "uninstall", str(tmp_path)])
         assert result.exit_code != 0
         assert "pyproject.toml" in result.output
+
+    def test_leaves_unrelated_gitignore_unchanged(self, cli_runner, project_path):
+        gitignore = project_path / ".gitignore"
+        gitignore.write_text(".venv\n", encoding="utf-8")
+        skills_dir = project_path / ".agents" / "skills"
+        skills_dir.parent.mkdir()
+        skills_dir.write_text("not a directory\n", encoding="utf-8")
+        result = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
+        assert result.exit_code == 0, result.output
+        assert gitignore.read_text(encoding="utf-8") == ".venv\n"
+        assert "updated" not in result.output
+        assert skills_dir.is_file()
