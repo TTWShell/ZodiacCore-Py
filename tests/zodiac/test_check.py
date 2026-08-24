@@ -100,6 +100,26 @@ class TestCheckCommand:
         assert result.ok, render_report(result)
         assert result.layout == "standard-3tier"
 
+    def test_public_package_bootstrap_imports_count(self, cli_runner, tmp_path):
+        project = generate_project(cli_runner, tmp_path)
+        replace_once(
+            project / "main.py",
+            "from zodiac_core.exception_handlers import register_exception_handlers\n"
+            "from zodiac_core.logging import setup_loguru\n"
+            "from zodiac_core.middleware import register_middleware\n",
+            "from zodiac_core import register_exception_handlers, register_middleware, setup_loguru\n",
+        )
+        result = check_project(project)
+        assert result.ok, render_report(result)
+        assert not (
+            rule_ids(result)
+            & {
+                "bootstrap.setup_loguru",
+                "bootstrap.register_exception_handlers",
+                "bootstrap.register_middleware",
+            }
+        )
+
     def test_setup_loguru_outside_entry_still_counts(self, cli_runner, tmp_path):
         project = generate_project(cli_runner, tmp_path)
         main_py = project / "main.py"
@@ -306,6 +326,22 @@ class TestCheckRules:
         )
         result = check_project(project)
         assert "bootstrap.register_middleware" in rule_ids(result)
+
+    def test_public_package_setup_loguru_still_flagged_on_subapp(self, cli_runner, tmp_path):
+        project = generate_project(cli_runner, tmp_path, template="sub-applications")
+        app_py = project / "app" / "users" / "app.py"
+        replace_once(
+            app_py,
+            "from fastapi import FastAPI",
+            "from fastapi import FastAPI\nfrom zodiac_core import setup_loguru",
+        )
+        replace_once(
+            app_py,
+            '    register_middleware(app, service_name="users")\n',
+            '    setup_loguru(level="INFO")\n    register_middleware(app, service_name="users")\n',
+        )
+        result = check_project(project)
+        assert "bootstrap.subapp_no_setup_loguru" in rule_ids(result)
 
     def test_subapp_must_not_call_setup_loguru(self, cli_runner, tmp_path):
         project = generate_project(cli_runner, tmp_path, template="sub-applications")

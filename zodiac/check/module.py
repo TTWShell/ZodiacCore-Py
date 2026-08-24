@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -122,17 +122,19 @@ class ModuleView:
             if _is_app_factory(function.name) and self.calls_name(function, "fastapi.FastAPI"):
                 yield function
 
-    def has_call(self, qualified: str) -> bool:
-        return qualified in self.call_names
+    def has_call(self, qualified: str | Collection[str]) -> bool:
+        return not self.call_names.isdisjoint(_qualified_names(qualified))
 
-    def calls_name(self, node: ast.AST | None, qualified: str) -> bool:
+    def calls_name(self, node: ast.AST | None, qualified: str | Collection[str]) -> bool:
+        names = _qualified_names(qualified)
         if node is None:
-            return self.has_call(qualified)
-        return any(self.resolve(call.func) == qualified for call in self.calls(node))
+            return self.has_call(names)
+        return any(self.resolve(call.func) in names for call in self.calls(node))
 
-    def first_call(self, qualified: str, node: ast.AST | None = None) -> ast.Call | None:
+    def first_call(self, qualified: str | Collection[str], node: ast.AST | None = None) -> ast.Call | None:
+        names = _qualified_names(qualified)
         for call in self.calls(node):
-            if self.resolve(call.func) == qualified:
+            if self.resolve(call.func) in names:
                 return call
         return None
 
@@ -191,6 +193,12 @@ class _ImportCollector(ast.NodeVisitor):
                     found=self.module.source_line(node),
                 )
             )
+
+
+def _qualified_names(qualified: str | Collection[str]) -> Collection[str]:
+    if isinstance(qualified, str):
+        return (qualified,)
+    return qualified
 
 
 def _is_app_factory(name: str) -> bool:

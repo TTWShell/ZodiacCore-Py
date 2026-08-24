@@ -12,9 +12,24 @@ from zodiac.check.project import LAYOUT_STANDARD, LAYOUT_SUB_APPLICATIONS, Proje
 
 DOCS = "https://ttwshell.github.io/ZodiacCore-Py/latest"
 FASTAPI_APP = "fastapi.FastAPI"
-SETUP_LOGURU = "zodiac_core.logging.setup_loguru"
-REGISTER_HANDLERS = "zodiac_core.exception_handlers.register_exception_handlers"
-REGISTER_MIDDLEWARE = "zodiac_core.middleware.register_middleware"
+SETUP_LOGURU = frozenset(
+    {
+        "zodiac_core.logging.setup_loguru",
+        "zodiac_core.setup_loguru",
+    }
+)
+REGISTER_HANDLERS = frozenset(
+    {
+        "zodiac_core.exception_handlers.register_exception_handlers",
+        "zodiac_core.register_exception_handlers",
+    }
+)
+REGISTER_MIDDLEWARE = frozenset(
+    {
+        "zodiac_core.middleware.register_middleware",
+        "zodiac_core.register_middleware",
+    }
+)
 FASTAPI_API_ROUTERS = frozenset({"fastapi.APIRouter", "fastapi.routing.APIRouter"})
 HTTP_EXCEPTIONS = frozenset(
     {

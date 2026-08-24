@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CLI**: Treat public `zodiac_core` re-exports (`from zodiac_core import setup_loguru`, `register_exception_handlers`, `register_middleware`) as the same bootstrap calls as the submodule imports, so a green report does not mark a wired process as missing setup.
 - **CLI**: `zodiac check` discovers the generated project from a subdirectory, skips virtualenvs and Alembic trees, treats same-file bootstrap helpers as satisfying factory setup, and does not treat comments as sub-application mounts.
 - **CLI**: Recognize downstream ZodiacCore services whose entry is `<package>/main.py` rather than a repo-root `main.py`, and count `setup_loguru()` anywhere in the process.
 - **CLI**: Treat a `zodiac-core` dependency as the definition of a Zodiac service. 3-tier directories classify layout; they are no longer required to run the checker.
