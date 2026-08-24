@@ -6,10 +6,11 @@ project-level practices that downstream service teams can reuse.
 
 ## Organization
 
-Keep each skill as a top-level directory:
+Keep each skill as a top-level directory under `zodiac/skills/` so the
+`zodiac-core` wheel ships the same files as the source tree:
 
 ```text
-skills/
+zodiac/skills/
   zodiac-docs/
     SKILL.md
   zodiac-core-integration-summary/
@@ -17,9 +18,7 @@ skills/
 ```
 
 Use a clear ZodiacCore-specific name and keep one skill focused on one
-developer task. Avoid nesting skills under category directories because
-skill installers commonly expect each skill package to live directly under
-`skills/`.
+developer task. Avoid nesting skills under extra category directories.
 
 ## Recommended Skill Boundaries
 

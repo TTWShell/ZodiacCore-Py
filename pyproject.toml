@@ -51,7 +51,7 @@ include = ["zodiac*", "zodiac_core*"]
 exclude = ["tests*", "benchmarks*"]
 
 [tool.setuptools.package-data]
-zodiac = ["templates/**/*.jinja"]
+zodiac = ["templates/**/*.jinja", "skills/**/*"]
 
 [tool.ruff]
 line-length = 120
@@ -92,6 +92,7 @@ omit = [
     "*/.*",
     "*/benchmarks/*",
     "*/templates/*",
+    "*/skills/*",
     "*/*.jinja",
 ]
 

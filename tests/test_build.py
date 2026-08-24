@@ -10,7 +10,7 @@ class TestPackageBuild:
 
     # Intentionally manual: adding or removing packaged files requires review.
     EXPECTED_PACKAGE_FILE_COUNTS = {
-        "zodiac": 81,  # 14 Python files + 67 .jinja template files
+        "zodiac": 87,  # 15 Python files + 67 .jinja templates + 5 skill assets
         "zodiac_core": 20,  # Python files only
     }
 
@@ -55,11 +55,13 @@ class TestPackageBuild:
     def _source_package_files(self, project_root: Path, package_name: str) -> set[str]:
         """Return package files that must be present in the wheel."""
         package_root = project_root / package_name
-        return {
-            path.relative_to(project_root).as_posix()
-            for path in package_root.rglob("*")
-            if path.is_file() and (path.suffix == ".py" or path.name.endswith(".jinja"))
-        }
+        packaged = set()
+        for path in package_root.rglob("*"):
+            if not path.is_file() or "__pycache__" in path.parts:
+                continue
+            if path.suffix == ".py" or path.name.endswith(".jinja") or "skills" in path.parts:
+                packaged.add(path.relative_to(project_root).as_posix())
+        return packaged
 
     def _wheel_package_files(self, wheel_path: Path, package_name: str) -> set[str]:
         """Return files included for one package in the built wheel."""

@@ -22,13 +22,21 @@ Use `zodiac-docs` to explain an API or version-specific behavior.
 
 ## Install Into A Project
 
-Agents commonly discover project skills from `.agents/skills/`. If
-ZodiacCore-Py is already checked out locally, copy a skill from the
-repository:
+Agents commonly discover project skills from `.agents/skills/`. Skills ship
+inside the installed `zodiac-core` package. After `uv add "zodiac-core[zodiac]"`,
+copy from the package tree (the same files as the source checkout):
 
 ```bash
 mkdir -p .agents/skills
-cp -R ~/open-source/ZodiacCore-Py/skills/zodiac-core-integration-summary .agents/skills/
+SKILLS="$(python -c 'import pathlib, zodiac; print(pathlib.Path(zodiac.__file__).parent / "skills")')"
+cp -R "$SKILLS/zodiac-core-integration-summary" .agents/skills/
+```
+
+If ZodiacCore-Py is checked out locally, copy from the source tree instead:
+
+```bash
+mkdir -p .agents/skills
+cp -R ~/open-source/ZodiacCore-Py/zodiac/skills/zodiac-core-integration-summary .agents/skills/
 ```
 
 To install from GitHub, first obtain a shallow checkout and then copy the skill
@@ -37,7 +45,7 @@ directory:
 ```bash
 git clone --depth 1 https://github.com/TTWShell/ZodiacCore-Py.git /tmp/ZodiacCore-Py
 mkdir -p .agents/skills
-cp -R /tmp/ZodiacCore-Py/skills/zodiac-core-integration-summary .agents/skills/
+cp -R /tmp/ZodiacCore-Py/zodiac/skills/zodiac-core-integration-summary .agents/skills/
 ```
 
 Replace `zodiac-core-integration-summary` with `zodiac-docs` to install that
