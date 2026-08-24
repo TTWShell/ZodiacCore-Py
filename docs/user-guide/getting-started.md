@@ -23,7 +23,8 @@ zodiac new my_app --tpl standard-3tier -o .. --force
 # Add FastAPI CLI for running the app
 uv add "fastapi[standard]" --dev
 
-# Verify the generated project against the ZodiacCore contract
+# Link packaged skills to this project's locked zodiac-core, then verify wiring
+uv run zodiac skills install
 uv run zodiac check
 
 # Run the application

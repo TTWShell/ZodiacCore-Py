@@ -21,6 +21,18 @@ AGENT_SKILL_DIRS: dict[str, Path] = {
 AGENT_CHOICES = (*AGENT_SKILL_DIRS, "all")
 
 
+def find_project_root(start: Path) -> Path:
+    """Resolve PATH, or a parent of PATH, to the directory that contains pyproject.toml."""
+    start = start.resolve()
+    for candidate in (start, *start.parents):
+        if (candidate / "pyproject.toml").is_file():
+            return candidate
+    raise click.ClickException(
+        "Could not find a project root with pyproject.toml. "
+        "Run `zodiac skills install` from the service, or pass that directory as PATH."
+    )
+
+
 def packaged_skills_root() -> Path:
     """Return the skills directory shipped in the installed zodiac package."""
     return Path(__file__).resolve().parent.parent / "skills"
@@ -133,6 +145,43 @@ def ensure_gitignore(project_root: Path, agents: tuple[str, ...]) -> bool:
     return True
 
 
+def install_packaged_skills(
+    project_root: Path,
+    *,
+    agents: tuple[str, ...] = (DEFAULT_AGENT,),
+    force: bool = False,
+) -> None:
+    """Link packaged skills into the project and gitignore the destinations."""
+    project_root = find_project_root(project_root)
+    selected_agents = resolve_agents(agents)
+    skills = iter_packaged_skills()
+    if not skills:
+        raise click.ClickException(f"No SKILL.md packages found under {packaged_skills_root()}.")
+
+    for agent in selected_agents:
+        destination_root = install_destination(project_root, agent)
+        destination_root.mkdir(parents=True, exist_ok=True)
+        for source in skills:
+            destination = destination_root / source.name
+            if _already_linked(destination, source):
+                click.echo(f"unchanged [{agent}] {destination} -> {source}")
+                continue
+            if destination.is_symlink() or destination.is_junction():
+                _remove_destination(destination)
+            elif destination.exists(follow_symlinks=False):
+                if not force:
+                    raise click.ClickException(
+                        f"{destination} already exists. Re-run with --force to replace a copied "
+                        "skill directory with a link to the installed package."
+                    )
+                _remove_destination(destination)
+            kind = link_skill_directory(source, destination)
+            click.echo(f"linked ({kind}) [{agent}] {destination} -> {source}")
+
+    if ensure_gitignore(project_root, selected_agents):
+        click.echo(f"updated {project_root / '.gitignore'}")
+
+
 @click.group("skills")
 def skills_cmd() -> None:
     """Install packaged agent skills into a service project."""
@@ -159,38 +208,17 @@ def skills_cmd() -> None:
     "--force",
     "-f",
     is_flag=True,
-    help="Replace an existing skill directory or link at the destination.",
+    help="Replace a copied skill directory at the destination. Stale links are retargeted without this flag.",
 )
 def skills_install_cmd(path: Path | None, agents: tuple[str, ...], force: bool) -> None:
     """Link packaged ZodiacCore skills into a project agent skill directory.
 
+    PATH  Service root with pyproject.toml. Defaults to the current directory;
+    a subdirectory walks up to that root.
+
     Defaults to Codex (`.agents/skills`). Creates a directory symlink on Unix
     and a directory junction on Windows. Packaged `zodiac-*` skills stay
-    gitignored; re-run after `uv sync`.
+    gitignored. Re-run after `uv sync`; existing links are retargeted to the
+    current package. Use --force only to replace a copied directory.
     """
-    project_root = (path or Path.cwd()).resolve()
-    selected_agents = resolve_agents(agents)
-    skills = iter_packaged_skills()
-    if not skills:
-        raise click.ClickException(f"No SKILL.md packages found under {packaged_skills_root()}.")
-
-    for agent in selected_agents:
-        destination_root = install_destination(project_root, agent)
-        destination_root.mkdir(parents=True, exist_ok=True)
-        for source in skills:
-            destination = destination_root / source.name
-            if _already_linked(destination, source):
-                click.echo(f"unchanged [{agent}] {destination} -> {source}")
-                continue
-            if destination.exists(follow_symlinks=False) or destination.is_symlink() or destination.is_junction():
-                if not force:
-                    raise click.ClickException(
-                        f"{destination} already exists. Re-run with --force to replace it with a link "
-                        "to the installed package."
-                    )
-                _remove_destination(destination)
-            kind = link_skill_directory(source, destination)
-            click.echo(f"linked ({kind}) [{agent}] {destination} -> {source}")
-
-    if ensure_gitignore(project_root, selected_agents):
-        click.echo(f"updated {project_root / '.gitignore'}")
+    install_packaged_skills(path or Path.cwd(), agents=agents, force=force)

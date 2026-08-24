@@ -51,7 +51,13 @@ include = ["zodiac*", "zodiac_core*"]
 exclude = ["tests*", "benchmarks*"]
 
 [tool.setuptools.package-data]
-zodiac = ["templates/**/*.jinja", "skills/**/*"]
+zodiac = [
+    "templates/**/*.jinja",
+    "skills/*/SKILL.md",
+    "skills/*/agents/*",
+    "skills/*/references/*",
+    "skills/*/scripts/*.py",
+]
 
 [tool.ruff]
 line-length = 120

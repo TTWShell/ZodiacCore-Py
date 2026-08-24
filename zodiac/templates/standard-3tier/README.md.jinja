@@ -51,6 +51,9 @@ Before running the application, it's recommended to run linting and tests:
 # Lint code
 uv run ruff check .
 
+# Link packaged agent skills (Codex by default; pass --agent claude|cursor|copilot|gemini|all)
+uv run zodiac skills install
+
 # Verify the ZodiacCore contract
 uv run zodiac check
 

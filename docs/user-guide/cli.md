@@ -45,7 +45,10 @@ Generate a standard single-app 3-tier project:
 zodiac new my_app --tpl standard-3tier -o ./projects
 ```
 
-This creates `./projects/my_app/`. For the full scaffold-from-scratch flow (init → add → generate → run), see [Getting Started](getting-started.md).
+This creates `./projects/my_app/`. Next steps include `uv sync --extra dev`
+and `uv run zodiac skills install` (Codex by default; pass `--agent` for
+Claude, Cursor, Copilot, Gemini, or all). For the full scaffold-from-scratch
+flow, see [Getting Started](getting-started.md).
 
 Generate a parent server with mounted `users` and `orders` sub-applications:
 
@@ -109,13 +112,16 @@ uv run zodiac skills install --agent all
 uv run zodiac skills install --force
 ```
 
-Defaults to Codex (`.agents/skills`). Other project directories: Claude
-`.claude/skills`, Cursor `.cursor/skills`, Copilot `.github/skills`, Gemini
-`.gemini/skills`. Unix creates a directory symlink. Windows creates a
-directory junction (`mklink /J`) and does not require Administrator. If
-linking fails, the command prints OS-specific next steps instead of copying
-files. Re-run after `uv sync`. Packaged `zodiac-*` skills are added to
-`.gitignore`.
+Run it from a service root, from a subdirectory inside that project, or pass
+PATH. The command walks up to the directory that contains `pyproject.toml` and
+links skills there. Defaults to Codex (`.agents/skills`). Other project
+directories: Claude `.claude/skills`, Cursor `.cursor/skills`, Copilot
+`.github/skills`, Gemini `.gemini/skills`. Unix creates a directory symlink.
+Windows creates a directory junction (`mklink /J`) and does not require
+Administrator. If linking fails, the command prints OS-specific next steps
+instead of copying files. Re-run after `uv sync`; stale links are retargeted
+to the current package without `--force`. Use `--force` only to replace a
+copied skill directory. Packaged `zodiac-*` skills are added to `.gitignore`.
 
 ## zodiac check
 

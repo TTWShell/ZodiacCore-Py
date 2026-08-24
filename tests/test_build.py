@@ -10,7 +10,7 @@ class TestPackageBuild:
 
     # Intentionally manual: adding or removing packaged files requires review.
     EXPECTED_PACKAGE_FILE_COUNTS = {
-        "zodiac": 88,  # 16 Python files + 67 .jinja templates + 5 skill assets
+        "zodiac": 87,  # 16 Python files (incl. one skill script) + 67 .jinja + 4 non-Python skill assets
         "zodiac_core": 20,  # Python files only
     }
 
@@ -59,9 +59,30 @@ class TestPackageBuild:
         for path in package_root.rglob("*"):
             if not path.is_file() or "__pycache__" in path.parts:
                 continue
-            if path.suffix == ".py" or path.name.endswith(".jinja") or "skills" in path.parts:
+            is_skill_asset = self._is_packaged_skill_asset(path, package_root)
+            if path.suffix == ".py" or path.name.endswith(".jinja") or is_skill_asset:
                 packaged.add(path.relative_to(project_root).as_posix())
         return packaged
+
+    @staticmethod
+    def _is_packaged_skill_asset(path: Path, package_root: Path) -> bool:
+        """Return True only for skill files shipped by the package-data globs."""
+        try:
+            parts = path.relative_to(package_root).parts
+        except ValueError:
+            return False
+        if len(parts) < 3 or parts[0] != "skills":
+            return False
+        if "__pycache__" in parts or parts[1].startswith("."):
+            return False
+        site = parts[2]
+        if len(parts) == 3 and site == "SKILL.md":
+            return True
+        if len(parts) == 4 and site in {"agents", "references"}:
+            return True
+        if len(parts) == 4 and site == "scripts" and path.suffix == ".py":
+            return True
+        return False
 
     def _wheel_package_files(self, wheel_path: Path, package_name: str) -> set[str]:
         """Return files included for one package in the built wheel."""
