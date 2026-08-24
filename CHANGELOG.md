@@ -7,30 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-24
+
 ### Added
 
-- **CLI**: Add `zodiac check` to AST-scan generated `standard-3tier` and `sub-applications` projects for high-confidence ZodiacCore wiring mistakes. Reports group hits by rule so `contract` / `change` / `docs` are printed once, with `--format json` exposing per-rule counts for tools.
-- **Skills**: `zodiac-core-integration-summary` runs `zodiac check --format json` for mechanical wiring evidence and applies each error rule's `change` when the user asks to fix those cells. If the installed `zodiac-core` lacks `zodiac check`, prompt the user to upgrade and add `zodiac-core[zodiac]` to dev dependencies.
-- **Templates**: Generate `AGENTS.md` for `standard-3tier` projects and point both templates at `uv run zodiac check` as the wiring contract.
+- **CLI**: Add `zodiac check` to AST-scan services that depend on `zodiac-core` for high-confidence wiring anti-patterns (FastAPI `APIRouter`, `HTTPException`, `partial(get_session)`, bare `session_dependency`, raw httpx, layer imports, and bootstrap). Findings are grouped by rule with `contract` / `change` / `docs` printed once; `--format json` exposes per-rule counts for tools. Identity is a `zodiac-core` dependency; 3-tier, sub-application, and generic layouts are classified afterwards. Unused FastAPI `APIRouter` imports are warnings; constructing FastAPI's router is an error. Public `zodiac_core` re-exports of `setup_loguru` and `register_*` count as the same bootstrap calls as submodule imports.
+- **Skills**: `zodiac-core-integration-summary` runs `uv run zodiac check --format json` for mechanical wiring evidence and applies each error rule's `change` when the user asks to fix those cells. If the installed `zodiac-core` lacks `zodiac check`, prompt the user to upgrade and add `zodiac-core[zodiac]` to dev dependencies instead of running the latest CLI from `uvx` against an older lock.
+- **Templates**: Generate `AGENTS.md` for `standard-3tier` projects. Both templates point at `uv run zodiac check` as the wiring contract and keep the judgment rules the CLI cannot enforce (thin routers, DI, session ownership, request-derived database names, named resource lifecycle).
 
 ### Changed
 
 - **Templates**: Include `zodiac-core[zodiac]` in the `standard-3tier` development extra so generated projects can run `uv run zodiac check`.
 - **CLI**: Print `uv run zodiac check` in `zodiac new` next steps.
-- **Templates**: `AGENTS.md` for both templates keeps the judgment rules
-  `zodiac check` cannot enforce (thin routers, DI, session ownership,
-  request-derived database names, named resource lifecycle).
-  `zodiac-core-integration-summary` documents that a green report certifies
-  mechanical wiring, including import-layer anti-patterns, not architecture.
-- **CLI**: `zodiac check` reports unused `fastapi.APIRouter` imports as warnings while keeping actual FastAPI router construction an error, and flags bare httpx shortcuts imported with `from httpx import get`.
-- **CLI**: `zodiac check` now catches `Depends(db.session_dependency)` attribute access in addition to a bare `Depends(session_dependency)`.
-
-### Fixed
-
-- **CLI**: Treat public `zodiac_core` re-exports (`from zodiac_core import setup_loguru`, `register_exception_handlers`, `register_middleware`) as the same bootstrap calls as the submodule imports, so a green report does not mark a wired process as missing setup.
-- **CLI**: `zodiac check` discovers the generated project from a subdirectory, skips virtualenvs and Alembic trees, treats same-file bootstrap helpers as satisfying factory setup, and does not treat comments as sub-application mounts.
-- **CLI**: Recognize downstream ZodiacCore services whose entry is `<package>/main.py` rather than a repo-root `main.py`, and count `setup_loguru()` anywhere in the process.
-- **CLI**: Treat a `zodiac-core` dependency as the definition of a Zodiac service. 3-tier directories classify layout; they are no longer required to run the checker.
+- **Documentation**: Document `zodiac check` in the CLI and getting-started guides. Route adoption audits and wiring-fix loops through `zodiac-core-integration-summary`. A green report certifies mechanical wiring, including import-layer anti-patterns, not architecture.
 
 ## [0.13.0] - 2026-08-07
 
