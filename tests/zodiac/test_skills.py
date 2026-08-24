@@ -8,6 +8,11 @@ from zodiac.commands.skills import AGENT_SKILL_DIRS, GITIGNORE_HEADER, gitignore
 from zodiac.main import cli
 
 
+def _is_link(path) -> bool:
+    """Accept either a symlink (Unix) or a junction (Windows)."""
+    return path.is_symlink() or path.is_junction()
+
+
 @pytest.fixture
 def project_path(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'example'\n", encoding="utf-8")
@@ -28,8 +33,8 @@ class TestSkillsInstall:
 
         docs = project_path / ".agents" / "skills" / "zodiac-docs"
         summary = project_path / ".agents" / "skills" / "zodiac-core-integration-summary"
-        assert docs.is_symlink()
-        assert summary.is_symlink()
+        assert _is_link(docs)
+        assert _is_link(summary)
         assert docs.resolve() == (packaged_skills_root() / "zodiac-docs").resolve()
         assert (docs / "SKILL.md").is_file()
         assert gitignore_pattern("codex") in (project_path / ".gitignore").read_text(encoding="utf-8")
@@ -40,7 +45,7 @@ class TestSkillsInstall:
         result = cli_runner.invoke(cli, ["skills", "install", "--agent", "claude", str(project_path)])
         assert result.exit_code == 0, result.output
         docs = project_path / ".claude" / "skills" / "zodiac-docs"
-        assert docs.is_symlink()
+        assert _is_link(docs)
         assert docs.resolve() == (packaged_skills_root() / "zodiac-docs").resolve()
         assert not (project_path / ".agents" / "skills" / "zodiac-docs").exists()
         ignore = (project_path / ".gitignore").read_text(encoding="utf-8")
@@ -53,8 +58,8 @@ class TestSkillsInstall:
             ["skills", "install", "--agent", "codex", "--agent", "copilot", str(project_path)],
         )
         assert result.exit_code == 0, result.output
-        assert (project_path / ".agents" / "skills" / "zodiac-docs").is_symlink()
-        assert (project_path / ".github" / "skills" / "zodiac-docs").is_symlink()
+        assert _is_link(project_path / ".agents" / "skills" / "zodiac-docs")
+        assert _is_link(project_path / ".github" / "skills" / "zodiac-docs")
         ignore = (project_path / ".gitignore").read_text(encoding="utf-8")
         assert gitignore_pattern("codex") in ignore
         assert gitignore_pattern("copilot") in ignore
@@ -64,7 +69,7 @@ class TestSkillsInstall:
         assert result.exit_code == 0, result.output
         ignore = (project_path / ".gitignore").read_text(encoding="utf-8")
         for agent, relative in AGENT_SKILL_DIRS.items():
-            assert (project_path / relative / "zodiac-docs").is_symlink()
+            assert _is_link(project_path / relative / "zodiac-docs")
             assert gitignore_pattern(agent) in ignore
 
     def test_second_install_is_unchanged(self, cli_runner, project_path):
@@ -93,7 +98,7 @@ class TestSkillsInstall:
 
         result = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
         assert result.exit_code == 0, result.output
-        assert dest.is_symlink()
+        assert _is_link(dest)
         assert dest.resolve() == (packaged_skills_root() / "zodiac-docs").resolve()
         assert "linked" in result.output
 
@@ -104,7 +109,7 @@ class TestSkillsInstall:
 
         result = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
         assert result.exit_code == 0, result.output
-        assert dest.is_symlink()
+        assert _is_link(dest)
         assert dest.resolve() == (packaged_skills_root() / "zodiac-docs").resolve()
 
     def test_existing_directory_requires_force(self, cli_runner, project_path):
@@ -118,14 +123,14 @@ class TestSkillsInstall:
 
         replaced = cli_runner.invoke(cli, ["skills", "install", "--force", str(project_path)])
         assert replaced.exit_code == 0, replaced.output
-        assert (project_path / ".agents" / "skills" / "zodiac-docs").is_symlink()
+        assert _is_link(project_path / ".agents" / "skills" / "zodiac-docs")
 
     def test_installs_at_project_root_from_subdirectory(self, cli_runner, project_path):
         nested = project_path / "app" / "api"
         nested.mkdir(parents=True)
         result = cli_runner.invoke(cli, ["skills", "install", str(nested)])
         assert result.exit_code == 0, result.output
-        assert (project_path / ".agents" / "skills" / "zodiac-docs").is_symlink()
+        assert _is_link(project_path / ".agents" / "skills" / "zodiac-docs")
         assert gitignore_pattern("codex") in (project_path / ".gitignore").read_text(encoding="utf-8")
         assert not (nested / ".agents").exists()
         assert not (nested / ".gitignore").exists()
@@ -136,7 +141,7 @@ class TestSkillsInstall:
         monkeypatch.chdir(nested)
         result = cli_runner.invoke(cli, ["skills", "install"])
         assert result.exit_code == 0, result.output
-        assert (project_path / ".agents" / "skills" / "zodiac-docs").is_symlink()
+        assert _is_link(project_path / ".agents" / "skills" / "zodiac-docs")
         assert not (nested / ".agents").exists()
 
     def test_missing_pyproject_errors(self, cli_runner, tmp_path):

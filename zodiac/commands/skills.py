@@ -115,6 +115,11 @@ def link_skill_directory(source: Path, destination: Path) -> str:
             _winapi.CreateJunction(os.fspath(source), os.fspath(destination))
             return "junction"
         except OSError as junction_exc:
+            # A failed junction can leave a partial directory behind. Clear it so
+            # the symlink fallback (or a later retry) is not mistaken for a copied
+            # skill directory that would then require --force.
+            if destination.exists(follow_symlinks=False) or destination.is_symlink() or destination.is_junction():
+                _remove_destination(destination)
             try:
                 os.symlink(source, destination, target_is_directory=True)
                 return "symlink"
