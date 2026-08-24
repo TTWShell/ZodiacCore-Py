@@ -22,43 +22,23 @@ Use `zodiac-docs` to explain an API or version-specific behavior.
 
 ## Install Into A Project
 
-Agents commonly discover project skills from `.agents/skills/`. Skills ship
-inside the installed `zodiac-core` package. After `uv add "zodiac-core[zodiac]"`,
-copy from the package tree (the same files as the source checkout):
+Agents discover project skills from `.agents/skills/`. Packaged ZodiacCore
+skills live in the installed `zodiac-core` wheel. Link them from the version
+you actually installed:
 
 ```bash
-mkdir -p .agents/skills
-SKILLS="$(python -c 'import pathlib, zodiac; print(pathlib.Path(zodiac.__file__).parent / "skills")')"
-cp -R "$SKILLS/zodiac-core-integration-summary" .agents/skills/
+uv add --dev "zodiac-core[zodiac]"
+uv run zodiac skills install
 ```
 
-If ZodiacCore-Py is checked out locally, copy from the source tree instead:
+Defaults to Codex and links `.agents/skills/zodiac-*` to the matching folder
+in the package. Use `--agent` for Claude (`.claude/skills`), Cursor
+(`.cursor/skills`), Copilot (`.github/skills`), Gemini (`.gemini/skills`),
+or `--agent all`. Unix uses a directory symlink; Windows uses a directory
+junction. The command gitignores the packaged `zodiac-*` directories. Re-run
+after `uv sync`. Do not copy or commit those directories.
 
-```bash
-mkdir -p .agents/skills
-cp -R ~/open-source/ZodiacCore-Py/zodiac/skills/zodiac-core-integration-summary .agents/skills/
-```
-
-To install from GitHub, first obtain a shallow checkout and then copy the skill
-directory:
-
-```bash
-git clone --depth 1 https://github.com/TTWShell/ZodiacCore-Py.git /tmp/ZodiacCore-Py
-mkdir -p .agents/skills
-cp -R /tmp/ZodiacCore-Py/zodiac/skills/zodiac-core-integration-summary .agents/skills/
-```
-
-Replace `zodiac-core-integration-summary` with `zodiac-docs` to install that
-skill.
-
-The target project should then contain:
-
-```text
-.agents/
-  skills/
-    zodiac-core-integration-summary/
-      SKILL.md
-```
+Use `--force` to replace an existing directory or stale link.
 
 Start a new agent session in that project, or reload the session if the client
 requires it, then ask for the skill by name:
@@ -67,9 +47,9 @@ requires it, then ask for the skill by name:
 $zodiac-core-integration-summary
 ```
 
-Generated projects already document `uv run zodiac check` in `AGENTS.md`. The
-CLI is the source of truth for mechanical wiring whether or not the skill is
-installed.
+Generated projects already document `uv run zodiac skills install` and
+`uv run zodiac check` in `AGENTS.md`. The CLI is the source of truth for
+mechanical wiring whether or not the skill is installed.
 
 ## When To Use
 

@@ -19,6 +19,7 @@ class TestCLI:
         assert "Zodiac CLI" in result.output
         assert "new" in result.output
         assert "check" in result.output
+        assert "skills" in result.output
 
     def test_cli_no_command(self, cli_runner):
         """Test that CLI shows help when no command is provided."""

@@ -16,6 +16,7 @@ uv add "zodiac-core[zodiac]"
 - `zodiac new PROJECT_NAME --tpl TEMPLATE_ID -o OUTPUT_DIR` — generate a new project from a template.
 - `zodiac add sub-app NAME` — add a new sub-application skeleton to an existing `sub-applications` project.
 - `zodiac check [PATH]` — verify a ZodiacCore service against the wiring contract.
+- `zodiac skills install [PATH]` — link packaged agent skills into the project. Defaults to Codex (`.agents/skills`); `--agent` selects Claude, Cursor, Copilot, Gemini, or all.
 
 ## Options (zodiac new)
 
@@ -93,6 +94,28 @@ To customize the generated Python package name:
 ```bash
 zodiac new my_app --tpl standard-3tier -o ./projects --package-name my_service
 ```
+
+## zodiac skills install
+
+Link the agent skills shipped in the installed `zodiac-core` wheel into the
+service project. Skills stay version-matched with the lockfile; they are not
+copied into git.
+
+```bash
+uv run zodiac skills install
+uv run zodiac skills install --agent claude
+uv run zodiac skills install --agent claude --agent copilot
+uv run zodiac skills install --agent all
+uv run zodiac skills install --force
+```
+
+Defaults to Codex (`.agents/skills`). Other project directories: Claude
+`.claude/skills`, Cursor `.cursor/skills`, Copilot `.github/skills`, Gemini
+`.gemini/skills`. Unix creates a directory symlink. Windows creates a
+directory junction (`mklink /J`) and does not require Administrator. If
+linking fails, the command prints OS-specific next steps instead of copying
+files. Re-run after `uv sync`. Packaged `zodiac-*` skills are added to
+`.gitignore`.
 
 ## zodiac check
 
