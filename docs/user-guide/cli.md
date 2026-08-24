@@ -17,6 +17,7 @@ uv add "zodiac-core[zodiac]"
 - `zodiac add sub-app NAME` — add a new sub-application skeleton to an existing `sub-applications` project.
 - `zodiac check [PATH]` — verify a ZodiacCore service against the wiring contract.
 - `zodiac skills install [PATH]` — link packaged agent skills into the project. Defaults to Codex (`.agents/skills`); `--agent` selects Claude, Cursor, Copilot, Gemini, or all.
+- `zodiac skills uninstall [PATH]` — remove those packaged-skill links. `--agent` and `--force` match install.
 
 ## Options (zodiac new)
 
@@ -122,6 +123,22 @@ Administrator. If linking fails, the command prints OS-specific next steps
 instead of copying files. Re-run after `uv sync`; stale links are retargeted
 to the current package without `--force`. Use `--force` only to replace a
 copied skill directory. Packaged `zodiac-*` skills are added to `.gitignore`.
+
+## zodiac skills uninstall
+
+Remove packaged `zodiac-*` skill links (and their gitignore patterns) from the
+project. Other skills in the same agent directory are left in place.
+
+```bash
+uv run zodiac skills uninstall
+uv run zodiac skills uninstall --agent claude
+uv run zodiac skills uninstall --agent all
+uv run zodiac skills uninstall --force
+```
+
+Walks up to `pyproject.toml` the same way as `zodiac skills install`. Defaults
+to Codex. Links and junctions are removed without `--force`. Use `--force` only
+to delete a copied skill directory.
 
 ## zodiac check
 

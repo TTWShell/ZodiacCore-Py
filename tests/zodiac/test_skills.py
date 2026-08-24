@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from zodiac.commands.skills import AGENT_SKILL_DIRS, GITIGNORE_HEADER, gitignore_pattern, packaged_skills_root
+from zodiac.commands.skills import (
+    AGENT_SKILL_DIRS,
+    GITIGNORE_HEADER,
+    _is_link,
+    gitignore_pattern,
+    packaged_skills_root,
+)
 from zodiac.main import cli
-
-
-def _is_link(path) -> bool:
-    """Accept either a symlink (Unix) or a junction (Windows)."""
-    return path.is_symlink() or path.is_junction()
 
 
 @pytest.fixture
@@ -174,3 +175,100 @@ class TestSkillsInstall:
         assert result.exit_code != 0
         assert "junction" in result.output.lower()
         assert "Developer Mode" in result.output
+
+
+class TestSkillsUninstall:
+    def test_help(self, cli_runner):
+        result = cli_runner.invoke(cli, ["skills", "uninstall", "--help"])
+        assert result.exit_code == 0
+        assert "--agent" in result.output
+        assert "--force" in result.output
+
+    def test_removes_links_and_gitignore(self, cli_runner, project_path):
+        installed = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
+        assert installed.exit_code == 0, installed.output
+
+        result = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
+        assert result.exit_code == 0, result.output
+        assert "removed" in result.output
+        assert not (project_path / ".agents" / "skills" / "zodiac-docs").exists()
+        assert not (project_path / ".agents" / "skills" / "zodiac-core-integration-summary").exists()
+        assert not (project_path / ".agents").exists()
+        assert not (project_path / ".gitignore").exists()
+
+    def test_leaves_other_skills_and_user_gitignore(self, cli_runner, project_path):
+        (project_path / ".gitignore").write_text(".venv\n", encoding="utf-8")
+        custom = project_path / ".agents" / "skills" / "my-skill"
+        custom.mkdir(parents=True)
+        (custom / "SKILL.md").write_text("custom\n", encoding="utf-8")
+        installed = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
+        assert installed.exit_code == 0, installed.output
+
+        result = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
+        assert result.exit_code == 0, result.output
+        assert (custom / "SKILL.md").is_file()
+        ignore = (project_path / ".gitignore").read_text(encoding="utf-8")
+        assert ".venv" in ignore
+        assert gitignore_pattern("codex") not in ignore
+        assert GITIGNORE_HEADER not in ignore
+
+    def test_default_agent_does_not_remove_other_agents(self, cli_runner, project_path):
+        installed = cli_runner.invoke(
+            cli,
+            ["skills", "install", "--agent", "codex", "--agent", "claude", str(project_path)],
+        )
+        assert installed.exit_code == 0, installed.output
+
+        result = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
+        assert result.exit_code == 0, result.output
+        assert not (project_path / ".agents" / "skills" / "zodiac-docs").exists()
+        assert _is_link(project_path / ".claude" / "skills" / "zodiac-docs")
+        ignore = (project_path / ".gitignore").read_text(encoding="utf-8")
+        assert gitignore_pattern("codex") not in ignore
+        assert gitignore_pattern("claude") in ignore
+
+    def test_agent_all(self, cli_runner, project_path):
+        installed = cli_runner.invoke(cli, ["skills", "install", "--agent", "all", str(project_path)])
+        assert installed.exit_code == 0, installed.output
+        result = cli_runner.invoke(cli, ["skills", "uninstall", "--agent", "all", str(project_path)])
+        assert result.exit_code == 0, result.output
+        for relative in AGENT_SKILL_DIRS.values():
+            assert not (project_path / relative / "zodiac-docs").exists()
+        assert not (project_path / ".gitignore").exists()
+
+    def test_copied_directory_requires_force(self, cli_runner, project_path):
+        dest = project_path / ".agents" / "skills" / "zodiac-docs"
+        dest.mkdir(parents=True)
+        (dest / "SKILL.md").write_text("copied\n", encoding="utf-8")
+
+        blocked = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
+        assert blocked.exit_code != 0
+        assert "--force" in blocked.output
+        assert (dest / "SKILL.md").read_text(encoding="utf-8") == "copied\n"
+
+        removed = cli_runner.invoke(cli, ["skills", "uninstall", "--force", str(project_path)])
+        assert removed.exit_code == 0, removed.output
+        assert not dest.exists()
+
+    def test_second_uninstall_is_absent(self, cli_runner, project_path):
+        installed = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
+        assert installed.exit_code == 0, installed.output
+        first = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
+        assert first.exit_code == 0, first.output
+        second = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
+        assert second.exit_code == 0, second.output
+        assert "absent" in second.output
+
+    def test_walks_up_from_subdirectory(self, cli_runner, project_path):
+        installed = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
+        assert installed.exit_code == 0, installed.output
+        nested = project_path / "app" / "api"
+        nested.mkdir(parents=True)
+        result = cli_runner.invoke(cli, ["skills", "uninstall", str(nested)])
+        assert result.exit_code == 0, result.output
+        assert not (project_path / ".agents" / "skills" / "zodiac-docs").exists()
+
+    def test_missing_pyproject_errors(self, cli_runner, tmp_path):
+        result = cli_runner.invoke(cli, ["skills", "uninstall", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "pyproject.toml" in result.output

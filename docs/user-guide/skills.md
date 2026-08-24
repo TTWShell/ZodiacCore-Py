@@ -44,6 +44,10 @@ after `uv sync`; existing links to packaged `zodiac-*` skills are retargeted
 to the current install. Use `--force` only to replace a copied directory.
 Do not copy or commit those directories.
 
+Remove the packaged links with `uv run zodiac skills uninstall` (same `--agent`
+and project-root walk-up). Other skills in the directory stay. Use `--force`
+only to delete a copied `zodiac-*` directory.
+
 Start a new agent session in that project, or reload the session if the client
 requires it, then ask for the skill by name:
 
