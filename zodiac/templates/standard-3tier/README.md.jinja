@@ -42,11 +42,17 @@ uv sync --extra dev
 
 ### 2. Run Quality Checks
 
+This project includes `AGENTS.md` as the contract for coding agents.
+Mechanical wiring is verified with `uv run zodiac check`.
+
 Before running the application, it's recommended to run linting and tests:
 
 ```bash
 # Lint code
 uv run ruff check .
+
+# Verify the ZodiacCore contract
+uv run zodiac check
 
 # Run tests
 uv run pytest

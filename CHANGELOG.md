@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-24
+
+### Added
+
+- **CLI**: Add `zodiac check` to AST-scan services that depend on `zodiac-core` for high-confidence wiring anti-patterns (FastAPI `APIRouter`, `HTTPException`, `partial(get_session)`, bare `session_dependency`, raw httpx, layer imports, and bootstrap). Findings are grouped by rule with `contract` / `change` / `docs` printed once; `--format json` exposes per-rule counts for tools. Identity is a `zodiac-core` dependency; 3-tier, sub-application, and generic layouts are classified afterwards. Unused FastAPI `APIRouter` imports are warnings; constructing FastAPI's router is an error. Public `zodiac_core` re-exports of `setup_loguru` and `register_*` count as the same bootstrap calls as submodule imports.
+- **Skills**: `zodiac-core-integration-summary` runs `uv run zodiac check --format json` for mechanical wiring evidence and applies each error rule's `change` when the user asks to fix those cells. If the installed `zodiac-core` lacks `zodiac check`, prompt the user to upgrade and add `zodiac-core[zodiac]` to dev dependencies instead of running the latest CLI from `uvx` against an older lock.
+- **Templates**: Generate `AGENTS.md` for `standard-3tier` projects. Both templates point at `uv run zodiac check` as the wiring contract and keep the judgment rules the CLI cannot enforce (thin routers, DI, session ownership, request-derived database names, named resource lifecycle).
+
+### Changed
+
+- **Templates**: Include `zodiac-core[zodiac]` in the `standard-3tier` development extra so generated projects can run `uv run zodiac check`.
+- **CLI**: Print `uv run zodiac check` in `zodiac new` next steps.
+- **Documentation**: Document `zodiac check` in the CLI and getting-started guides. Route adoption audits and wiring-fix loops through `zodiac-core-integration-summary`. A green report certifies mechanical wiring, including import-layer anti-patterns, not architecture.
+
 ## [0.13.0] - 2026-08-07
 
 ### Added

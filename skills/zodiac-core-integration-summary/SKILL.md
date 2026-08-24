@@ -1,6 +1,6 @@
 ---
 name: zodiac-core-integration-summary
-description: Produces a ZodiacCore integration matrix for downstream services by reading requirements and code. Use when the user asks for Zodiac 接入总结、接入矩阵、对接表、zodiac-core 特性对照, or a ✅❌ adoption table.
+description: Produces a ZodiacCore integration matrix for downstream services. Run `zodiac check --format json` for mechanical wiring evidence, then judge pagination, cache, config, schemas, and ➖/❓. Use when the user asks for Zodiac 接入总结、接入矩阵、对接表、zodiac-core 特性对照, a ✅❌ adoption table, or to fix wiring from that report.
 ---
 
 # ZodiacCore Integration Summary
@@ -8,6 +8,58 @@ description: Produces a ZodiacCore integration matrix for downstream services by
 Use this skill to audit a service that is built with, or is expected to adopt,
 ZodiacCore. The output is a compact feature-adoption matrix for developers and
 technical leads. Do not rewrite code unless the user explicitly asks for fixes.
+
+## Mechanical wiring via `zodiac check`
+
+The CLI is the source of truth for anti-patterns this skill used to grep for.
+Do not re-derive those rules in the prompt.
+
+From the service root:
+
+```bash
+uv run zodiac check --format json
+```
+
+If the project does not install the CLI extra, or the installed `zodiac-core`
+is too old to provide `zodiac check`, stop and prompt the user to upgrade
+`zodiac-core` and add `zodiac-core[zodiac]` to dev dependencies (for example
+`uv add --dev "zodiac-core[zodiac]"`), then rerun. Do not run the latest CLI
+from `uvx` against an older project, and do not re-derive the anti-patterns by
+grepping.
+
+If the command exits because the project does not depend on `zodiac-core`,
+stop. That is not an adoption matrix.
+
+Map CLI `rules[].rule_id` to matrix columns:
+
+| `rule_id` | Column |
+|-----------|--------|
+| `routing.*` | Routing & Response |
+| `exceptions.*`, `bootstrap.register_exception_handlers` | Exception Handling |
+| `bootstrap.register_middleware`, `bootstrap.parent_no_register_middleware`, `bootstrap.subapp_register_middleware` | Middleware |
+| `bootstrap.setup_loguru`, `bootstrap.subapp_no_setup_loguru` | Logging |
+| `http.*` | HTTP & Upstream |
+| `db.*` | Database |
+| `layers.*` | Footnote only as an error when present (import-layer anti-pattern, not a table column) |
+| `parse.*` / any unlisted `rule_id` | Footnote only; fix the syntax error or check the rule's docs. Do not map an unlisted rule to a column. |
+
+- An **error** on a column that the service is expected to use → ❌. Cite
+  `hits[]` and the rule `change` in a footnote.
+- A **warning** alone does not flip the cell to ❌ if the service otherwise
+  adopts the capability. Footnote it.
+- No matching errors, and the service uses the capability → continue with the
+  positive-adoption searches below to mark ✅ or ➖.
+- `zodiac check` does **not** decide pagination, cache, configuration, or
+  schemas. Those columns stay grep + judgment (➖/❓ allowed).
+- A green report certifies mechanical wiring only. Session ownership,
+  request-derived database names, named resource lifecycle, thin routers, and
+  DI still come from the project's `AGENTS.md` and the judgment rules below.
+
+If the user then asks to fix mechanical ❌ cells, apply each error rule's
+`change` at `hits[].path`. Use `found` only to locate the code. Re-run
+`zodiac check --format json` until `ok` is true, then refresh the matrix.
+Do not invent a different fix than `change`. Do not upgrade `zodiac-core` or
+rewrite architecture unless asked.
 
 ## Status Symbols
 
@@ -61,7 +113,8 @@ Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/>
 
 ### 2. Routing & Response
 
-Search for:
+Prefer `zodiac check` rules `routing.*` for anti-patterns. Then search only
+for positive adoption:
 
 - `zodiac_core.routing.APIRouter`
 - `ZodiacRoute`
@@ -72,8 +125,8 @@ Mark:
 
 | Symbol | Condition |
 |--------|-----------|
-| ✅ | Routes use ZodiacCore `APIRouter`, or manual responses use `response_*` helpers. |
-| ❌ | Native FastAPI routing manually constructs JSON responses while the project expects the Zodiac response envelope. |
+| ✅ | Routes use ZodiacCore `APIRouter`, or manual responses use `response_*` helpers, and check has no routing errors. |
+| ❌ | Check reports `routing.*` errors, or native FastAPI routing manually constructs JSON responses while the project expects the envelope. |
 | ➖ | The service is not a REST JSON API. |
 | ❓ | Routing style cannot be confirmed. |
 
@@ -90,7 +143,8 @@ Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/api/routing/>
 
 ### 3. Exception Handling
 
-Search for:
+Prefer `zodiac check` rules `exceptions.*` and
+`bootstrap.register_exception_handlers`. Then search for:
 
 - `register_exception_handlers`
 - `ZodiacException`
@@ -101,8 +155,8 @@ Mark:
 
 | Symbol | Condition |
 |--------|-----------|
-| ✅ | The app calls `register_exception_handlers(app)` and business code uses ZodiacCore exceptions. |
-| ❌ | The app uses bare `HTTPException` or hand-written JSON error responses where ZodiacCore exceptions are expected. |
+| ✅ | The app calls `register_exception_handlers(app)`, business code uses ZodiacCore exceptions, and check has no exception/bootstrap handler errors. |
+| ❌ | Check reports exception or handler errors, or the app uses bare `HTTPException` / hand-written JSON errors where ZodiacCore exceptions are expected. |
 | ➖ | The service intentionally owns a different exception system. |
 | ❓ | Handlers or business exception usage cannot be confirmed. |
 
@@ -116,7 +170,7 @@ Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/api/exceptions/>
 
 ### 4. Middleware
 
-Search for:
+Prefer `zodiac check` middleware bootstrap rules. Then search for:
 
 - `register_middleware`
 - `TraceIDMiddleware`
@@ -127,8 +181,8 @@ Mark:
 
 | Symbol | Condition |
 |--------|-----------|
-| ✅ | The service uses `register_middleware(app)` or manually installs Trace ID and access log middleware correctly. |
-| ❌ | An HTTP service lacks request tracing/access logging while the project expects ZodiacCore observability. |
+| ✅ | The service uses `register_middleware(app)` or correctly installs Trace ID and access log middleware, and check has no middleware bootstrap errors. |
+| ❌ | Check reports middleware bootstrap errors, or an HTTP service lacks tracing/access logging while the project expects ZodiacCore observability. |
 | ➖ | The project is a CLI, job, or non-ASGI process. |
 | ❓ | Middleware exists but its ownership or implementation is unclear. |
 
@@ -143,7 +197,7 @@ Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/api/middleware/>
 
 ### 5. Logging
 
-Search for:
+Prefer `zodiac check` logging bootstrap rules. Then search for:
 
 - `setup_loguru`
 - `from loguru import logger`
@@ -152,8 +206,8 @@ Mark:
 
 | Symbol | Condition |
 |--------|-----------|
-| ✅ | The service configures logging with `setup_loguru(...)`. |
-| ❌ | The service uses raw logging setup where ZodiacCore JSON logs and request context are expected. |
+| ✅ | The service configures logging with `setup_loguru(...)` and check has no logging bootstrap errors. |
+| ❌ | Check reports logging bootstrap errors, or the service uses raw logging setup where ZodiacCore JSON logs are expected. |
 | ➖ | The project is not a long-running service process. |
 | ❓ | Logging setup cannot be located. |
 
@@ -169,7 +223,7 @@ Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/api/logging/>
 
 ### 6. HTTP & Upstream
 
-Search for:
+Prefer `zodiac check` rules `http.*` for raw clients. Then search for:
 
 - `ZodiacClient`
 - `ZodiacSyncClient`
@@ -181,8 +235,8 @@ Mark:
 
 | Symbol | Condition |
 |--------|-----------|
-| ✅ | Downstream HTTP calls use `ZodiacClient` or `ZodiacSyncClient`, and upstream errors are translated when needed. |
-| ❌ | The service uses raw `httpx` for downstream calls without trace propagation or error translation where required. |
+| ✅ | Downstream HTTP calls use `ZodiacClient` or `ZodiacSyncClient`, upstream errors are translated when needed, and check has no `http.*` errors. |
+| ❌ | Check reports `http.*` errors, or the service uses raw `httpx` without trace propagation or error translation where required. |
 | ➖ | The service has no downstream HTTP calls. |
 | ❓ | HTTP client usage is present but cannot be classified. |
 
@@ -258,7 +312,7 @@ Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/api/cache/>
 
 ### 9. Database
 
-Search for:
+Prefer `zodiac check` rules `db.*` for session anti-patterns. Then search for:
 
 - `zodiac-core[sql]`
 - `db.setup`
@@ -273,8 +327,8 @@ Mark:
 
 | Symbol | Condition |
 |--------|-----------|
-| ✅ | The service uses ZodiacCore database setup, repositories, and SQLModel bases. |
-| ❌ | The service has SQL database operations but bypasses ZodiacCore where the project standard requires it. |
+| ✅ | The service uses ZodiacCore database setup, repositories, and SQLModel bases, and check has no `db.*` errors. |
+| ❌ | Check reports `db.*` errors, or the service has SQL operations but bypasses ZodiacCore where the project standard requires it. |
 | ➖ | The service has no SQL database. |
 | ❓ | Database usage cannot be classified. |
 
@@ -297,12 +351,9 @@ Best practices:
   it merely because it is old; recommend migrating touched routes and writing
   new named route wiring with `session_dependency(name)` so FastAPI directly
   manages rollback and cleanup.
-- Flag every `partial(get_session, ...)` form and
-  `Depends(session_dependency)` as incorrect. Replace partials with
-  `session_dependency(name)`; keyword-bound partials fail during route
-  registration because FastAPI would otherwise override their database name.
-  Passing the factory itself treats `name` as a required client parameter and,
-  if supplied, injects a dependency callable instead of an `AsyncSession`.
+- `partial(get_session, ...)` and `Depends(session_dependency)` (including
+  `Depends(db.session_dependency)`) are mechanical errors. Prefer the
+  `zodiac check` `db.*` rules over grepping. The `change` field is the fix.
 - FastAPI dependencies are API/DI-boundary APIs, not general-purpose session
   APIs. Lower layers must never call dependency callables. If the API owns the
   unit of work, pass the concrete injected `AsyncSession` to participating
@@ -385,7 +436,9 @@ Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/api/schemas/>
 
 ### 12. Sub Applications
 
-Search for:
+Prefer `zodiac check` middleware/logging bootstrap rules for duplicate
+middleware and misplaced `setup_loguru`. Lifespan order, mount paths, and
+named shutdown still need reading `main.py`. Search for:
 
 - `app.mount(`
 - `FastAPI(lifespan=`
@@ -428,7 +481,8 @@ Docs: <https://ttwshell.github.io/ZodiacCore-Py/latest/user-guide/sub-applicatio
 ## Footnote Rules
 
 - Add at least one footnote for each ➖ or ❓ column.
-- For ❌, explain the missing API or missing call site.
+- For ❌, explain the missing API or missing call site. For mechanical
+  wiring ❌, cite the `zodiac check` `rule_id` and `change`.
 - If the service uses an older ZodiacCore version, mention that newer features
   may not exist in that version.
 - Keep footnotes short. Prefer one to three high-signal notes.

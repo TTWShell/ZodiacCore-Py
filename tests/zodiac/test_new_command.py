@@ -137,8 +137,16 @@ class TestNewCommand:
         assert (target_path / "main.py").exists()
         assert (target_path / "pyproject.toml").exists()
         assert (target_path / "README.md").exists()
+        assert (target_path / "AGENTS.md").exists()
         assert (target_path / "app").exists()
         assert (target_path / "config").exists()
+        assert "uv run zodiac check" in result.output
+        assert '"zodiac-core[zodiac]"' in (target_path / "pyproject.toml").read_text()
+        assert "uv run zodiac check" in (target_path / "README.md").read_text()
+        agents_md = (target_path / "AGENTS.md").read_text()
+        assert "uv run zodiac check" in agents_md
+        assert "request data" in agents_md
+        assert "db.session()" in agents_md
 
     def test_new_command_directory_exists_without_force(self, cli_runner):
         """Test that new command fails when directory exists without --force."""
@@ -395,8 +403,11 @@ class TestNewCommand:
         agents_md = (target_path / "AGENTS.md").read_text()
         assert "FastAPI multi-app server" in agents_md
         assert "ZodiacCore response envelope" in agents_md
-        assert "Codex" in agents_md
-        assert "Claude" not in agents_md
+        assert "coding agents" in agents_md
+        assert "uv run zodiac check" in agents_md
+        assert "request data" in agents_md
+        assert "db.session(" in agents_md
+        assert "shutdown(name=...)" in agents_md
 
         readme = (target_path / "README.md").read_text()
         assert "uv run uvicorn main:app --no-access-log" in readme
@@ -960,6 +971,14 @@ class TestGeneratedProjectQuality:
         assert not (generated_project_path / "data.db").exists()
         assert "GET /api/v1/items" not in test.stdout + test.stderr
 
+    def test_generated_project_zodiac_check(self, generated_project_path):
+        """Fresh standard-3tier projects must pass the ZodiacCore contract check."""
+        from zodiac.check import check_project, render_report
+
+        result = check_project(generated_project_path)
+        assert result.ok, render_report(result)
+        assert result.layout == "standard-3tier"
+
     @pytest.fixture(scope="class")
     def generated_sub_applications_path(self, tmp_path_factory):
         """Generate a sub-applications project once for all tests in this class."""
@@ -1057,3 +1076,11 @@ class TestGeneratedProjectQuality:
         assert "GET /users/api/v1" not in output
         assert "GET /orders/api/v1" not in output
         assert "GET /billing/api/v1" not in output
+
+    def test_generated_sub_applications_zodiac_check(self, generated_sub_applications_path):
+        """Fresh sub-applications projects must pass the ZodiacCore contract check."""
+        from zodiac.check import check_project, render_report
+
+        result = check_project(generated_sub_applications_path)
+        assert result.ok, render_report(result)
+        assert result.layout == "sub-applications"
