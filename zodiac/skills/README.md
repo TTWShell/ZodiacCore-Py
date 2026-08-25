@@ -6,20 +6,26 @@ project-level practices that downstream service teams can reuse.
 
 ## Organization
 
-Keep each skill as a top-level directory:
+Keep each skill as a top-level directory under `zodiac/skills/`. The
+`zodiac-core` wheel ships only the globs in `pyproject.toml`
+(`[tool.setuptools.package-data]`): `SKILL.md`, `agents/*`, `references/*`,
+and `scripts/*.py`. This authoring `README.md` stays in git and is not
+packaged. When adding a new asset type, update those globs and
+`tests/test_build.py`.
 
 ```text
-skills/
+zodiac/skills/
   zodiac-docs/
     SKILL.md
+    agents/
+    references/
+    scripts/
   zodiac-core-integration-summary/
     SKILL.md
 ```
 
 Use a clear ZodiacCore-specific name and keep one skill focused on one
-developer task. Avoid nesting skills under category directories because
-skill installers commonly expect each skill package to live directly under
-`skills/`.
+developer task. Avoid nesting skills under extra category directories.
 
 ## Recommended Skill Boundaries
 

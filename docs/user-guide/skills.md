@@ -22,35 +22,31 @@ Use `zodiac-docs` to explain an API or version-specific behavior.
 
 ## Install Into A Project
 
-Agents commonly discover project skills from `.agents/skills/`. If
-ZodiacCore-Py is already checked out locally, copy a skill from the
-repository:
+Agents discover project skills from `.agents/skills/`. Packaged ZodiacCore
+skills live in the installed `zodiac-core` wheel. Link them from the version
+you actually installed:
 
 ```bash
-mkdir -p .agents/skills
-cp -R ~/open-source/ZodiacCore-Py/skills/zodiac-core-integration-summary .agents/skills/
+uv add --dev "zodiac-core[zodiac]"
+uv run zodiac skills install
 ```
 
-To install from GitHub, first obtain a shallow checkout and then copy the skill
-directory:
+`zodiac new` prints this after `uv sync --extra dev` so the links follow the
+project's locked `zodiac-core`, not the CLI that generated the files. Run it
+from the service root or a subdirectory; it walks up to `pyproject.toml`.
 
-```bash
-git clone --depth 1 https://github.com/TTWShell/ZodiacCore-Py.git /tmp/ZodiacCore-Py
-mkdir -p .agents/skills
-cp -R /tmp/ZodiacCore-Py/skills/zodiac-core-integration-summary .agents/skills/
-```
+Defaults to Codex and links `.agents/skills/zodiac-*` to the matching folder
+in the package. Use `--agent` for Claude (`.claude/skills`), Cursor
+(`.cursor/skills`), Copilot (`.github/skills`), Gemini (`.gemini/skills`),
+or `--agent all`. Unix uses a directory symlink; Windows uses a directory
+junction. The command gitignores the packaged `zodiac-*` directories. Re-run
+after `uv sync`; existing links to packaged `zodiac-*` skills are retargeted
+to the current install. Use `--force` only to replace a copied directory.
+Do not copy or commit those directories.
 
-Replace `zodiac-core-integration-summary` with `zodiac-docs` to install that
-skill.
-
-The target project should then contain:
-
-```text
-.agents/
-  skills/
-    zodiac-core-integration-summary/
-      SKILL.md
-```
+Remove the packaged links with `uv run zodiac skills uninstall` (same `--agent`
+and project-root walk-up). Other skills in the directory stay. Use `--force`
+only to delete a copied `zodiac-*` directory.
 
 Start a new agent session in that project, or reload the session if the client
 requires it, then ask for the skill by name:
@@ -59,9 +55,10 @@ requires it, then ask for the skill by name:
 $zodiac-core-integration-summary
 ```
 
-Generated projects already document `uv run zodiac check` in `AGENTS.md`. The
-CLI is the source of truth for mechanical wiring whether or not the skill is
-installed.
+Generated projects document `uv run zodiac skills install` (Codex by default;
+pass `--agent` for other clients) and `uv run zodiac check` in `AGENTS.md` and
+`README.md`. The CLI is the source of truth for mechanical wiring whether or
+not the skill is installed.
 
 ## When To Use
 

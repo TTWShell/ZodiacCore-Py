@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zodiac-core"
-version = "0.14.0"
+version = "0.14.1"
 description = "ZodiacCore-Py: A high-performance core library for modern Python web services."
 readme = "README.md"
 license = "MIT"
@@ -46,12 +46,24 @@ cache = ["aiocache>=0.12.0"]
 [project.scripts]
 zodiac = "zodiac.main:main"
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 include = ["zodiac*", "zodiac_core*"]
 exclude = ["tests*", "benchmarks*"]
 
 [tool.setuptools.package-data]
-zodiac = ["templates/**/*.jinja"]
+zodiac = [
+    "templates/**/*.jinja",
+    "skills/*/SKILL.md",
+    "skills/*/agents/*",
+    "skills/*/references/*",
+    "skills/*/scripts/*.py",
+]
+
+[tool.setuptools.exclude-package-data]
+zodiac = ["skills/README.md", "**/__pycache__/**"]
 
 [tool.ruff]
 line-length = 120
@@ -92,6 +104,7 @@ omit = [
     "*/.*",
     "*/benchmarks/*",
     "*/templates/*",
+    "*/skills/*",
     "*/*.jinja",
 ]
 

@@ -66,6 +66,7 @@ Project rules that `zodiac check` does not fully own:
 
 ```bash
 uv run ruff check .
+uv run zodiac skills install   # Codex by default; pass --agent claude|cursor|copilot|gemini|all
 uv run zodiac check
 uv run pytest -q
 ```

@@ -2,7 +2,7 @@
 
 import click
 
-from zodiac.commands import add_cmd, check_cmd, new_cmd
+from zodiac.commands import add_cmd, check_cmd, new_cmd, skills_cmd
 
 
 @click.group(invoke_without_command=True)
@@ -17,6 +17,7 @@ def cli(ctx: click.Context) -> None:
 cli.add_command(new_cmd)
 cli.add_command(add_cmd)
 cli.add_command(check_cmd)
+cli.add_command(skills_cmd)
 
 
 def main() -> None:

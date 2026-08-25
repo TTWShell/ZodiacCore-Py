@@ -22,3 +22,6 @@ coverage.xml
 
 # Local Codex notes
 /.codex/
+
+# ZodiacCore packaged skills (linked from the installed package; do not commit)
+.agents/skills/zodiac-*

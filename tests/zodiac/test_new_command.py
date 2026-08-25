@@ -141,10 +141,19 @@ class TestNewCommand:
         assert (target_path / "app").exists()
         assert (target_path / "config").exists()
         assert "uv run zodiac check" in result.output
+        assert "uv run zodiac skills install" in result.output
+        assert "--agent" in result.output
+        assert not (target_path / ".agents").exists()
+        assert not (target_path / ".claude").exists()
         assert '"zodiac-core[zodiac]"' in (target_path / "pyproject.toml").read_text()
-        assert "uv run zodiac check" in (target_path / "README.md").read_text()
+        readme = (target_path / "README.md").read_text()
+        assert "uv run zodiac check" in readme
+        assert "uv run zodiac skills install" in readme
+        assert "--agent" in readme
         agents_md = (target_path / "AGENTS.md").read_text()
         assert "uv run zodiac check" in agents_md
+        assert "uv run zodiac skills install" in agents_md
+        assert "--agent" in agents_md
         assert "request data" in agents_md
         assert "db.session()" in agents_md
 
@@ -405,12 +414,16 @@ class TestNewCommand:
         assert "ZodiacCore response envelope" in agents_md
         assert "coding agents" in agents_md
         assert "uv run zodiac check" in agents_md
+        assert "uv run zodiac skills install" in agents_md
+        assert "--agent" in agents_md
         assert "request data" in agents_md
         assert "db.session(" in agents_md
         assert "shutdown(name=...)" in agents_md
 
         readme = (target_path / "README.md").read_text()
         assert "uv run uvicorn main:app --no-access-log" in readme
+        assert "uv run zodiac skills install" in readme
+        assert "--agent" in readme
 
     def test_add_sub_app_generates_sub_application_without_patching_main(self, cli_runner, monkeypatch):
         """Test adding a sub-application skeleton to an existing mounted services project."""

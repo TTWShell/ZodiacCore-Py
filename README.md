@@ -98,8 +98,9 @@ app.include_router(router)
 
 - **Online**: [https://ttwshell.github.io/ZodiacCore-Py/](https://ttwshell.github.io/ZodiacCore-Py/) (multiple versions via release).
 - **Local**: `make docs-serve` (sources in `docs/`).
-- **Developer skills**: reusable agent skills live in `skills/`. Install them
-  into a service project's `.agents/skills/` directory. Use `zodiac-docs` for
+- **Developer skills**: reusable agent skills ship in the `zodiac-core` wheel
+  under `zodiac/skills/`. Link them with `uv run zodiac skills install`. Use
+  `zodiac-docs` for
   version-aware framework guidance and `zodiac-core-integration-summary` for
   adoption audits (`zodiac check --format json` supplies mechanical wiring
   evidence). See the
