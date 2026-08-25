@@ -63,7 +63,7 @@ zodiac = [
 ]
 
 [tool.setuptools.exclude-package-data]
-zodiac = ["skills/README.md"]
+zodiac = ["skills/README.md", "**/__pycache__/**"]
 
 [tool.ruff]
 line-length = 120

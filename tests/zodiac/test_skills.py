@@ -95,6 +95,21 @@ class TestSkillsInstall:
         assert ignore.count(GITIGNORE_HEADER) == 1
         assert ignore.count(gitignore_pattern("codex")) == 1
 
+    def test_gitignore_matches_exact_lines_not_substrings(self, cli_runner, project_path):
+        comment = "# keep .agents/skills/zodiac-*"
+        (project_path / ".gitignore").write_text(f"{comment}\n", encoding="utf-8")
+        installed = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
+        assert installed.exit_code == 0, installed.output
+        lines = (project_path / ".gitignore").read_text(encoding="utf-8").splitlines()
+        assert comment in lines
+        assert gitignore_pattern("codex") in lines
+
+        removed = cli_runner.invoke(cli, ["skills", "uninstall", str(project_path)])
+        assert removed.exit_code == 0, removed.output
+        remaining = (project_path / ".gitignore").read_text(encoding="utf-8").splitlines()
+        assert comment in remaining
+        assert gitignore_pattern("codex") not in remaining
+
     def test_replaces_stale_link_without_force(self, cli_runner, project_path):
         dest = project_path / ".agents" / "skills" / "zodiac-docs"
         dest.parent.mkdir(parents=True)
@@ -126,6 +141,8 @@ class TestSkillsInstall:
         blocked = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
         assert blocked.exit_code != 0
         assert "--force" in blocked.output
+        assert (dest / "SKILL.md").read_text(encoding="utf-8") == "stale\n"
+        assert not (project_path / ".agents" / "skills" / "zodiac-core-integration-summary").exists()
 
         replaced = cli_runner.invoke(cli, ["skills", "install", "--force", str(project_path)])
         assert replaced.exit_code == 0, replaced.output
@@ -181,6 +198,27 @@ class TestSkillsInstall:
         assert "junction" in result.output.lower()
         assert "Developer Mode" in result.output
 
+    def test_windows_junction_success_does_not_call_symlink(self, cli_runner, project_path, monkeypatch):
+        import os
+        from types import SimpleNamespace
+
+        real_symlink = os.symlink
+
+        def create_junction(src, dst):
+            real_symlink(src, dst, target_is_directory=True)
+
+        def fail_symlink(*_args, **_kwargs):
+            raise AssertionError("os.symlink must not run when CreateJunction succeeds")
+
+        monkeypatch.setattr("zodiac.commands.skills.sys.platform", "win32")
+        monkeypatch.setitem(__import__("sys").modules, "_winapi", SimpleNamespace(CreateJunction=create_junction))
+        monkeypatch.setattr("zodiac.commands.skills.os.symlink", fail_symlink)
+        result = cli_runner.invoke(cli, ["skills", "install", str(project_path)])
+        assert result.exit_code == 0, result.output
+        assert "junction" in result.output
+        dest = project_path / ".agents" / "skills" / "zodiac-docs"
+        assert dest.is_symlink() or dest.is_junction()
+
     def test_windows_leftover_directory_falls_back_to_symlink(self, cli_runner, project_path, monkeypatch):
         from types import SimpleNamespace
 
@@ -188,11 +226,10 @@ class TestSkillsInstall:
 
         def create_junction(src, dst):
             calls["n"] += 1
+            Path(dst).symlink_to(src, target_is_directory=True)
             if calls["n"] == 1:
-                Path(dst).symlink_to(src, target_is_directory=True)
                 return
-            Path(dst).mkdir(parents=True, exist_ok=True)
-            raise OSError(1, "failed after creating the destination")
+            raise OSError(1, "failed after creating a reparse point")
 
         monkeypatch.setattr("zodiac.commands.skills.sys.platform", "win32")
         monkeypatch.setitem(__import__("sys").modules, "_winapi", SimpleNamespace(CreateJunction=create_junction))
@@ -200,7 +237,10 @@ class TestSkillsInstall:
         assert result.exit_code == 0, result.output
         assert "junction" in result.output
         assert "symlink" in result.output
-        assert _is_link(project_path / ".agents" / "skills" / "zodiac-docs")
+        docs = packaged_skills_root() / "zodiac-docs" / "SKILL.md"
+        assert docs.is_file()
+        dest = project_path / ".agents" / "skills" / "zodiac-docs"
+        assert dest.is_symlink() or dest.is_junction()
 
     @pytest.mark.parametrize(
         ("create_empty", "needle"),

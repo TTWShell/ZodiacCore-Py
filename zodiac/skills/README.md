@@ -6,13 +6,20 @@ project-level practices that downstream service teams can reuse.
 
 ## Organization
 
-Keep each skill as a top-level directory under `zodiac/skills/` so the
-`zodiac-core` wheel ships the same files as the source tree:
+Keep each skill as a top-level directory under `zodiac/skills/`. The
+`zodiac-core` wheel ships only the globs in `pyproject.toml`
+(`[tool.setuptools.package-data]`): `SKILL.md`, `agents/*`, `references/*`,
+and `scripts/*.py`. This authoring `README.md` stays in git and is not
+packaged. When adding a new asset type, update those globs and
+`tests/test_build.py`.
 
 ```text
 zodiac/skills/
   zodiac-docs/
     SKILL.md
+    agents/
+    references/
+    scripts/
   zodiac-core-integration-summary/
     SKILL.md
 ```

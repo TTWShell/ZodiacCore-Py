@@ -51,6 +51,9 @@ class TestPackageBuild:
                 f"{package_name} wheel contents differ from source: "
                 f"missing={sorted(source_files - wheel_files)}, unexpected={sorted(wheel_files - source_files)}"
             )
+            if package_name == "zodiac":
+                assert "zodiac/skills/README.md" not in wheel_files
+                assert not any("__pycache__/" in name for name in wheel_files)
 
     def _source_package_files(self, project_root: Path, package_name: str) -> set[str]:
         """Return package files that must be present in the wheel."""
@@ -87,8 +90,4 @@ class TestPackageBuild:
     def _wheel_package_files(self, wheel_path: Path, package_name: str) -> set[str]:
         """Return files included for one package in the built wheel."""
         with zipfile.ZipFile(wheel_path, "r") as wheel:
-            return {
-                name
-                for name in wheel.namelist()
-                if name.startswith(f"{package_name}/") and not name.endswith("/") and "__pycache__/" not in name
-            }
+            return {name for name in wheel.namelist() if name.startswith(f"{package_name}/") and not name.endswith("/")}

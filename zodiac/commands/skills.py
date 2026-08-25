@@ -99,6 +99,18 @@ def _iter_skill_paths(
             yield agent, source, destination_root / source.name
 
 
+def _copied_skill_paths(destinations: list[tuple[str, Path, Path]]) -> list[Path]:
+    return [
+        destination
+        for _agent, _source, destination in destinations
+        if _destination_present(destination) and not _is_link(destination)
+    ]
+
+
+def _gitignore_stripped_lines(text: str) -> list[str]:
+    return [line.strip() for line in text.splitlines()]
+
+
 def _already_linked(destination: Path, source: Path) -> bool:
     if not _is_link(destination):
         return False
@@ -173,11 +185,12 @@ def ensure_gitignore(project_root: Path, agents: tuple[str, ...]) -> bool:
     path = project_root / ".gitignore"
     patterns = [gitignore_pattern(agent) for agent in agents]
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    missing = [pattern for pattern in patterns if pattern not in existing]
+    present = set(_gitignore_stripped_lines(existing))
+    missing = [pattern for pattern in patterns if pattern not in present]
     if not missing:
         return False
     lines = [] if not existing else [existing.rstrip("\n"), ""]
-    if GITIGNORE_HEADER not in existing:
+    if GITIGNORE_HEADER not in present:
         lines.append(GITIGNORE_HEADER)
     lines.extend(missing)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -191,10 +204,10 @@ def prune_gitignore(project_root: Path, agents: tuple[str, ...]) -> bool:
         return False
     drop = {gitignore_pattern(agent) for agent in agents}
     original = path.read_text(encoding="utf-8")
-    kept = [line for line in original.splitlines() if line not in drop]
-    remaining_ours = [gitignore_pattern(agent) for agent in AGENT_SKILL_DIRS if gitignore_pattern(agent) in kept]
-    if not remaining_ours:
-        kept = [line for line in kept if line != GITIGNORE_HEADER]
+    kept = [line for line in original.splitlines() if line.strip() not in drop]
+    remaining = set(_gitignore_stripped_lines("\n".join(kept)))
+    if not any(gitignore_pattern(agent) in remaining for agent in AGENT_SKILL_DIRS):
+        kept = [line for line in kept if line.strip() != GITIGNORE_HEADER]
     text = "\n".join(kept).strip()
     updated = f"{text}\n" if text else ""
     if updated == original:
@@ -233,19 +246,20 @@ def install_packaged_skills(
 ) -> None:
     """Link packaged skills into the project and gitignore the destinations."""
     project_root, selected_agents, skills = _resolve_targets(project_root, agents)
+    destinations = list(_iter_skill_paths(project_root, selected_agents, skills))
+    copied = _copied_skill_paths(destinations)
+    if copied and not force:
+        listed = "\n".join(str(path) for path in copied)
+        raise click.ClickException(
+            "The following paths already exist. Re-run with --force to replace "
+            f"copied skill directories with links to the installed package:\n{listed}"
+        )
 
-    for agent, source, destination in _iter_skill_paths(project_root, selected_agents, skills):
+    for agent, source, destination in destinations:
         if _already_linked(destination, source):
             click.echo(f"unchanged [{agent}] {destination} -> {source}")
             continue
-        if _is_link(destination):
-            _remove_destination(destination)
-        elif _destination_present(destination):
-            if not force:
-                raise click.ClickException(
-                    f"{destination} already exists. Re-run with --force to replace a copied "
-                    "skill directory with a link to the installed package."
-                )
+        if _destination_present(destination):
             _remove_destination(destination)
         kind = link_skill_directory(source, destination)
         click.echo(f"linked ({kind}) [{agent}] {destination} -> {source}")
@@ -262,12 +276,7 @@ def uninstall_packaged_skills(
     """Remove packaged skill links and their gitignore patterns."""
     project_root, selected_agents, skills = _resolve_targets(project_root, agents)
     destinations = list(_iter_skill_paths(project_root, selected_agents, skills))
-
-    copied = [
-        destination
-        for _agent, _source, destination in destinations
-        if _destination_present(destination) and not _is_link(destination)
-    ]
+    copied = _copied_skill_paths(destinations)
     if copied and not force:
         listed = "\n".join(str(path) for path in copied)
         raise click.ClickException(
