@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-08-25
+
+### Added
+
+- **CLI**: Add `zodiac skills install` and `zodiac skills uninstall` to link the packaged developer skills into a service project. Defaults to Codex (`.agents/skills`); `--agent` selects Claude, Cursor, Copilot, Gemini, or all. Unix creates a directory symlink; Windows creates a directory junction. Packaged `zodiac-*` skills are gitignored. `zodiac new` prints `uv run zodiac skills install` after `uv sync --extra dev` and does not auto-install.
+- **Packaging**: Ship `zodiac-docs` and `zodiac-core-integration-summary` in the `zodiac-core` wheel so installed skills follow the project's locked version instead of a copied tree.
+
+### Changed
+
+- **Templates**: Document `uv run zodiac skills install` (Codex by default; pass `--agent` for other clients) in generated `AGENTS.md` and `README.md`.
+- **Documentation**: Document skill install, uninstall, agent directories, and the `uv sync` then `uv run` flow in the CLI, getting-started, and skills guides.
+
+### Fixed
+
+- **CLI**: Walk up to `pyproject.toml` so install/uninstall run from a subdirectory still target the service root. Retarget stale packaged-skill links without `--force`; use `--force` only for copied directories. Preflight copied destinations before install so a conflict cannot leave a partial un-gitignored link. Match gitignore patterns on exact lines.
+
 ## [0.14.0] - 2026-08-24
 
 ### Added
