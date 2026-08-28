@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.14.2] - 2026-08-28
+
+### Changed
+
+- **Skills**: `zodiac-docs` now auto-activates for version-matched docs, source,
+  and tests when adding or changing ZodiacCore-backed APIs, and when the user
+  asks how to use, migrate, troubleshoot, or verify ZodiacCore behavior. It
+  requires resolving the target version and reading the matching source-map
+  rows before editing code, so agents implement from version-matched
+  documentation instead of memory.
+- **Docs**: README, the skills guide, and skill authoring notes now describe
+  `zodiac-docs` as a look-up-before-writing-API preflight, and its
+  `agents/openai.yaml` UI copy matches that scope.
 
 ## [0.14.1] - 2026-08-25
 

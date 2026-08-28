@@ -29,8 +29,9 @@ developer task. Avoid nesting skills under extra category directories.
 
 ## Recommended Skill Boundaries
 
-- `zodiac-docs`: answer version-aware framework usage, API, CLI, template,
-  migration, and troubleshooting questions.
+- `zodiac-docs`: look up version-matched docs, source, and tests before
+  answering usage questions or implementing APIs, routes, schemas, CLI,
+  templates, migrations, and troubleshooting.
 - `zodiac-core-integration-summary`: audit an existing service and produce a
   ZodiacCore adoption matrix. Run `zodiac check --format json` for mechanical
   wiring evidence; keep ➖/❓ and pagination/cache/config/schema judgment here.

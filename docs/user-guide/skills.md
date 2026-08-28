@@ -4,11 +4,17 @@ ZodiacCore publishes skills for developers building services with ZodiacCore.
 These files are project assistance for coding agents, not runtime Python
 dependencies. Install them into the service project where the agent will work.
 
+Together these skills, `zodiac check`, and the generated `AGENTS.md` form a
+quality loop: `zodiac-docs` checks that you write against the version-matched
+docs first, `zodiac-core-integration-summary` audits adoption (and drives
+`zodiac check` for mechanical wiring), and `AGENTS.md` carries the judgment
+rules the machine cannot check.
+
 ## Available Skills
 
 | Skill | Purpose |
 |-------|---------|
-| `zodiac-docs` | Answer version-aware ZodiacCore usage, API, CLI, template, migration, and troubleshooting questions. |
+| `zodiac-docs` | Look up version-matched docs, source, and tests before answering usage questions or implementing APIs, routes, schemas, CLI, templates, migrations, and troubleshooting. |
 | `zodiac-core-integration-summary` | Audit a service and produce a ZodiacCore adoption matrix. Mechanical wiring evidence comes from `zodiac check --format json`. |
 
 `zodiac-core-integration-summary` must not restate CLI rule catalogs. It runs
@@ -18,7 +24,8 @@ error rule's `change` and rerun the CLI. A green check report certifies
 mechanical wiring only. Import-layer anti-patterns are in the CLI; thin
 routers, DI, session ownership, and lifecycle judgment stay in `AGENTS.md`.
 
-Use `zodiac-docs` to explain an API or version-specific behavior.
+Use `zodiac-docs` to explain an API or version-specific behavior, and when
+adding or changing routes, schemas, envelopes, pagination, or exceptions.
 
 ## Install Into A Project
 
@@ -79,9 +86,11 @@ configuration, and schemas by reading the code. Apply `change` only when the
 user asked to fix mechanical errors.
 
 Use `zodiac-docs` for questions about ZodiacCore APIs, configuration, CLI,
-generated templates, upgrades, and runtime behavior. It resolves the local
-source revision or the downstream project's locked ZodiacCore version, then
-uses matching documentation, source, and tests as evidence.
+generated templates, upgrades, and runtime behavior, and before implementing
+those APIs in a service. It resolves the local source revision or the
+downstream project's locked ZodiacCore version, then uses matching
+documentation, source, and tests as evidence. Do not implement from memory;
+read the skill's source-map rows first.
 
 Both skills are read-only by default. They should not modify code unless you
 explicitly ask the agent to implement or fix something. Fixes for mechanical

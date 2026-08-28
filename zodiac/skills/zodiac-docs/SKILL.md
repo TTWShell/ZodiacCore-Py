@@ -1,13 +1,19 @@
 ---
 name: zodiac-docs
-description: Answer version-aware ZodiacCore usage, API, configuration, template, CLI, migration, and troubleshooting questions from official documentation, source, and tests. Use when users ask how to use ZodiacCore, why an API behaves a certain way, how to integrate or upgrade it, or whether code matches its documented contract. Do not use for adoption matrices or mechanical wiring fixes; use zodiac-core-integration-summary (it runs `zodiac check`).
+description: |
+  Look up version-matched ZodiacCore docs, source, and tests before writing or
+  explaining ZodiacCore-backed APIs, and when the user asks how to use,
+  migrate, troubleshoot, or verify ZodiacCore behavior (including 开发API,
+  加路由, 写 schema, 抛异常). Do not use for adoption matrices or mechanical
+  wiring fixes; use zodiac-core-integration-summary.
 ---
 
 # Zodiac Docs
 
-Answer ZodiacCore questions against the version the user is actually using.
-Treat documentation, source, tests, and generated templates as complementary
-evidence rather than assuming that the current branch describes every release.
+Answer ZodiacCore questions and implement ZodiacCore-backed APIs against the
+version the user is actually using. Treat documentation, source, tests, and
+generated templates as complementary evidence rather than assuming that the
+current branch describes every release.
 
 ## Resolve The Context
 
@@ -87,10 +93,16 @@ For an explanation or review:
 - Cite the smallest useful set of local files or official documentation pages.
 - Call out version uncertainty or a docs/source mismatch explicitly.
 
-For an implementation request:
+For an implementation request, including adding or changing APIs, routes,
+schemas, envelopes, pagination, exceptions, HTTP clients, middleware, or
+database sessions:
 
-- Inspect the target project's locked ZodiacCore version and existing style.
-- Use APIs available in that version.
+- Resolve the version first.
+- Identify the topics and read the matching [source-map](references/source-map.md)
+  documentation rows **before editing code**. Do not implement from memory or
+  from a copied snippet in the service repo.
+- Then inspect the target project's existing style and use only APIs available
+  in the resolved version.
 - Do not upgrade ZodiacCore or rewrite project architecture unless requested.
 - Make the requested change and run focused verification.
 - After wiring, envelope, exception, session, HTTP client, or bootstrap
