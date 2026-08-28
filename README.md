@@ -101,7 +101,8 @@ app.include_router(router)
 - **Developer skills**: reusable agent skills ship in the `zodiac-core` wheel
   under `zodiac/skills/`. Link them with `uv run zodiac skills install`. Use
   `zodiac-docs` for
-  version-aware framework guidance and `zodiac-core-integration-summary` for
+  version-aware framework guidance (including looking up docs before writing
+  APIs) and `zodiac-core-integration-summary` for
   adoption audits (`zodiac check --format json` supplies mechanical wiring
   evidence). See the
   [skills guide](https://ttwshell.github.io/ZodiacCore-Py/latest/user-guide/skills/).

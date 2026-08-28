@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Skills**: `zodiac-docs` auto-invokes when adding or changing APIs, routes,
+  schemas, envelopes, pagination, or exceptions, and requires a version-matched
+  docs lookup from the source-map before editing code.
+
 ## [0.14.1] - 2026-08-25
 
 ### Added

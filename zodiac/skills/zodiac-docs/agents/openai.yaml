@@ -1,4 +1,4 @@
 interface:
   display_name: "Zodiac Docs"
-  short_description: "Use version-matched ZodiacCore docs and source"
-  default_prompt: "Use $zodiac-docs to answer this ZodiacCore question from version-matched documentation, source, and tests."
+  short_description: "Look up version-matched ZodiacCore docs before writing APIs"
+  default_prompt: "Use $zodiac-docs to look up version-matched documentation, source, and tests before answering this ZodiacCore question or implementing the API."
