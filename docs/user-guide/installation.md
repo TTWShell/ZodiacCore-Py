@@ -59,6 +59,13 @@ Installs the `motor` extra so you can use the async MongoDB driver in your app. 
 uv add "zodiac-core[mongo]"
 ```
 
+### Cache Support (aiocache)
+Installs the `cache` extra so you can use the ZodiacCore cache layer: `cache.setup`, `@cached`, and `get_or_set` with stampede protection. See the [Cache API](../api/cache.md) for usage.
+
+```bash
+uv add "zodiac-core[cache]"
+```
+
 ### Multiple Databases
 To install support for both SQL and MongoDB:
 

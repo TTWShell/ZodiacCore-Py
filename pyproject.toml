@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "zodiac-core"
 version = "0.14.2"
-description = "ZodiacCore-Py: A high-performance core library for modern Python web services."
+description = "Stop copy-pasting FastAPI infrastructure with an opinionated, async-first core library, CLI, and agent-ready quality loop."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12,<3.15"
@@ -17,6 +17,9 @@ keywords = [
     "middleware",
     "sqlalchemy",
     "pydantic",
+    "pagination",
+    "response",
+    "configuration",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

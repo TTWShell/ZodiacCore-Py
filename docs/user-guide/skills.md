@@ -4,6 +4,12 @@ ZodiacCore publishes skills for developers building services with ZodiacCore.
 These files are project assistance for coding agents, not runtime Python
 dependencies. Install them into the service project where the agent will work.
 
+Together these skills, `zodiac check`, and the generated `AGENTS.md` form a
+quality loop: `zodiac-docs` checks that you write against the version-matched
+docs first, `zodiac-core-integration-summary` audits adoption (and drives
+`zodiac check` for mechanical wiring), and `AGENTS.md` carries the judgment
+rules the machine cannot check.
+
 ## Available Skills
 
 | Skill | Purpose |

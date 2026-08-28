@@ -1,7 +1,7 @@
 # ZodiacCore-Py
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)](https://fastapi.tiangolo.com/)
+[![Python 3.12–3.14](https://img.shields.io/badge/python-3.12--3.14-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.128+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Pydantic v2](https://img.shields.io/badge/Pydantic-v2-e92063.svg)](https://docs.pydantic.dev/)
 [![Async First](https://img.shields.io/badge/Async-First-purple.svg)](https://docs.python.org/3/library/asyncio.html)
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen)](https://ttwshell.github.io/ZodiacCore-Py/)
@@ -9,7 +9,9 @@
 [![codecov](https://codecov.io/github/TTWShell/ZodiacCore-Py/graph/badge.svg?token=ZVSMW38NIA)](https://codecov.io/github/TTWShell/ZodiacCore-Py)
 [![License](https://img.shields.io/:license-mit-blue.svg)](https://opensource.org/licenses/MIT)
 
-> **The opinionated, async-first core library for modern Python web services.**
+> **Stop copy-pasting your FastAPI infrastructure.**
+>
+> An opinionated, async-first core library, CLI, and agent-ready quality loop.
 
 ## 🎯 Mission
 
@@ -17,7 +19,9 @@
 
 Every new FastAPI project starts the same way: setting up logging, error handling, database sessions, pagination... It's tedious, error-prone, and inconsistent across teams.
 
-**ZodiacCore** solves this in two ways: a **library** you drop into any FastAPI app, and a **CLI** that scaffolds a full project so you can start coding in seconds.
+**ZodiacCore** solves this in three ways: a **library** you drop into any FastAPI
+app, a **CLI** that scaffolds a full project in seconds, and a **quality loop**
+so you — or your coding agent — build on it correctly.
 
 ## ✨ Key Features
 
@@ -26,8 +30,10 @@ Every new FastAPI project starts the same way: setting up logging, error handlin
 *   **💾 Database Abstraction**: Async SQLAlchemy session management and `BaseSQLRepository` with pagination helpers (`paginate_query`).
 *   **🎁 Standard Response Wrapper**: Automatic wrapping of API responses into `code` / `data` / `message` via `APIRouter`.
 *   **📄 Standard Pagination**: `PageParams` and `PagedResponse[T]` with repository integration.
-*   **⚡ Async Ready**: Python 3.12+ async/await from the ground up.
+*   **⚡ Async Ready**: Python 3.12–3.14 async/await from the ground up.
 *   **⌨️ zodiac CLI**: Scaffold a 3-tier FastAPI project (DI, routers, config) with one command.
+*   **🔎 Wiring Checks**: `zodiac check` AST-scans services for envelope, exception, session, HTTP, and middleware wiring anti-patterns.
+*   **🧩 Developer Skills**: Version-matched docs and adoption audits ship in the wheel, linked with `zodiac skills install`.
 
 ## 📦 Quick Install
 
@@ -36,11 +42,11 @@ Every new FastAPI project starts the same way: setting up logging, error handlin
 | **Library only** (use in your app) | `uv add zodiac-core` |
 | **Library + CLI** (scaffold new projects) | `uv add "zodiac-core[zodiac]"` |
 
-Extras (combinable): `zodiac-core[sql]` (SQLModel), `zodiac-core[mongo]` (Motor, helpers planned), `zodiac-core[zodiac]` (CLI). See the [Installation Guide](https://ttwshell.github.io/ZodiacCore-Py/user-guide/installation/) for details.
+Extras (combinable): `zodiac-core[sql]` (SQLModel), `zodiac-core[mongo]` (Motor, helpers planned), `zodiac-core[cache]` (aiocache), `zodiac-core[zodiac]` (CLI). See the [Installation Guide](https://ttwshell.github.io/ZodiacCore-Py/user-guide/installation/) for details.
 
 ---
 
-## 🚀 Two ways to use ZodiacCore
+## 🚀 Ways to use ZodiacCore
 
 ### 1. Scaffolding (fastest start)
 
@@ -57,6 +63,8 @@ uv add "zodiac-core[zodiac,sql]"
 zodiac new dfd-service --tpl standard-3tier -o .. --force
 
 uv add "fastapi[standard]" --dev
+uv run zodiac skills install
+uv run zodiac check
 uv run fastapi run --reload
 ```
 
@@ -93,6 +101,20 @@ async def read_item(item_id: int):
 
 app.include_router(router)
 ```
+
+## 🛠️ Developer & quality loop
+
+Building on that core is also made safer for people and coding agents. Services
+get a quality loop: look up the version-matched docs before writing, audit
+adoption with a skill that runs `zodiac check`, and honor the project rules in
+`AGENTS.md`.
+
+| Part | What it is | What it gives you |
+|------|------------|-------------------|
+| Core | `zodiac_core` | Logging, exceptions, DB, pagination, response, config, routing, schemas |
+| Pre-coding | `zodiac-docs` | Version-matched docs + source-map before editing |
+| Audit & fix | `zodiac-core-integration-summary` | ✅/❌/➖/❓ matrix; runs `zodiac check` for mechanical evidence and applies `change` |
+| Project rules | `AGENTS.md` | Session ownership, lifecycle, DI/layering judgment |
 
 ## 📚 Documentation
 

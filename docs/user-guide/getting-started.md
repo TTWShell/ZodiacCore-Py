@@ -283,9 +283,11 @@ You now have a fully functional application with:
 - ✅ **Standard Error Handling** with automatic response wrapping
 - ✅ **File-based Configuration** for different environments
 - ✅ **Async Database Sessions** with SQLModel
+- ✅ **Agent-Ready Quality Loop** via `AGENTS.md`, `zodiac check`, and packaged developer skills
 
 ## Next Steps
 
 - [Architecture Guide](architecture.md) — Layered design, DI container, and project structure
 - [API Reference](../api/config.md) — Config, database, pagination, routing, schemas, and more
 - [CLI Documentation](cli.md) — Scaffold new projects with `zodiac new` and verify wiring with `zodiac check`
+- [Developer Skills](skills.md) — Install version-matched agent skills and run the quality loop
