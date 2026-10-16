@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.3] - 2026-10-16
+
+### Fixed
+
+- **SQL dependencies**: Install SQLAlchemy's asyncio dependencies through
+  `sqlmodel[asyncio]` so fresh `zodiac-core[sql]` installations include `greenlet`
+  and can import the database module with SQLAlchemy 2.1.
+
+### Changed
+
+- **Compatibility**: Raise the minimum SQLModel version from `0.0.31` to `0.0.48`.
+  SQLModel 0.0.45 changes default datetime handling to UTC-aware values; users
+  upgrading from older versions should review the
+  [upstream migration notes](https://sqlmodel.tiangolo.com/release-notes/#0045-2026-09-21).
+
 ## [0.14.2] - 2026-08-28
 
 ### Changed
