@@ -1,6 +1,6 @@
 # ZodiacCore-Py
 
-[![Python 3.12–3.14](https://img.shields.io/badge/python-3.12--3.14-blue.svg)](https://www.python.org/)
+[![Python 3.12–3.15](https://img.shields.io/badge/python-3.12--3.15-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.128+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Pydantic v2](https://img.shields.io/badge/Pydantic-v2-e92063.svg)](https://docs.pydantic.dev/)
 [![Async First](https://img.shields.io/badge/Async-First-purple.svg)](https://docs.python.org/3/library/asyncio.html)
@@ -30,7 +30,7 @@ so you — or your coding agent — build on it correctly.
 *   **💾 Database Abstraction**: Async SQLAlchemy session management and `BaseSQLRepository` with pagination helpers (`paginate_query`).
 *   **🎁 Standard Response Wrapper**: Automatic wrapping of API responses into `code` / `data` / `message` via `APIRouter`.
 *   **📄 Standard Pagination**: `PageParams` and `PagedResponse[T]` with repository integration.
-*   **⚡ Async Ready**: Python 3.12–3.14 async/await from the ground up.
+*   **⚡ Async Ready**: Python 3.12–3.15 async/await from the ground up.
 *   **⌨️ zodiac CLI**: Scaffold a 3-tier FastAPI project (DI, routers, config) with one command.
 *   **🔎 Wiring Checks**: `zodiac check` AST-scans services for envelope, exception, session, HTTP, and middleware wiring anti-patterns.
 *   **🧩 Developer Skills**: Version-matched docs and adoption audits ship in the wheel, linked with `zodiac skills install`.
