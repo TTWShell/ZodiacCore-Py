@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.4] - 2026-10-20
+
+### Added
+
+- **Python**: Add Python 3.15 to package classifiers and the tox environments
+  used by CI, and allow installation on Python 3.12 through 3.15.
+
+### Changed
+
+- **Dependencies**: Refresh the lockfile to Pydantic `2.14.1` and pydantic-core
+  `2.50.1` for Python 3.15 compatibility while retaining the existing
+  `pydantic>=2.12.5` dependency requirement.
+- **Docs**: Update the README's supported Python versions to 3.12–3.15.
+
 ## [0.14.3] - 2026-10-16
 
 ### Fixed
