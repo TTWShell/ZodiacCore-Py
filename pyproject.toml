@@ -8,7 +8,7 @@ version = "0.14.3"
 description = "Stop copy-pasting FastAPI infrastructure with an opinionated, async-first core library, CLI, and agent-ready quality loop."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.12,<3.15"
+requires-python = ">=3.12,<3.16"
 keywords = [
     "fastapi",
     "async",
@@ -30,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
 ]
 dependencies = [
